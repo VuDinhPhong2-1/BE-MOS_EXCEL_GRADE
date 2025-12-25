@@ -1,0 +1,6 @@
+@MOS.ExcelGrading.API_HostAddress = http://localhost:5293
+
+GET {{MOS.ExcelGrading.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

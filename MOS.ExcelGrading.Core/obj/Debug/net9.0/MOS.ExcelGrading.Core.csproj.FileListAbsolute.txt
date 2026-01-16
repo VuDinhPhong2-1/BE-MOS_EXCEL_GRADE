@@ -6,6 +6,7 @@ D:\All_Project\MOS.ExcelGrading\MOS.ExcelGrading.Core\obj\Debug\net9.0\MOS.Excel
 D:\All_Project\MOS.ExcelGrading\MOS.ExcelGrading.Core\obj\Debug\net9.0\MOS.ExcelGrading.Core.AssemblyInfoInputs.cache
 D:\All_Project\MOS.ExcelGrading\MOS.ExcelGrading.Core\obj\Debug\net9.0\MOS.ExcelGrading.Core.AssemblyInfo.cs
 D:\All_Project\MOS.ExcelGrading\MOS.ExcelGrading.Core\obj\Debug\net9.0\MOS.ExcelGrading.Core.csproj.CoreCompileInputs.cache
+D:\All_Project\MOS.ExcelGrading\MOS.ExcelGrading.Core\obj\Debug\net9.0\MOS.ExcelGrading.Core.sourcelink.json
 D:\All_Project\MOS.ExcelGrading\MOS.ExcelGrading.Core\obj\Debug\net9.0\MOS.ExcelGrading.Core.dll
 D:\All_Project\MOS.ExcelGrading\MOS.ExcelGrading.Core\obj\Debug\net9.0\refint\MOS.ExcelGrading.Core.dll
 D:\All_Project\MOS.ExcelGrading\MOS.ExcelGrading.Core\obj\Debug\net9.0\MOS.ExcelGrading.Core.pdb

@@ -3,16 +3,12 @@
   "WorkspaceRootPath": "D:\\All_Project\\MOS.ExcelGrading\\",
   "Documents": [
     {
-      "AbsoluteMoniker": "D:0:0:{A6539630-07CD-4F57-B06D-45E61E2B31CB}|MOS.ExcelGrading.API\\MOS.ExcelGrading.API.csproj|d:\\all_project\\mos.excelgrading\\mos.excelgrading.api\\controllers\\gradingcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{A6539630-07CD-4F57-B06D-45E61E2B31CB}|MOS.ExcelGrading.API\\MOS.ExcelGrading.API.csproj|solutionrelative:mos.excelgrading.api\\controllers\\gradingcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{A6539630-07CD-4F57-B06D-45E61E2B31CB}|MOS.ExcelGrading.API\\MOS.ExcelGrading.API.csproj|d:\\all_project\\mos.excelgrading\\mos.excelgrading.api\\controllers\\assignmentcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{A6539630-07CD-4F57-B06D-45E61E2B31CB}|MOS.ExcelGrading.API\\MOS.ExcelGrading.API.csproj|solutionrelative:mos.excelgrading.api\\controllers\\assignmentcontroller.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     },
     {
-      "AbsoluteMoniker": "D:0:0:{4D8E7F28-8AC4-4F16-832E-7B5B6700B960}|MOS.ExcelGrading.Core\\MOS.ExcelGrading.Core.csproj|d:\\all_project\\mos.excelgrading\\mos.excelgrading.core\\services\\gradingservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{4D8E7F28-8AC4-4F16-832E-7B5B6700B960}|MOS.ExcelGrading.Core\\MOS.ExcelGrading.Core.csproj|solutionrelative:mos.excelgrading.core\\services\\gradingservice.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
-    },
-    {
-      "AbsoluteMoniker": "D:0:0:{4D8E7F28-8AC4-4F16-832E-7B5B6700B960}|MOS.ExcelGrading.Core\\MOS.ExcelGrading.Core.csproj|d:\\all_project\\mos.excelgrading\\mos.excelgrading.core\\graders\\project09\\p09t6grader.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
-      "RelativeMoniker": "D:0:0:{4D8E7F28-8AC4-4F16-832E-7B5B6700B960}|MOS.ExcelGrading.Core\\MOS.ExcelGrading.Core.csproj|solutionrelative:mos.excelgrading.core\\graders\\project09\\p09t6grader.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
+      "AbsoluteMoniker": "D:0:0:{4D8E7F28-8AC4-4F16-832E-7B5B6700B960}|MOS.ExcelGrading.Core\\MOS.ExcelGrading.Core.csproj|d:\\all_project\\mos.excelgrading\\mos.excelgrading.core\\dtos\\assignmentdtos.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}",
+      "RelativeMoniker": "D:0:0:{4D8E7F28-8AC4-4F16-832E-7B5B6700B960}|MOS.ExcelGrading.Core\\MOS.ExcelGrading.Core.csproj|solutionrelative:mos.excelgrading.core\\dtos\\assignmentdtos.cs||{A6C744A8-0E4A-4FC6-886A-064283054674}"
     }
   ],
   "DocumentGroupContainers": [
@@ -22,44 +18,33 @@
       "DocumentGroups": [
         {
           "DockedWidth": 200,
-          "SelectedChildIndex": 0,
+          "SelectedChildIndex": 1,
           "Children": [
             {
               "$type": "Document",
-              "DocumentIndex": 0,
-              "Title": "GradingController.cs",
-              "DocumentMoniker": "D:\\All_Project\\MOS.ExcelGrading\\MOS.ExcelGrading.API\\Controllers\\GradingController.cs",
-              "RelativeDocumentMoniker": "MOS.ExcelGrading.API\\Controllers\\GradingController.cs",
-              "ToolTip": "D:\\All_Project\\MOS.ExcelGrading\\MOS.ExcelGrading.API\\Controllers\\GradingController.cs",
-              "RelativeToolTip": "MOS.ExcelGrading.API\\Controllers\\GradingController.cs",
-              "ViewState": "AgIAADYAAAAAAAAAAAAowEwAAAAAAAAAAAAAAA==",
+              "DocumentIndex": 1,
+              "Title": "AssignmentDTOs.cs",
+              "DocumentMoniker": "D:\\All_Project\\MOS.ExcelGrading\\MOS.ExcelGrading.Core\\DTOs\\AssignmentDTOs.cs",
+              "RelativeDocumentMoniker": "MOS.ExcelGrading.Core\\DTOs\\AssignmentDTOs.cs",
+              "ToolTip": "D:\\All_Project\\MOS.ExcelGrading\\MOS.ExcelGrading.Core\\DTOs\\AssignmentDTOs.cs",
+              "RelativeToolTip": "MOS.ExcelGrading.Core\\DTOs\\AssignmentDTOs.cs",
+              "ViewState": "AgIAAC4AAAAAAAAAAAAuwEAAAAA8AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-25T05:34:41.484Z",
+              "WhenOpened": "2026-01-16T18:30:17.772Z",
               "EditorCaption": ""
             },
             {
               "$type": "Document",
-              "DocumentIndex": 2,
-              "Title": "P09T6Grader.cs",
-              "DocumentMoniker": "D:\\All_Project\\MOS.ExcelGrading\\MOS.ExcelGrading.Core\\Graders\\Project09\\P09T6Grader.cs",
-              "RelativeDocumentMoniker": "MOS.ExcelGrading.Core\\Graders\\Project09\\P09T6Grader.cs",
-              "ToolTip": "D:\\All_Project\\MOS.ExcelGrading\\MOS.ExcelGrading.Core\\Graders\\Project09\\P09T6Grader.cs",
-              "RelativeToolTip": "MOS.ExcelGrading.Core\\Graders\\Project09\\P09T6Grader.cs",
-              "ViewState": "AgIAAIsAAAAAAAAAAAAlwO0AAAAvAAAAAAAAAA==",
+              "DocumentIndex": 0,
+              "Title": "AssignmentController.cs",
+              "DocumentMoniker": "D:\\All_Project\\MOS.ExcelGrading\\MOS.ExcelGrading.API\\Controllers\\AssignmentController.cs",
+              "RelativeDocumentMoniker": "MOS.ExcelGrading.API\\Controllers\\AssignmentController.cs",
+              "ToolTip": "D:\\All_Project\\MOS.ExcelGrading\\MOS.ExcelGrading.API\\Controllers\\AssignmentController.cs",
+              "RelativeToolTip": "MOS.ExcelGrading.API\\Controllers\\AssignmentController.cs",
+              "ViewState": "AgIAABEAAAAAAAAAAAAQwC4AAAA1AAAAAAAAAA==",
               "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-22T14:43:11.114Z"
-            },
-            {
-              "$type": "Document",
-              "DocumentIndex": 1,
-              "Title": "GradingService.cs",
-              "DocumentMoniker": "D:\\All_Project\\MOS.ExcelGrading\\MOS.ExcelGrading.Core\\Services\\GradingService.cs",
-              "RelativeDocumentMoniker": "MOS.ExcelGrading.Core\\Services\\GradingService.cs",
-              "ToolTip": "D:\\All_Project\\MOS.ExcelGrading\\MOS.ExcelGrading.Core\\Services\\GradingService.cs",
-              "RelativeToolTip": "MOS.ExcelGrading.Core\\Services\\GradingService.cs",
-              "ViewState": "AgIAAAsAAAAAAAAAAAAAwA4AAAANAAAAAAAAAA==",
-              "Icon": "ae27a6b0-e345-4288-96df-5eaf394ee369.000738|",
-              "WhenOpened": "2025-12-22T14:42:53.86Z"
+              "WhenOpened": "2026-01-08T16:26:33.117Z",
+              "EditorCaption": ""
             }
           ]
         }

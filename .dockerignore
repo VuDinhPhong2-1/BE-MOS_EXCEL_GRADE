@@ -1,0 +1,9 @@
+.git
+.github
+.vs
+**/bin
+**/obj
+*.user
+*.suo
+README.md
+FRONTEND_ANALYTICS_SPEC.md

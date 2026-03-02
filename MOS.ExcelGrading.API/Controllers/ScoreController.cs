@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
+using MOS.ExcelGrading.Core.Models;
 using System.Security.Claims;
 
 namespace MOS.ExcelGrading.API.Controllers
@@ -27,10 +28,14 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Lấy điểm theo bài tập
         /// </summary>
         [HttpGet("assignment/{assignmentId}")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         public async Task<IActionResult> GetByAssignment(string assignmentId)
         {
             try
             {
+                if (!HasPermission(Permissions.ViewGrades))
+                    return Forbid();
+
                 var scores = await _scoreService.GetScoresByAssignmentAsync(assignmentId);
                 return Ok(scores);
             }
@@ -45,10 +50,14 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Lấy điểm theo học sinh
         /// </summary>
         [HttpGet("student/{studentId}")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         public async Task<IActionResult> GetByStudent(string studentId)
         {
             try
             {
+                if (!HasPermission(Permissions.ViewGrades))
+                    return Forbid();
+
                 var scores = await _scoreService.GetScoresByStudentAsync(studentId);
                 return Ok(scores);
             }
@@ -63,10 +72,14 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Lấy báo cáo điểm của học sinh
         /// </summary>
         [HttpGet("student/{studentId}/class/{classId}/report")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         public async Task<IActionResult> GetStudentReport(string studentId, string classId)
         {
             try
             {
+                if (!HasPermission(Permissions.ViewGrades))
+                    return Forbid();
+
                 var report = await _scoreService.GetStudentScoreReportAsync(studentId, classId);
                 return Ok(report);
             }
@@ -81,6 +94,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Chấm điểm cho 1 học sinh
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         public async Task<IActionResult> CreateOrUpdate([FromBody] CreateScoreRequest request)
         {
             try
@@ -88,6 +102,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized();
+                if (!HasPermission(Permissions.CreateGrades) && !HasPermission(Permissions.EditGrades))
+                    return Forbid();
 
                 var score = await _scoreService.CreateOrUpdateScoreAsync(request, userId);
                 return Ok(score);
@@ -103,6 +119,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Chấm điểm hàng loạt
         /// </summary>
         [HttpPost("bulk")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         public async Task<IActionResult> BulkCreateOrUpdate([FromBody] BulkScoreRequest request)
         {
             try
@@ -110,6 +127,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized();
+                if (!HasPermission(Permissions.CreateGrades) && !HasPermission(Permissions.EditGrades))
+                    return Forbid();
 
                 var scores = await _scoreService.BulkCreateOrUpdateScoresAsync(request, userId);
                 return Ok(new
@@ -129,6 +148,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Xóa điểm
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         public async Task<IActionResult> Delete(string id)
         {
             try
@@ -136,6 +156,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized();
+                if (!HasPermission(Permissions.DeleteGrades))
+                    return Forbid();
 
                 var result = await _scoreService.DeleteScoreAsync(id, userId);
                 if (!result)
@@ -149,5 +171,30 @@ namespace MOS.ExcelGrading.API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        /// <summary>
+        /// Lấy toàn bộ danh sách điểm của tất cả học sinh và tất cả bài tập trong một lớp
+        /// </summary>
+        [HttpGet("class/{classId}")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        public async Task<IActionResult> GetByClass(string classId)
+        {
+            try
+            {
+                if (!HasPermission(Permissions.ViewGrades))
+                    return Forbid();
+
+                var scores = await _scoreService.GetScoresByClassAsync(classId);
+                return Ok(scores);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting scores by class {ClassId}", classId);
+                return StatusCode(500, "Internal server error");
+            }
+        }
+
+        private bool HasPermission(string permission) =>
+            User.Claims.Any(c => c.Type == "permission" && c.Value == permission);
     }
 }

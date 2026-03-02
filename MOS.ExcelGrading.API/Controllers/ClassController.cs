@@ -231,8 +231,8 @@ namespace MOS.ExcelGrading.API.Controllers
                     return Forbid();
                 }
 
-                // Kiểm tra mã lớp đã tồn tại trong school chưa
-                if (await _classService.ClassExistsAsync( request.Name))
+                // Kiểm tra tên lớp đã tồn tại trong school hiện tại chưa
+                if (await _classService.ClassExistsAsync(request.SchoolId, request.Name))
                     return BadRequest(new { message = "Tên lớp đã tồn tại trong trường này" });
 
                 var classEntity = new Class

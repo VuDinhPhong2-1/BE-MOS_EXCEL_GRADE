@@ -1,5 +1,6 @@
-﻿// Core/Services/UserService.cs
-using Microsoft.Extensions.Options;
+// Core/Services/UserService.cs
+using Google.Apis.Auth;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using MongoDB.Driver;
 using MOS.ExcelGrading.Core.DTOs;
@@ -9,61 +10,65 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using Microsoft.Extensions.Configuration;
 
 namespace MOS.ExcelGrading.Core.Services
 {
     public class UserService : IUserService
     {
         private readonly IMongoCollection<User> _users;
+        private static int _indexInitialized;
         private readonly string _jwtSecretKey;
         private readonly string _jwtIssuer;
         private readonly string _jwtAudience;
         private readonly int _jwtExpiryMinutes;
         private readonly int _refreshTokenExpiryDays;
+        private readonly string? _googleClientId;
 
         public UserService(
-            IOptions<MongoDbSettings> mongoSettings,
+            IMongoDatabase database,
             IConfiguration configuration)
         {
-            var client = new MongoClient(mongoSettings.Value.ConnectionString);
-            var database = client.GetDatabase(mongoSettings.Value.DatabaseName);
-            _users = database.GetCollection<User>(mongoSettings.Value.UsersCollectionName);
+            _users = database.GetCollection<User>("Users");
 
-            // Tạo index unique cho Username và Email
-            var indexKeysDefinition = Builders<User>.IndexKeys.Ascending(u => u.Username);
-            var indexOptions = new CreateIndexOptions { Unique = true };
-            var indexModel = new CreateIndexModel<User>(indexKeysDefinition, indexOptions);
-            _users.Indexes.CreateOne(indexModel);
+            if (Interlocked.Exchange(ref _indexInitialized, 1) == 0)
+            {
+                var usernameIndex = new CreateIndexModel<User>(
+                    Builders<User>.IndexKeys.Ascending(u => u.Username),
+                    new CreateIndexOptions { Unique = true });
 
-            var emailIndexKeys = Builders<User>.IndexKeys.Ascending(u => u.Email);
-            var emailIndexModel = new CreateIndexModel<User>(emailIndexKeys, new CreateIndexOptions { Unique = true });
-            _users.Indexes.CreateOne(emailIndexModel);
+                var emailIndex = new CreateIndexModel<User>(
+                    Builders<User>.IndexKeys.Ascending(u => u.Email),
+                    new CreateIndexOptions { Unique = true });
 
-            // JWT Configuration
+                var googleIdIndex = new CreateIndexModel<User>(
+                    Builders<User>.IndexKeys.Ascending(u => u.GoogleId),
+                    new CreateIndexOptions { Unique = true, Sparse = true });
+
+                _users.Indexes.CreateOne(usernameIndex);
+                _users.Indexes.CreateOne(emailIndex);
+                _users.Indexes.CreateOne(googleIdIndex);
+            }
+
             _jwtSecretKey = configuration["JwtSettings:SecretKey"] ?? throw new ArgumentNullException("JWT SecretKey");
             _jwtIssuer = configuration["JwtSettings:Issuer"] ?? "MOS.ExcelGrading";
             _jwtAudience = configuration["JwtSettings:Audience"] ?? "MOS.ExcelGrading.Users";
             _jwtExpiryMinutes = int.Parse(configuration["JwtSettings:ExpiryMinutes"] ?? "60");
             _refreshTokenExpiryDays = int.Parse(configuration["JwtSettings:RefreshTokenExpiryDays"] ?? "7");
+            _googleClientId = configuration["GoogleAuth:ClientId"];
         }
 
         public async Task<User?> RegisterAsync(string email, string username, string password, string? role = null, string? fullName = null)
         {
-            // Kiểm tra user đã tồn tại
             var existingUser = await _users.Find(u => u.Username == username || u.Email == email).FirstOrDefaultAsync();
             if (existingUser != null)
                 return null;
 
-            // Validate role
             var userRole = role ?? UserRoles.Teacher;
             if (!UserRoles.IsValidRole(userRole))
                 userRole = UserRoles.Student;
 
-            // Hash password
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
 
-            // Lấy permissions theo role
             var permissions = Permissions.GetRolePermissions().ContainsKey(userRole)
                 ? Permissions.GetRolePermissions()[userRole]
                 : new List<string>();
@@ -77,7 +82,8 @@ namespace MOS.ExcelGrading.Core.Services
                 Permissions = permissions,
                 FullName = fullName,
                 CreatedAt = DateTime.UtcNow,
-                IsActive = true
+                IsActive = true,
+                AuthProvider = "Local"
             };
 
             await _users.InsertOneAsync(newUser);
@@ -91,61 +97,93 @@ namespace MOS.ExcelGrading.Core.Services
             if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
                 return null;
 
-            // Kiểm tra tài khoản có active không
             if (!user.IsActive)
                 return null;
 
-            // 1. Tạo Access Token (JWT)
-            var accessToken = GenerateJwtToken(user);
+            return await CreateAuthResponseAsync(user);
+        }
 
-            // 2. Tạo Refresh Token
-            var refreshToken = GenerateRefreshToken();
-            var refreshTokenExpiry = DateTime.UtcNow.AddDays(_refreshTokenExpiryDays);
+        public async Task<AuthResponse?> LoginWithGoogleAsync(string idToken)
+        {
+            if (string.IsNullOrWhiteSpace(idToken))
+                return null;
 
-            // 3. Lưu Refresh Token vào User trong DB
-            var update = Builders<User>.Update
-                .Set(u => u.LastLogin, DateTime.UtcNow)
-                .Set(u => u.RefreshToken, refreshToken)
-                .Set(u => u.RefreshTokenExpiry, refreshTokenExpiry);
-            await _users.UpdateOneAsync(u => u.Id == user.Id, update);
+            if (string.IsNullOrWhiteSpace(_googleClientId))
+                throw new InvalidOperationException("GoogleAuth:ClientId is missing");
 
-            // 4. Trả về cả hai token
-            return new AuthResponse
+            var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings
             {
-                AccessToken = accessToken,
-                RefreshToken = refreshToken,
-                UserId = user.Id ?? string.Empty,
-                Username = user.Username,
-                Email = user.Email,
-                Role = user.Role,
-                Permissions = user.Permissions,
-                FullName = user.FullName,
-                Avatar = user.Avatar
-            };
+                Audience = new[] { _googleClientId }
+            });
+
+            if (string.IsNullOrWhiteSpace(payload.Email) || payload.EmailVerified != true)
+                return null;
+
+            var filter = Builders<User>.Filter.Or(
+                Builders<User>.Filter.Eq(u => u.GoogleId, payload.Subject),
+                Builders<User>.Filter.Eq(u => u.Email, payload.Email));
+
+            var user = await _users.Find(filter).FirstOrDefaultAsync();
+
+            if (user == null)
+            {
+                var role = UserRoles.Student;
+                var newUser = new User
+                {
+                    Email = payload.Email,
+                    Username = await GenerateUniqueUsernameAsync(payload.Email),
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
+                    Role = role,
+                    Permissions = Permissions.GetRolePermissions()[role],
+                    FullName = payload.Name,
+                    Avatar = payload.Picture,
+                    GoogleId = payload.Subject,
+                    AuthProvider = "Google",
+                    IsActive = true,
+                    IsEmailVerified = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                await _users.InsertOneAsync(newUser);
+                return await CreateAuthResponseAsync(newUser);
+            }
+
+            if (!user.IsActive)
+                return null;
+
+            var profileUpdate = Builders<User>.Update
+                .Set(u => u.GoogleId, payload.Subject)
+                .Set(u => u.AuthProvider, "Google")
+                .Set(u => u.IsEmailVerified, true)
+                .Set(u => u.Avatar, string.IsNullOrWhiteSpace(payload.Picture) ? user.Avatar : payload.Picture)
+                .Set(u => u.FullName, string.IsNullOrWhiteSpace(payload.Name) ? user.FullName : payload.Name);
+
+            user.GoogleId = payload.Subject;
+            user.AuthProvider = "Google";
+            user.IsEmailVerified = true;
+            user.Avatar = string.IsNullOrWhiteSpace(payload.Picture) ? user.Avatar : payload.Picture;
+            user.FullName = string.IsNullOrWhiteSpace(payload.Name) ? user.FullName : payload.Name;
+
+            return await CreateAuthResponseAsync(user, profileUpdate);
         }
 
         public async Task<AuthResponse?> RefreshTokenAsync(string refreshToken)
         {
-            // Tìm user bằng refresh token
             var user = await _users.Find(u => u.RefreshToken == refreshToken).FirstOrDefaultAsync();
 
             if (user == null)
-                return null; // Refresh token không hợp lệ
+                return null;
 
-            // Kiểm tra refresh token có hết hạn không
             if (user.RefreshTokenExpiry.HasValue && user.RefreshTokenExpiry.Value < DateTime.UtcNow)
-                return null; // Refresh token đã hết hạn
+                return null;
 
-            // Kiểm tra tài khoản có active không
             if (!user.IsActive)
                 return null;
 
-            // Tạo access token và refresh token mới (xoay vòng token để tăng bảo mật)
             var newAccessToken = GenerateJwtToken(user);
             var newRefreshToken = GenerateRefreshToken();
             var newRefreshTokenExpiry = DateTime.UtcNow.AddDays(_refreshTokenExpiryDays);
 
-            // Cập nhật refresh token mới cho user
             var update = Builders<User>.Update
                 .Set(u => u.RefreshToken, newRefreshToken)
                 .Set(u => u.RefreshTokenExpiry, newRefreshTokenExpiry);
@@ -185,6 +223,64 @@ namespace MOS.ExcelGrading.Core.Services
             return await _users.Find(u => u.Username == username).FirstOrDefaultAsync();
         }
 
+        private async Task<string> GenerateUniqueUsernameAsync(string email)
+        {
+            var baseUsername = email.Split('@')[0];
+            var sanitized = new string(baseUsername
+                .Where(c => char.IsLetterOrDigit(c) || c == '_' || c == '.')
+                .ToArray())
+                .Trim();
+
+            if (string.IsNullOrWhiteSpace(sanitized))
+                sanitized = "user";
+
+            if (sanitized.Length < 3)
+                sanitized = sanitized.PadRight(3, '0');
+
+            var candidate = sanitized;
+            var suffix = 1;
+
+            while (await _users.Find(u => u.Username == candidate).AnyAsync())
+            {
+                candidate = $"{sanitized}{suffix}";
+                suffix++;
+            }
+
+            return candidate;
+        }
+
+        private async Task<AuthResponse> CreateAuthResponseAsync(User user, UpdateDefinition<User>? additionalUpdate = null)
+        {
+            var accessToken = GenerateJwtToken(user);
+            var refreshToken = GenerateRefreshToken();
+            var refreshTokenExpiry = DateTime.UtcNow.AddDays(_refreshTokenExpiryDays);
+
+            var update = Builders<User>.Update
+                .Set(u => u.LastLogin, DateTime.UtcNow)
+                .Set(u => u.RefreshToken, refreshToken)
+                .Set(u => u.RefreshTokenExpiry, refreshTokenExpiry);
+
+            if (additionalUpdate != null)
+            {
+                update = Builders<User>.Update.Combine(update, additionalUpdate);
+            }
+
+            await _users.UpdateOneAsync(u => u.Id == user.Id, update);
+
+            return new AuthResponse
+            {
+                AccessToken = accessToken,
+                RefreshToken = refreshToken,
+                UserId = user.Id ?? string.Empty,
+                Username = user.Username,
+                Email = user.Email,
+                Role = user.Role,
+                Permissions = user.Permissions,
+                FullName = user.FullName,
+                Avatar = user.Avatar
+            };
+        }
+
         private string GenerateJwtToken(User user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
@@ -198,7 +294,6 @@ namespace MOS.ExcelGrading.Core.Services
                 new Claim(ClaimTypes.Role, user.Role)
             };
 
-            // Thêm permissions vào claims
             foreach (var permission in user.Permissions)
             {
                 claims.Add(new Claim("permission", permission));
@@ -222,11 +317,9 @@ namespace MOS.ExcelGrading.Core.Services
         private string GenerateRefreshToken()
         {
             var randomNumber = new byte[32];
-            using (var rng = RandomNumberGenerator.Create())
-            {
-                rng.GetBytes(randomNumber);
-                return Convert.ToBase64String(randomNumber);
-            }
+            using var rng = RandomNumberGenerator.Create();
+            rng.GetBytes(randomNumber);
+            return Convert.ToBase64String(randomNumber);
         }
     }
 }

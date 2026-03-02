@@ -302,5 +302,55 @@ namespace MOS.ExcelGrading.Core.Services
                 throw;
             }
         }
+
+        public async Task<List<ScoreResponse>> GetScoresByClassAsync(string classId)
+        {
+            try
+            {
+                var scores = await _scores.Find(s => s.ClassId == classId).ToListAsync();
+                var result = new List<ScoreResponse>();
+
+                // Lấy dữ liệu cần thiết
+                var assignments = await _assignments.Find(a => a.ClassId == classId).ToListAsync();
+                var students = await _students.Find(s => s.ClassId == classId).ToListAsync();
+
+                foreach (var score in scores)
+                {
+                    var student = students.FirstOrDefault(st => st.Id == score.StudentId);
+                    var assignment = assignments.FirstOrDefault(a => a.Id == score.AssignmentId);
+
+                    string? graderName = null;
+                    if (!string.IsNullOrEmpty(score.GradedBy))
+                    {
+                        var grader = await _users.Find(u => u.Id == score.GradedBy).FirstOrDefaultAsync();
+                        graderName = grader?.FullName ?? grader?.Username;
+                    }
+
+                    result.Add(new ScoreResponse
+                    {
+                        Id = score.Id,
+                        StudentId = score.StudentId,
+                        StudentFirstName = student?.FirstName ?? "",
+                        StudentMiddleName = student?.MiddleName ?? "",
+                        StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
+                        AssignmentId = score.AssignmentId,
+                        AssignmentName = assignment?.Name ?? "",
+                        ScoreValue = score.ScoreValue,
+                        Feedback = score.Feedback,
+                        GradedAt = score.GradedAt,
+                        GradedBy = score.GradedBy,
+                        GradedByName = graderName
+                    });
+                }
+
+                // Đảm bảo trả về đủ dữ liệu điểm các assignment, nếu học sinh chưa có score vẫn có thể default 0/undefined tại FE khi map
+                return result;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "❌ Error getting all scores for class {ClassId}", classId);
+                throw;
+            }
+        }
     }
 }

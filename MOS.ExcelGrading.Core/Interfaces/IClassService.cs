@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
         Task<List<Class>> GetClassesByOwnerIdAsync(string ownerId, bool includeInactive = false);
         Task<Class?> UpdateClassAsync(string id, Class classEntity, string updatedBy);
         Task<bool> DeleteClassAsync(string id);
-        Task<bool> ClassExistsAsync( string schoolId);
+        Task<bool> ClassExistsAsync(string schoolId, string className);
         Task<bool> IsOwnerOfClassAsync(string userId, string classId);
         Task<bool> AddStudentToClassAsync(string classId, string studentId);
         Task<bool> RemoveStudentFromClassAsync(string classId, string studentId);

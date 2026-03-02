@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-using MongoDB.Driver;  // ✅ THÊM DÒNG NÀY
+using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -17,13 +17,24 @@ builder.Services.Configure<MongoDbSettings>(
 // ✅ ĐĂNG KÝ IMongoDatabase
 builder.Services.AddSingleton<IMongoDatabase>(sp =>
 {
-    var settings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>();
+    var settings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>()
+        ?? throw new InvalidOperationException("MongoDbSettings is missing");
+
+    if (string.IsNullOrWhiteSpace(settings.ConnectionString))
+        throw new InvalidOperationException(
+            "MongoDbSettings.ConnectionString is missing. " +
+            "Set it in appsettings.Development.json or env var MongoDbSettings__ConnectionString.");
+
+    if (string.IsNullOrWhiteSpace(settings.DatabaseName))
+        throw new InvalidOperationException("MongoDbSettings.DatabaseName is missing");
+
     var client = new MongoClient(settings.ConnectionString);
     return client.GetDatabase(settings.DatabaseName);
 });
 
 // ========== ĐĂNG KÝ SERVICES ==========
 builder.Services.AddScoped<IGradingService, GradingService>();
+builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISchoolService, SchoolService>();
 builder.Services.AddScoped<IClassService, ClassService>();
@@ -63,13 +74,26 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 // ========== CẤU HÌNH CORS ==========
+var allowedOrigins = builder.Configuration
+    .GetSection("Cors:AllowedOrigins")
+    .Get<string[]>() ?? Array.Empty<string>();
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
-              .AllowAnyMethod()
-              .AllowAnyHeader();
+        if (allowedOrigins.Length == 0)
+        {
+            policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
+        else
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowAnyMethod()
+                  .AllowAnyHeader();
+        }
     });
 });
 

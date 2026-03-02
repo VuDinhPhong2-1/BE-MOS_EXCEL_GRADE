@@ -1,4 +1,3 @@
-﻿using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -8,18 +7,19 @@ namespace MOS.ExcelGrading.Core.Services
     public class SchoolService : ISchoolService
     {
         private readonly IMongoCollection<School> _schools;
+        private static int _indexInitialized;
 
-        public SchoolService(IOptions<MongoDbSettings> mongoSettings)
+        public SchoolService(IMongoDatabase database)
         {
-            var client = new MongoClient(mongoSettings.Value.ConnectionString);
-            var database = client.GetDatabase(mongoSettings.Value.DatabaseName);
-            _schools = database.GetCollection<School>(mongoSettings.Value.SchoolsCollectionName);
+            _schools = database.GetCollection<School>("Schools");
 
-            // Tạo index unique cho Code
-            var indexKeysDefinition = Builders<School>.IndexKeys.Ascending(s => s.Code);
-            var indexOptions = new CreateIndexOptions { Unique = true };
-            var indexModel = new CreateIndexModel<School>(indexKeysDefinition, indexOptions);
-            _schools.Indexes.CreateOne(indexModel);
+            if (Interlocked.Exchange(ref _indexInitialized, 1) == 0)
+            {
+                var indexKeysDefinition = Builders<School>.IndexKeys.Ascending(s => s.Code);
+                var indexOptions = new CreateIndexOptions { Unique = true };
+                var indexModel = new CreateIndexModel<School>(indexKeysDefinition, indexOptions);
+                _schools.Indexes.CreateOne(indexModel);
+            }
         }
 
         public async Task<School> CreateSchoolAsync(School school, string ownerId)

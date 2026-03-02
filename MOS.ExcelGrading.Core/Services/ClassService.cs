@@ -1,5 +1,4 @@
 ﻿using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -12,14 +11,11 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly ILogger<ClassService> _logger;
 
         public ClassService(
-            IOptions<MongoDbSettings> mongoSettings,
+            IMongoDatabase database,
             ILogger<ClassService> logger)
         {
             _logger = logger;
-
-            var client = new MongoClient(mongoSettings.Value.ConnectionString);
-            var database = client.GetDatabase(mongoSettings.Value.DatabaseName);
-            _classes = database.GetCollection<Class>(mongoSettings.Value.ClassesCollectionName);
+            _classes = database.GetCollection<Class>("Classes");
 
             _logger.LogInformation("✅ ClassService initialized successfully");
         }
@@ -210,24 +206,26 @@ namespace MOS.ExcelGrading.Core.Services
         }
 
 
-        public async Task<bool> ClassExistsAsync(string Name)
+        public async Task<bool> ClassExistsAsync(string schoolId, string className)
         {
             try
             {
-
                 var count = await _classes.CountDocumentsAsync(
-                    c => c.Name == Name && c.IsActive
+                    c => c.SchoolId == schoolId &&
+                         c.Name == className &&
+                         c.IsActive
                 );
 
                 var exists = count > 0;
 
-                _logger.LogInformation($"✅ ClassExistsAsync result: {exists} (count={count})");
+                _logger.LogInformation(
+                    $"✅ ClassExistsAsync result: {exists} (schoolId={schoolId}, className={className}, count={count})");
 
                 return exists;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"❌ Error in ClassExistsAsync: schoolId={Name}");
+                _logger.LogError(ex, $"❌ Error in ClassExistsAsync: schoolId={schoolId}, className={className}");
                 throw;
             }
         }
@@ -261,9 +259,19 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 _logger.LogInformation($"📤 AddStudentToClassAsync called: classId={classId}, studentId={studentId}");
 
+                var classEntity = await _classes.Find(c => c.Id == classId).FirstOrDefaultAsync();
+                if (classEntity == null)
+                    return false;
+
+                if (classEntity.StudentIds.Contains(studentId))
+                {
+                    _logger.LogInformation($"ℹ️ Student already exists in class: classId={classId}, studentId={studentId}");
+                    return true;
+                }
+
                 var update = Builders<Class>.Update
                     .AddToSet(c => c.StudentIds, studentId)
-                    .Inc(c => c.CurrentStudents, 1);
+                    .Set(c => c.CurrentStudents, classEntity.CurrentStudents + 1);
 
                 var result = await _classes.UpdateOneAsync(c => c.Id == classId, update);
 
@@ -291,9 +299,20 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 _logger.LogInformation($"📤 RemoveStudentFromClassAsync called: classId={classId}, studentId={studentId}");
 
+                var classEntity = await _classes.Find(c => c.Id == classId).FirstOrDefaultAsync();
+                if (classEntity == null)
+                    return false;
+
+                if (!classEntity.StudentIds.Contains(studentId))
+                {
+                    _logger.LogInformation($"ℹ️ Student is not in class: classId={classId}, studentId={studentId}");
+                    return true;
+                }
+
+                var currentStudents = Math.Max(0, classEntity.CurrentStudents - 1);
                 var update = Builders<Class>.Update
                     .Pull(c => c.StudentIds, studentId)
-                    .Inc(c => c.CurrentStudents, -1);
+                    .Set(c => c.CurrentStudents, currentStudents);
 
                 var result = await _classes.UpdateOneAsync(c => c.Id == classId, update);
 
@@ -328,6 +347,7 @@ namespace MOS.ExcelGrading.Core.Services
                     .Set(c => c.Name, classEntity.Name)
                     .Set(c => c.Description, classEntity.Description)
                     .Set(c => c.MaxStudents, classEntity.MaxStudents)
+                    .Set(c => c.CurrentStudents, classEntity.CurrentStudents)
                     .Set(c => c.AcademicYear, classEntity.AcademicYear)
                     .Set(c => c.Grade, classEntity.Grade)
                     .Set(c => c.IsActive, classEntity.IsActive)

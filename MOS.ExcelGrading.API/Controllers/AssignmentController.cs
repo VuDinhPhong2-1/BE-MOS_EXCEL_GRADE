@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    [Authorize] 
     public class AssignmentController : ControllerBase
     {
         private readonly IAssignmentService _assignmentService;
@@ -31,6 +31,12 @@ namespace MOS.ExcelGrading.API.Controllers
         {
             var endpoints = new List<GradingEndpointInfo>
     {
+        new() {
+            Endpoint = GradingApiEndpoints.Project01,
+            DisplayName = "Project 01",
+            Description = "Chấm điểm Project 01",
+            MaxScore = 20
+        },
         new() {
             Endpoint = GradingApiEndpoints.Project09,
             DisplayName = "Project 09",
@@ -122,6 +128,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Tạo bài tập mới
         /// </summary>
         [HttpPost]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         public async Task<IActionResult> Create([FromBody] CreateAssignmentRequest request)
         {
             try
@@ -129,9 +136,16 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized();
+                if (!HasPermission(Permissions.CreateProjects))
+                    return Forbid();
 
                 var assignment = await _assignmentService.CreateAssignmentAsync(request, userId);
                 return CreatedAtAction(nameof(GetById), new { id = assignment.Id }, assignment);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error creating assignment");
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -144,6 +158,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Cập nhật bài tập
         /// </summary>
         [HttpPut("{id}")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         public async Task<IActionResult> Update(string id, [FromBody] UpdateAssignmentRequest request)
         {
             try
@@ -151,12 +166,19 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized();
+                if (!HasPermission(Permissions.EditProjects))
+                    return Forbid();
 
                 var assignment = await _assignmentService.UpdateAssignmentAsync(id, request, userId);
                 if (assignment == null)
                     return NotFound(new { message = "Assignment not found" });
 
                 return Ok(assignment);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error updating assignment {Id}", id);
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {
@@ -169,6 +191,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Xóa bài tập (soft delete)
         /// </summary>
         [HttpDelete("{id}")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         public async Task<IActionResult> Delete(string id)
         {
             try
@@ -176,6 +199,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                 if (string.IsNullOrEmpty(userId))
                     return Unauthorized();
+                if (!HasPermission(Permissions.DeleteProjects))
+                    return Forbid();
 
                 var result = await _assignmentService.DeleteAssignmentAsync(id, userId);
                 if (!result)
@@ -189,5 +214,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 return StatusCode(500, "Internal server error");
             }
         }
+
+        private bool HasPermission(string permission) =>
+            User.Claims.Any(c => c.Type == "permission" && c.Value == permission);
     }
 }

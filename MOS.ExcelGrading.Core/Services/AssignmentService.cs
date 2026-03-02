@@ -123,6 +123,32 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
+                if (request.MaxScore.HasValue &&
+                    (request.MaxScore.Value < 0 || request.MaxScore.Value > 100))
+                {
+                    throw new ArgumentException("MaxScore must be between 0 and 100");
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.GradingType) &&
+                    request.GradingType != GradingTypes.Auto &&
+                    request.GradingType != GradingTypes.Manual)
+                {
+                    throw new ArgumentException("GradingType must be 'auto' or 'manual'");
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.GradingType) &&
+                    request.GradingType == GradingTypes.Auto &&
+                    string.IsNullOrWhiteSpace(request.GradingApiEndpoint))
+                {
+                    throw new ArgumentException("GradingApiEndpoint is required when GradingType is 'auto'");
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.GradingApiEndpoint) &&
+                    !GradingApiEndpoints.IsValidEndpoint(request.GradingApiEndpoint))
+                {
+                    throw new ArgumentException($"Invalid GradingApiEndpoint: {request.GradingApiEndpoint}");
+                }
+
                 var updateDefinitions = new List<UpdateDefinition<Assignment>>();
                 var builder = Builders<Assignment>.Update;
 
@@ -135,7 +161,16 @@ namespace MOS.ExcelGrading.Core.Services
                 if (request.MaxScore.HasValue)
                     updateDefinitions.Add(builder.Set(a => a.MaxScore, request.MaxScore.Value));
 
-               
+                if (!string.IsNullOrWhiteSpace(request.GradingType))
+                    updateDefinitions.Add(builder.Set(a => a.GradingType, request.GradingType));
+
+                if (request.GradingApiEndpoint != null)
+                    updateDefinitions.Add(builder.Set(a => a.GradingApiEndpoint, request.GradingApiEndpoint));
+
+                // If switching to manual grading, clear endpoint.
+                if (request.GradingType == GradingTypes.Manual)
+                    updateDefinitions.Add(builder.Set(a => a.GradingApiEndpoint, null));
+
                 if (request.IsActive.HasValue)
                     updateDefinitions.Add(builder.Set(a => a.IsActive, request.IsActive.Value));
 
@@ -221,6 +256,17 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
+                if (request.MaxScore < 0 || request.MaxScore > 100)
+                {
+                    throw new ArgumentException("MaxScore must be between 0 and 100");
+                }
+
+                if (request.GradingType != GradingTypes.Auto &&
+                    request.GradingType != GradingTypes.Manual)
+                {
+                    throw new ArgumentException("GradingType must be 'auto' or 'manual'");
+                }
+
                 // ✅ VALIDATE GRADING API ENDPOINT
                 if (request.GradingType == GradingTypes.Auto)
                 {
@@ -233,6 +279,10 @@ namespace MOS.ExcelGrading.Core.Services
                     {
                         throw new ArgumentException($"Invalid GradingApiEndpoint: {request.GradingApiEndpoint}");
                     }
+                }
+                else
+                {
+                    request.GradingApiEndpoint = null;
                 }
 
                 var assignment = new Assignment

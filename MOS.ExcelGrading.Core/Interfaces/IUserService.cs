@@ -7,6 +7,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
     {
         Task<User?> RegisterAsync(string email, string username, string password, string? role = null, string? fullName = null);
         Task<AuthResponse?> LoginAsync(string username, string password);
+        Task<AuthResponse?> LoginWithGoogleAsync(string idToken);
         Task<AuthResponse?> RefreshTokenAsync(string refreshToken);
         Task<User?> GetUserByIdAsync(string id);
         Task<User?> GetUserByUsernameAsync(string username);

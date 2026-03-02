@@ -91,6 +91,31 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         /// <summary>
+        /// Đăng nhập bằng Google ID Token
+        /// </summary>
+        [HttpPost("google-login")]
+        public async Task<IActionResult> GoogleLogin([FromBody] GoogleLoginRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var authResponse = await _userService.LoginWithGoogleAsync(request.IdToken);
+
+                if (authResponse == null)
+                    return Unauthorized(new { message = "Google token không hợp lệ hoặc tài khoản đã bị vô hiệu hóa" });
+
+                return Ok(authResponse);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi đăng nhập Google");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi đăng nhập Google" });
+            }
+        }
+
+        /// <summary>
         /// Làm mới Access Token bằng Refresh Token
         /// </summary>
         [HttpPost("refresh-token")]

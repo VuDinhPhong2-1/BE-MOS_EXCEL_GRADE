@@ -1,16 +1,27 @@
 ﻿using OfficeOpenXml;
+using MOS.ExcelGrading.Core.Graders.Project01;
+using MOS.ExcelGrading.Core.Graders.Project09;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
-using MOS.ExcelGrading.Core.Graders.Project09;
 
 namespace MOS.ExcelGrading.Core.Services
 {
     public class GradingService : IGradingService
     {
+        private readonly List<ITaskGrader> _project01Graders;
         private readonly List<ITaskGrader> _project09Graders;
 
         public GradingService()
         {
+            _project01Graders = new List<ITaskGrader>
+            {
+                new P01T1Grader(),
+                new P01T2Grader(),
+                new P01T3Grader(),
+                new P01T4Grader(),
+                new P01T5Grader()
+            };
+
             _project09Graders = new List<ITaskGrader>
             {
                 new P09T1Grader(),
@@ -24,27 +35,22 @@ namespace MOS.ExcelGrading.Core.Services
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         }
 
-        public async Task<GradingResult> GradeProject09Async(Stream studentFile, Stream answerFile)
+        public async Task<GradingResult> GradeProject01Async(Stream studentFile)
         {
             var result = new GradingResult
             {
-                ProjectId = "P09",
-                ProjectName = "Sales and Orders Report"
+                ProjectId = "P01",
+                ProjectName = "Morning Bean Coffee Sales"
             };
 
             try
             {
                 using var studentPackage = new ExcelPackage(studentFile);
-                using var answerPackage = new ExcelPackage(answerFile);
-
                 var studentSheet = studentPackage.Workbook.Worksheets[0];
-                var answerSheet = answerPackage.Workbook.Worksheets[0];
 
-                foreach (var grader in _project09Graders)
+                foreach (var grader in _project01Graders)
                 {
-                    var taskResult = await Task.Run(() =>
-                        grader.Grade(studentSheet, answerSheet)
-                    );
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -56,8 +62,43 @@ namespace MOS.ExcelGrading.Core.Services
                 result.TaskResults.Add(new TaskResult
                 {
                     TaskId = "ERROR",
-                    TaskName = "System Error",
-                    Errors = new List<string> { $"❌ {ex.Message}" }
+                    TaskName = "Lỗi hệ thống",
+                    Errors = new List<string> { $"Lỗi: {ex.Message}" }
+                });
+            }
+
+            return result;
+        }
+
+        public async Task<GradingResult> GradeProject09Async(Stream studentFile)
+        {
+            var result = new GradingResult
+            {
+                ProjectId = "P09",
+                ProjectName = "Sales and Orders Report"
+            };
+
+            try
+            {
+                using var studentPackage = new ExcelPackage(studentFile);
+                var studentSheet = studentPackage.Workbook.Worksheets[0];
+
+                foreach (var grader in _project09Graders)
+                {
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    result.TaskResults.Add(taskResult);
+                }
+
+                result.TotalScore = result.TaskResults.Sum(t => t.Score);
+                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+            }
+            catch (Exception ex)
+            {
+                result.TaskResults.Add(new TaskResult
+                {
+                    TaskId = "ERROR",
+                    TaskName = "Lỗi hệ thống",
+                    Errors = new List<string> { $"Lỗi: {ex.Message}" }
                 });
             }
 

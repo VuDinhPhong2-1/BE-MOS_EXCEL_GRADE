@@ -4,6 +4,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
 {
     public interface IGradingService
     {
-        Task<GradingResult> GradeProject09Async(Stream studentFile, Stream answerFile);
+        Task<GradingResult> GradeProject01Async(Stream studentFile);
+        Task<GradingResult> GradeProject09Async(Stream studentFile);
     }
 }

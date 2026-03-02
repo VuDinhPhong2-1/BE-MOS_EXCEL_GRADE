@@ -12,14 +12,72 @@ namespace MOS.ExcelGrading.API.Controllers
     public class GradingController : ControllerBase
     {
         private readonly IGradingService _gradingService;
+        private readonly IAnalyticsService _analyticsService;
         private readonly ILogger<GradingController> _logger;
 
         public GradingController(
             IGradingService gradingService,
+            IAnalyticsService analyticsService,
             ILogger<GradingController> logger)
         {
             _gradingService = gradingService;
+            _analyticsService = analyticsService;
             _logger = logger;
+        }
+
+        /// <summary>
+        /// Chấm điểm Project 01
+        /// Chỉ Teacher và Admin mới được phép sử dụng
+        /// </summary>
+        [HttpPost("project01")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject01(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {username} (ID: {userId}) không có quyền {Permissions.CreateGrades}");
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
+
+                if (!IsExcelFile(studentFile))
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject01Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project01,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project01");
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
+            }
         }
 
         /// <summary>
@@ -33,7 +91,9 @@ namespace MOS.ExcelGrading.API.Controllers
         [DisableRequestSizeLimit]
         public async Task<IActionResult> GradeProject09(
             [FromForm] IFormFile studentFile,
-            [FromForm] IFormFile answerFile)
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
         {
             try
             {
@@ -52,26 +112,31 @@ namespace MOS.ExcelGrading.API.Controllers
                     return Forbid(); // 403 Forbidden
                 }
 
-                if (studentFile == null || answerFile == null)
+                if (studentFile == null)
                 {
-                    return BadRequest(new { error = "Cần cung cấp cả 2 file: studentFile và answerFile" });
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
                 }
 
                 // ✅ LOG THÔNG TIN NGƯỜI DÙNG VÀ FILE
                 _logger.LogInformation(
                     $"[GRADING] User: {username} (ID: {userId}, Role: {userRole}) | " +
-                    $"Student file: {studentFile.FileName} ({studentFile.Length:N0} bytes) | " +
-                    $"Answer file: {answerFile.FileName} ({answerFile.Length:N0} bytes)");
+                    $"Student file: {studentFile.FileName} ({studentFile.Length:N0} bytes)");
 
-                if (!IsExcelFile(studentFile) || !IsExcelFile(answerFile))
+                if (!IsExcelFile(studentFile))
                 {
                     return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
                 }
 
                 using var studentStream = studentFile.OpenReadStream();
-                using var answerStream = answerFile.OpenReadStream();
+                var result = await _gradingService.GradeProject09Async(studentStream);
 
-                var result = await _gradingService.GradeProject09Async(studentStream, answerStream);
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project09,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
 
                 // ✅ LOG KẾT QUẢ THÀNH CÔNG
                 _logger.LogInformation(
@@ -88,7 +153,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 _logger.LogError(ex,
                     $"[GRADING ERROR] User: {username} (ID: {userId}) | Error: {ex.Message}");
 
-                return StatusCode(500, new { error = $"Lỗi hệ thống: {ex.Message}" });
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
             }
         }
 

@@ -13,5 +13,6 @@ namespace MOS.ExcelGrading.Core.Interfaces
         Task<Score> CreateOrUpdateScoreAsync(CreateScoreRequest request, string gradedBy);
         Task<List<Score>> BulkCreateOrUpdateScoresAsync(BulkScoreRequest request, string gradedBy);
         Task<bool> DeleteScoreAsync(string id, string userId);
+        Task<List<ScoreResponse>> GetScoresByClassAsync(string classId);
     }
 }

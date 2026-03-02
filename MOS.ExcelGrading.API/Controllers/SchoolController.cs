@@ -29,14 +29,6 @@ namespace MOS.ExcelGrading.API.Controllers
         /// </summary>
         [HttpGet]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
-        /// <summary>
-        /// Lấy danh sách schools
-        /// Admin: Tất cả schools
-        /// Teacher: Chỉ schools mà mình tạo ra
-        /// Student: Chỉ schools mà mình được gán vào
-        /// </summary>
-        [HttpGet]
-        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
         public async Task<IActionResult> GetSchools([FromQuery] bool includeInactive = false)
         {
             try

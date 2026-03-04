@@ -24,10 +24,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 decimal score = 0;
 
                 // Rule 1: Có AutoFilter (2 điểm)
-                if (studentSheet.AutoFilterAddress != null)
+                var autoFilterAddress = studentSheet.AutoFilter?.Address;
+                if (autoFilterAddress != null)
                 {
                     score += 2m;
-                    result.Details.Add($"✓ Đã bật AutoFilter tại {studentSheet.AutoFilterAddress}");
+                    result.Details.Add($"✓ Đã bật AutoFilter tại {autoFilterAddress}");
 
                     // Rule 2: Filter đúng cột Total với range 34000-45000 (2 điểm)
                     var filterColumn = GetFilterColumn(studentSheet, "Total");
@@ -71,10 +72,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
         {
             try
             {
-                if (sheet.AutoFilterAddress == null)
+                var autoFilterAddress = sheet.AutoFilter?.Address;
+                if (autoFilterAddress == null)
                     return null;
 
-                var range = sheet.Cells[sheet.AutoFilterAddress.Address];
+                var range = sheet.Cells[autoFilterAddress.Address];
                 var headerRow = range.Start.Row;
 
                 // Duyệt qua các cột trong AutoFilter range
@@ -107,10 +109,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
         {
             try
             {
-                if (sheet.AutoFilterAddress == null)
+                var autoFilterAddress = sheet.AutoFilter?.Address;
+                if (autoFilterAddress == null)
                     return false;
 
-                var autoFilterRange = sheet.Cells[sheet.AutoFilterAddress.Address];
+                var autoFilterRange = sheet.Cells[autoFilterAddress.Address];
                 var startRow = autoFilterRange.Start.Row + 1; // Bỏ qua header
                 var endRow = autoFilterRange.End.Row;
 

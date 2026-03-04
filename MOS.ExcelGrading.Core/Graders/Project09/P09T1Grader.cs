@@ -93,7 +93,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
             return result;
         }
 
-        private (bool HasFill, string PatternType) CheckPlotAreaFill(ExcelChart chart)
+        private (bool HasFill, string? PatternType) CheckPlotAreaFill(ExcelChart chart)
         {
             try
             {
@@ -129,7 +129,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
             }
         }
 
-        private (bool HasFill, string PatternType) CheckChartAreaFill(ExcelChart chart)
+        private (bool HasFill, string? PatternType) CheckChartAreaFill(ExcelChart chart)
         {
             try
             {

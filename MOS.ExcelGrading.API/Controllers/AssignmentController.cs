@@ -42,25 +42,6 @@ namespace MOS.ExcelGrading.API.Controllers
             DisplayName = "Project 09",
             Description = "Chấm điểm Project 09",
             MaxScore = 32
-        },
-        new() {
-            Endpoint = GradingApiEndpoints.Project10,
-            DisplayName = "Project 10",
-            Description = "Chấm điểm Project 10",
-            MaxScore = 25 // <-- Gán giá trị tạm cho project này
-        },
-        new() {
-            Endpoint = GradingApiEndpoints.Project11,
-            DisplayName = "Project 11",
-            Description = "Chấm điểm Project 11",
-            MaxScore = 30 // <-- Gán giá trị tạm
-        },
-        // ... các project khác
-        new() {
-            Endpoint = GradingApiEndpoints.Project16,
-            DisplayName = "Project 16",
-            Description = "Chấm điểm Project 16",
-            MaxScore = 28 // <-- Gán giá trị tạm
         }
     };
 

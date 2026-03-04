@@ -74,13 +74,24 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 // ========== CẤU HÌNH CORS ==========
+var appMode = NormalizeAppMode(builder.Configuration["AppMode"], builder.Environment);
+var corsProfile = appMode;
+
 var allowedOrigins = builder.Configuration
-    .GetSection("Cors:AllowedOrigins")
+    .GetSection($"Cors:Profiles:{corsProfile}")
     .Get<string[]>() ?? Array.Empty<string>();
+
+if (allowedOrigins.Length == 0)
+{
+    // Backward-compatible fallback
+    allowedOrigins = builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>() ?? Array.Empty<string>();
+}
 
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("AllowConfiguredOrigins", policy =>
     {
         if (allowedOrigins.Length == 0)
         {
@@ -101,13 +112,38 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 
 var app = builder.Build();
+app.Logger.LogInformation("AppMode: {AppMode}", appMode);
+app.Logger.LogInformation("CorsProfile: {CorsProfile}", corsProfile);
+app.Logger.LogInformation("CORS allowed origins: {Origins}", string.Join(", ", allowedOrigins));
 
 // ========== MIDDLEWARE PIPELINE ==========
-app.UseCors("AllowAll");
-app.UseHttpsRedirection();
+app.UseCors("AllowConfiguredOrigins");
+if (appMode == "local")
+{
+    app.UseHttpsRedirection();
+}
 app.UseMiddleware<RequestLoggingMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+static string NormalizeAppMode(string? configuredValue, IHostEnvironment environment)
+{
+    var mode = configuredValue?.Trim().ToLowerInvariant();
+
+    if (string.IsNullOrWhiteSpace(mode))
+    {
+        return environment.IsDevelopment() ? "local" : "deploy";
+    }
+
+    return mode switch
+    {
+        "local" => "local",
+        "deploy" => "deploy",
+        "production" => "deploy",
+        "prod" => "deploy",
+        _ => environment.IsDevelopment() ? "local" : "deploy"
+    };
+}

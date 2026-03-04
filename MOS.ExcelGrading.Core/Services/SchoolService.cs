@@ -67,6 +67,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             var update = Builders<School>.Update
                 .Set(s => s.Name, school.Name)
+                .Set(s => s.Code, school.Code)
                 .Set(s => s.Address, school.Address)
                 .Set(s => s.PhoneNumber, school.PhoneNumber)
                 .Set(s => s.Email, school.Email)

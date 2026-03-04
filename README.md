@@ -46,6 +46,12 @@ Optional if you need to override defaults:
 $env:MongoDbSettings__DatabaseName="MOS"
 ```
 
+Select backend mode (`local` or `deploy`):
+
+```powershell
+$env:AppMode="local"
+```
+
 ## Health check
 
 - `https://localhost:7223/api/grading/health`
@@ -77,7 +83,9 @@ New analytics endpoints:
 ## Frontend config example (Vite)
 
 ```env
-VITE_API_URL=https://localhost:7223/api
+VITE_API_TARGET=local
+VITE_API_LOCAL_URL=https://localhost:7223
+VITE_API_DEPLOY_URL=https://be-mos-excel-grade.onrender.com
 ```
 
 ## Common issues

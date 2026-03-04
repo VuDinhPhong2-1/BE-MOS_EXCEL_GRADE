@@ -204,17 +204,23 @@ namespace MOS.ExcelGrading.API.Controllers
                     return Forbid();
                 }
 
-                // Kiểm tra mã trường đã tồn tại chưa
-                if (await _schoolService.SchoolExistsAsync(request.Code))
+                var normalizedCode = NormalizeSchoolCode(request.Code);
+                if (string.IsNullOrWhiteSpace(normalizedCode))
                 {
-                    _logger.LogWarning($"[CREATE SCHOOL] User {username} tạo school với mã {request.Code} đã tồn tại");
+                    return BadRequest(new { message = "Mã trường là bắt buộc" });
+                }
+
+                // Kiểm tra mã trường đã tồn tại chưa
+                if (await _schoolService.SchoolExistsAsync(normalizedCode))
+                {
+                    _logger.LogWarning($"[CREATE SCHOOL] User {username} tạo school với mã {normalizedCode} đã tồn tại");
                     return BadRequest(new { message = "Mã trường đã tồn tại" });
                 }
 
                 var school = new School
                 {
                     Name = request.Name,
-                    Code = request.Code,
+                    Code = normalizedCode,
                     Address = request.Address,
                     PhoneNumber = request.PhoneNumber,
                     Email = request.Email,
@@ -301,8 +307,22 @@ namespace MOS.ExcelGrading.API.Controllers
                 if (!string.IsNullOrEmpty(request.Name))
                     existingSchool.Name = request.Name;
 
-                if (!string.IsNullOrEmpty(request.Code))
-                    existingSchool.Code = request.Code;
+                if (!string.IsNullOrWhiteSpace(request.Code))
+                {
+                    var normalizedCode = NormalizeSchoolCode(request.Code);
+                    if (string.IsNullOrWhiteSpace(normalizedCode))
+                    {
+                        return BadRequest(new { message = "Mã trường không hợp lệ" });
+                    }
+
+                    if (!string.Equals(existingSchool.Code, normalizedCode, StringComparison.OrdinalIgnoreCase)
+                        && await _schoolService.SchoolExistsAsync(normalizedCode))
+                    {
+                        return BadRequest(new { message = "Mã trường đã tồn tại" });
+                    }
+
+                    existingSchool.Code = normalizedCode;
+                }
 
                 existingSchool.Address = request.Address ?? existingSchool.Address;
                 existingSchool.PhoneNumber = request.PhoneNumber ?? existingSchool.PhoneNumber;
@@ -406,6 +426,20 @@ namespace MOS.ExcelGrading.API.Controllers
                 _logger.LogError(ex, "Lỗi khi xóa school");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi" });
             }
+        }
+
+        private static string NormalizeSchoolCode(string? code)
+        {
+            if (string.IsNullOrWhiteSpace(code))
+                return string.Empty;
+
+            var normalized = new string(code
+                .Trim()
+                .ToUpperInvariant()
+                .Where(c => char.IsLetterOrDigit(c) || c == '-' || c == '_')
+                .ToArray());
+
+            return normalized;
         }
     }
 }

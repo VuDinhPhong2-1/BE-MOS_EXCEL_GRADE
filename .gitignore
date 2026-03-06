@@ -1,0 +1,17 @@
+# Visual Studio
+.vs/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# .NET build artifacts
+**/bin/
+**/obj/
+
+# Local build check folders
+_buildcheck/
+_buildcheck_vi/
+
+# Logs
+*.log

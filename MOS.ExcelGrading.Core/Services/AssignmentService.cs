@@ -126,27 +126,27 @@ namespace MOS.ExcelGrading.Core.Services
                 if (request.MaxScore.HasValue &&
                     (request.MaxScore.Value < 0 || request.MaxScore.Value > 100))
                 {
-                    throw new ArgumentException("MaxScore must be between 0 and 100");
+                    throw new ArgumentException("Điểm tối đa phải nằm trong khoảng từ 0 đến 100");
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.GradingType) &&
                     request.GradingType != GradingTypes.Auto &&
                     request.GradingType != GradingTypes.Manual)
                 {
-                    throw new ArgumentException("GradingType must be 'auto' or 'manual'");
+                    throw new ArgumentException("GradingType phải là 'auto' hoặc 'manual'");
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.GradingType) &&
                     request.GradingType == GradingTypes.Auto &&
                     string.IsNullOrWhiteSpace(request.GradingApiEndpoint))
                 {
-                    throw new ArgumentException("GradingApiEndpoint is required when GradingType is 'auto'");
+                    throw new ArgumentException("Bắt buộc có GradingApiEndpoint khi GradingType là 'auto'");
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.GradingApiEndpoint) &&
                     !GradingApiEndpoints.IsValidEndpoint(request.GradingApiEndpoint))
                 {
-                    throw new ArgumentException($"Invalid GradingApiEndpoint: {request.GradingApiEndpoint}");
+                    throw new ArgumentException($"GradingApiEndpoint không hợp lệ: {request.GradingApiEndpoint}");
                 }
 
                 var updateDefinitions = new List<UpdateDefinition<Assignment>>();
@@ -258,13 +258,13 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 if (request.MaxScore < 0 || request.MaxScore > 100)
                 {
-                    throw new ArgumentException("MaxScore must be between 0 and 100");
+                    throw new ArgumentException("Điểm tối đa phải nằm trong khoảng từ 0 đến 100");
                 }
 
                 if (request.GradingType != GradingTypes.Auto &&
                     request.GradingType != GradingTypes.Manual)
                 {
-                    throw new ArgumentException("GradingType must be 'auto' or 'manual'");
+                    throw new ArgumentException("GradingType phải là 'auto' hoặc 'manual'");
                 }
 
                 // ✅ VALIDATE GRADING API ENDPOINT
@@ -272,12 +272,12 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     if (string.IsNullOrEmpty(request.GradingApiEndpoint))
                     {
-                        throw new ArgumentException("GradingApiEndpoint is required when GradingType is 'auto'");
+                        throw new ArgumentException("Bắt buộc có GradingApiEndpoint khi GradingType là 'auto'");
                     }
 
                     if (!GradingApiEndpoints.IsValidEndpoint(request.GradingApiEndpoint))
                     {
-                        throw new ArgumentException($"Invalid GradingApiEndpoint: {request.GradingApiEndpoint}");
+                        throw new ArgumentException($"GradingApiEndpoint không hợp lệ: {request.GradingApiEndpoint}");
                     }
                 }
                 else
@@ -316,3 +316,4 @@ namespace MOS.ExcelGrading.Core.Services
 
     }
 }
+

@@ -92,7 +92,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 if (string.IsNullOrEmpty(schoolId) || schoolId.Length != 24)
                 {
                     _logger.LogWarning($"❌ Invalid schoolId: {schoolId}");
-                    return BadRequest(new { message = "SchoolId không hợp lệ" });
+                    return BadRequest(new { message = "Mã trường không hợp lệ" });
                 }
 
                 // ✅ KIỂM TRA SCHOOL TỒN TẠI
@@ -445,3 +445,5 @@ namespace MOS.ExcelGrading.API.Controllers
         }
     }
 }
+
+

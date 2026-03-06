@@ -81,7 +81,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         /// <summary>
-        /// Cham diem Project 02
+        /// Chấm điểm dự án 02
         /// Chi Teacher va Admin duoc phep
         /// </summary>
         [HttpPost("project02")]
@@ -110,10 +110,10 @@ namespace MOS.ExcelGrading.API.Controllers
                 }
 
                 if (studentFile == null)
-                    return BadRequest(new { error = "Can cung cap file: studentFile" });
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
 
                 if (!IsExcelFile(studentFile))
-                    return BadRequest(new { error = "File phai co dinh dang .xlsx hoac .xlsm" });
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
 
                 using var studentStream = studentFile.OpenReadStream();
                 var result = await _gradingService.GradeProject02Async(studentStream);
@@ -131,12 +131,12 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error grading project02");
-                return StatusCode(500, new { error = "Loi he thong khi cham diem" });
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
             }
         }
 
         /// <summary>
-        /// Cham diem Project 03
+        /// Chấm điểm dự án 03
         /// Chi Teacher va Admin duoc phep
         /// </summary>
         [HttpPost("project03")]
@@ -165,10 +165,10 @@ namespace MOS.ExcelGrading.API.Controllers
                 }
 
                 if (studentFile == null)
-                    return BadRequest(new { error = "Can cung cap file: studentFile" });
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
 
                 if (!IsExcelFile(studentFile))
-                    return BadRequest(new { error = "File phai co dinh dang .xlsx hoac .xlsm" });
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
 
                 using var studentStream = studentFile.OpenReadStream();
                 var result = await _gradingService.GradeProject03Async(studentStream);
@@ -186,12 +186,12 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error grading project03");
-                return StatusCode(500, new { error = "Loi he thong khi cham diem" });
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
             }
         }
 
         /// <summary>
-        /// Cham diem Project 04
+        /// Chấm điểm dự án 04
         /// Chi Teacher va Admin duoc phep
         /// </summary>
         [HttpPost("project04")]
@@ -220,10 +220,10 @@ namespace MOS.ExcelGrading.API.Controllers
                 }
 
                 if (studentFile == null)
-                    return BadRequest(new { error = "Can cung cap file: studentFile" });
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
 
                 if (!IsExcelFile(studentFile))
-                    return BadRequest(new { error = "File phai co dinh dang .xlsx hoac .xlsm" });
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
 
                 using var studentStream = studentFile.OpenReadStream();
                 var result = await _gradingService.GradeProject04Async(studentStream);
@@ -241,7 +241,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error grading project04");
-                return StatusCode(500, new { error = "Loi he thong khi cham diem" });
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
             }
         }
 
@@ -344,3 +344,6 @@ namespace MOS.ExcelGrading.API.Controllers
         }
     }
 }
+
+
+

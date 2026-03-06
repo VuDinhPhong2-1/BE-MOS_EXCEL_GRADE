@@ -42,7 +42,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting scores for assignment {AssignmentId}", assignmentId);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -64,7 +64,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting scores for student {StudentId}", studentId);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -86,7 +86,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting score report for student {StudentId}", studentId);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -111,7 +111,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating/updating score");
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -133,14 +133,14 @@ namespace MOS.ExcelGrading.API.Controllers
                 var scores = await _scoreService.BulkCreateOrUpdateScoresAsync(request, userId);
                 return Ok(new
                 {
-                    message = $"Successfully graded {scores.Count} students",
+                    message = $"Chấm điểm thành công {scores.Count} học sinh",
                     scores = scores
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error bulk creating/updating scores");
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -161,14 +161,14 @@ namespace MOS.ExcelGrading.API.Controllers
 
                 var result = await _scoreService.DeleteScoreAsync(id, userId);
                 if (!result)
-                    return NotFound(new { message = "Score not found" });
+                    return NotFound(new { message = "Không tìm thấy điểm" });
 
                 return NoContent();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting score {Id}", id);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -190,7 +190,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting scores by class {ClassId}", classId);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -198,3 +198,4 @@ namespace MOS.ExcelGrading.API.Controllers
             User.Claims.Any(c => c.Type == "permission" && c.Value == permission);
     }
 }
+

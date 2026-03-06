@@ -37,7 +37,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in GetAll");
-                return StatusCode(500, new { message = "Internal server error" });
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
             }
         }
 
@@ -50,14 +50,14 @@ namespace MOS.ExcelGrading.API.Controllers
             {
                 var student = await _studentService.GetByIdAsync(id);
                 if (student == null)
-                    return NotFound(new { message = "Student not found" });
+                    return NotFound(new { message = "Không tìm thấy học sinh" });
 
                 return Ok(student);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error in GetById: {id}");
-                return StatusCode(500, new { message = "Internal server error" });
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
             }
         }
 
@@ -84,7 +84,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in Create");
-                return StatusCode(500, new { message = "Internal server error" });
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
             }
         }
 
@@ -102,14 +102,14 @@ namespace MOS.ExcelGrading.API.Controllers
 
                 var student = await _studentService.UpdateAsync(id, request, userId);
                 if (student == null)
-                    return NotFound(new { message = "Student not found" });
+                    return NotFound(new { message = "Không tìm thấy học sinh" });
 
                 return Ok(student);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error in Update: {id}");
-                return StatusCode(500, new { message = "Internal server error" });
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
             }
         }
 
@@ -122,14 +122,14 @@ namespace MOS.ExcelGrading.API.Controllers
             {
                 var result = await _studentService.DeleteAsync(id);
                 if (!result)
-                    return NotFound(new { message = "Student not found" });
+                    return NotFound(new { message = "Không tìm thấy học sinh" });
 
-                return Ok(new { message = "Student deleted successfully" });
+                return Ok(new { message = "Xóa học sinh thành công" });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error in Delete: {id}");
-                return StatusCode(500, new { message = "Internal server error" });
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
             }
         }
         // POST: api/student/import
@@ -169,7 +169,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in ImportFromExcel");
-                return StatusCode(500, new { message = "Internal server error" });
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
             }
         }
 
@@ -196,7 +196,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in BulkImport");
-                return StatusCode(500, new { message = "Internal server error" });
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
             }
         }
 
@@ -217,7 +217,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error in GetByClassId: {classId}");
-                return StatusCode(500, new { message = "Internal server error" });
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
             }
         }
 

@@ -18,15 +18,15 @@ builder.Services.Configure<MongoDbSettings>(
 builder.Services.AddSingleton<IMongoDatabase>(sp =>
 {
     var settings = builder.Configuration.GetSection("MongoDbSettings").Get<MongoDbSettings>()
-        ?? throw new InvalidOperationException("MongoDbSettings is missing");
+        ?? throw new InvalidOperationException("Thiếu cấu hình MongoDbSettings");
 
     if (string.IsNullOrWhiteSpace(settings.ConnectionString))
         throw new InvalidOperationException(
-            "MongoDbSettings.ConnectionString is missing. " +
-            "Set it in appsettings.Development.json or env var MongoDbSettings__ConnectionString.");
+            "Thiếu MongoDbSettings.ConnectionString. " +
+            "Hãy đặt trong appsettings.Development.json hoặc biến môi trường MongoDbSettings__ConnectionString.");
 
     if (string.IsNullOrWhiteSpace(settings.DatabaseName))
-        throw new InvalidOperationException("MongoDbSettings.DatabaseName is missing");
+        throw new InvalidOperationException("Thiếu MongoDbSettings.DatabaseName");
 
     var client = new MongoClient(settings.ConnectionString);
     return client.GetDatabase(settings.DatabaseName);

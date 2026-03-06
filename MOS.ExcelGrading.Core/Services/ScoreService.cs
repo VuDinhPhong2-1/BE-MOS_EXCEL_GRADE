@@ -126,7 +126,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 var student = await _students.Find(s => s.Id == studentId).FirstOrDefaultAsync();
                 if (student == null)
-                    throw new Exception($"Student {studentId} not found");
+                    throw new Exception($"Không tìm thấy học sinh {studentId}");
 
                 var assignments = await _assignments.Find(a =>
                     a.ClassId == classId && a.IsActive).ToListAsync();
@@ -362,3 +362,4 @@ namespace MOS.ExcelGrading.Core.Services
         }
     }
 }
+

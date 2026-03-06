@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string Id { get; set; } = ObjectId.GenerateNewId().ToString();
 
-        [Required(ErrorMessage = "Assignment name is required")]
+        [Required(ErrorMessage = "Tên bài tập là bắt buộc")]
         [StringLength(200)]
         [BsonElement("name")]
         public string Name { get; set; } = string.Empty;

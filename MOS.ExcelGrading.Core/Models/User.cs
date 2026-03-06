@@ -19,11 +19,11 @@ namespace MOS.ExcelGrading.Core.Models
         [EmailAddress(ErrorMessage = "Email không hợp lệ")]
         public string Email { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Username là bắt buộc")]
+        [Required(ErrorMessage = "Tên đăng nhập là bắt buộc")]
         [StringLength(50, MinimumLength = 3)]
         public string Username { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Password là bắt buộc")]
+        [Required(ErrorMessage = "Mật khẩu là bắt buộc")]
         public string PasswordHash { get; set; } = string.Empty;
 
         // ========== PHÂN QUYỀN ==========

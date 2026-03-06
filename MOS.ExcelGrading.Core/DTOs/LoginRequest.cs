@@ -4,10 +4,10 @@ namespace MOS.ExcelGrading.Core.DTOs
 {
     public class LoginRequest
     {
-        [Required(ErrorMessage = "Username là bắt buộc")]
+        [Required(ErrorMessage = "Tên đăng nhập là bắt buộc")]
         public string Username { get; set; } = string.Empty;
 
-        [Required(ErrorMessage = "Password là bắt buộc")]
+        [Required(ErrorMessage = "Mật khẩu là bắt buộc")]
         public string Password { get; set; } = string.Empty;
     }
 }

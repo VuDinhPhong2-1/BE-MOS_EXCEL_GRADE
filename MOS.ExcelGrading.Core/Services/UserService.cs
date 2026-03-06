@@ -1,4 +1,4 @@
-// Core/Services/UserService.cs
+﻿// Core/Services/UserService.cs
 using Google.Apis.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -109,7 +109,7 @@ namespace MOS.ExcelGrading.Core.Services
                 return null;
 
             if (string.IsNullOrWhiteSpace(_googleClientId))
-                throw new InvalidOperationException("GoogleAuth:ClientId is missing");
+                throw new InvalidOperationException("Thiếu cấu hình GoogleAuth:ClientId");
 
             var payload = await GoogleJsonWebSignature.ValidateAsync(idToken, new GoogleJsonWebSignature.ValidationSettings
             {
@@ -323,3 +323,4 @@ namespace MOS.ExcelGrading.Core.Services
         }
     }
 }
+

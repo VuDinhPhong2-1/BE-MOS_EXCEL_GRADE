@@ -46,7 +46,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 );
 
                 if (user == null)
-                    return BadRequest(new { message = "Username hoặc Email đã tồn tại" });
+                    return BadRequest(new { message = "Tên đăng nhập hoặc thư điện tử đã tồn tại" });
 
                 return Ok(new
                 {
@@ -79,7 +79,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 var authResponse = await _userService.LoginAsync(request.Username, request.Password);
 
                 if (authResponse == null)
-                    return Unauthorized(new { message = "Username hoặc Password không đúng hoặc tài khoản đã bị vô hiệu hóa" });
+                    return Unauthorized(new { message = "Tên đăng nhập hoặc mật khẩu không đúng hoặc tài khoản đã bị vô hiệu hóa" });
 
                 return Ok(authResponse);
             }
@@ -104,7 +104,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 var authResponse = await _userService.LoginWithGoogleAsync(request.IdToken);
 
                 if (authResponse == null)
-                    return Unauthorized(new { message = "Google token không hợp lệ hoặc tài khoản đã bị vô hiệu hóa" });
+                    return Unauthorized(new { message = "Mã thông báo Google không hợp lệ hoặc tài khoản đã bị vô hiệu hóa" });
 
                 return Ok(authResponse);
             }
@@ -124,13 +124,13 @@ namespace MOS.ExcelGrading.API.Controllers
             try
             {
                 if (string.IsNullOrEmpty(request.RefreshToken))
-                    return BadRequest(new { message = "Refresh token là bắt buộc" });
+                    return BadRequest(new { message = "Mã làm mới phiên là bắt buộc" });
 
                 var response = await _userService.RefreshTokenAsync(request.RefreshToken);
 
                 if (response == null)
                 {
-                    return Unauthorized(new { message = "Refresh token không hợp lệ hoặc đã hết hạn" });
+                    return Unauthorized(new { message = "Mã làm mới phiên không hợp lệ hoặc đã hết hạn" });
                 }
 
                 return Ok(response);
@@ -154,7 +154,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
                 if (string.IsNullOrEmpty(userId))
-                    return Unauthorized(new { message = "Token không hợp lệ" });
+                    return Unauthorized(new { message = "Mã xác thực không hợp lệ" });
 
                 var result = await _userService.RevokeRefreshTokenAsync(userId);
 
@@ -181,12 +181,12 @@ namespace MOS.ExcelGrading.API.Controllers
             {
                 var username = User.Identity?.Name;
                 if (string.IsNullOrEmpty(username))
-                    return Unauthorized(new { message = "Token không hợp lệ" });
+                    return Unauthorized(new { message = "Mã xác thực không hợp lệ" });
 
                 var user = await _userService.GetUserByUsernameAsync(username);
 
                 if (user == null)
-                    return NotFound(new { message = "Không tìm thấy user" });
+                    return NotFound(new { message = "Không tìm thấy người dùng" });
 
                 return Ok(new
                 {
@@ -210,3 +210,5 @@ namespace MOS.ExcelGrading.API.Controllers
         }
     }
 }
+
+

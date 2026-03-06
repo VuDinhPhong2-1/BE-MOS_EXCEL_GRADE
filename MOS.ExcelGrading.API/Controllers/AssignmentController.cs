@@ -33,32 +33,32 @@ namespace MOS.ExcelGrading.API.Controllers
     {
         new() {
             Endpoint = GradingApiEndpoints.Project01,
-            DisplayName = "Project 01",
-            Description = "Chấm điểm Project 01",
+            DisplayName = "Dự án 01",
+            Description = "Chấm điểm Dự án 01",
             MaxScore = 20
         },
         new() {
             Endpoint = GradingApiEndpoints.Project02,
-            DisplayName = "Project 02",
-            Description = "Chấm điểm Project 02",
+            DisplayName = "Dự án 02",
+            Description = "Chấm điểm Dự án 02",
             MaxScore = 28
         },
         new() {
             Endpoint = GradingApiEndpoints.Project03,
-            DisplayName = "Project 03",
-            Description = "Chấm điểm Project 03 (Task 1-5 tự động, Task 6 thủ công)",
+            DisplayName = "Dự án 03",
+            Description = "Chấm điểm Dự án 03 (Task 1-5 tự động, Task 6 thủ công)",
             MaxScore = 20
         },
         new() {
             Endpoint = GradingApiEndpoints.Project04,
-            DisplayName = "Project 04",
-            Description = "Chấm điểm Project 04",
+            DisplayName = "Dự án 04",
+            Description = "Chấm điểm Dự án 04",
             MaxScore = 28
         },
         new() {
             Endpoint = GradingApiEndpoints.Project09,
-            DisplayName = "Project 09",
-            Description = "Chấm điểm Project 09",
+            DisplayName = "Dự án 09",
+            Description = "Chấm điểm Dự án 09",
             MaxScore = 32
         }
     };
@@ -80,7 +80,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting assignments for class {ClassId}", classId);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -98,7 +98,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting assignments with stats for class {ClassId}", classId);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -112,14 +112,14 @@ namespace MOS.ExcelGrading.API.Controllers
             {
                 var assignment = await _assignmentService.GetAssignmentByIdAsync(id);
                 if (assignment == null)
-                    return NotFound(new { message = "Assignment not found" });
+                    return NotFound(new { message = "Không tìm thấy bài tập" });
 
                 return Ok(assignment);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting assignment {Id}", id);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -149,7 +149,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating assignment");
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -170,7 +170,7 @@ namespace MOS.ExcelGrading.API.Controllers
 
                 var assignment = await _assignmentService.UpdateAssignmentAsync(id, request, userId);
                 if (assignment == null)
-                    return NotFound(new { message = "Assignment not found" });
+                    return NotFound(new { message = "Không tìm thấy bài tập" });
 
                 return Ok(assignment);
             }
@@ -182,7 +182,7 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating assignment {Id}", id);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -203,14 +203,14 @@ namespace MOS.ExcelGrading.API.Controllers
 
                 var result = await _assignmentService.DeleteAssignmentAsync(id, userId);
                 if (!result)
-                    return NotFound(new { message = "Assignment not found" });
+                    return NotFound(new { message = "Không tìm thấy bài tập" });
 
                 return NoContent();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error deleting assignment {Id}", id);
-                return StatusCode(500, "Internal server error");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
             }
         }
 
@@ -218,3 +218,4 @@ namespace MOS.ExcelGrading.API.Controllers
             User.Claims.Any(c => c.Type == "permission" && c.Value == permission);
     }
 }
+

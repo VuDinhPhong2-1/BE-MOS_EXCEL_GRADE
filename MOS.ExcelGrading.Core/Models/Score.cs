@@ -34,6 +34,9 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("feedback")]
         public string? Feedback { get; set; }
 
+        [BsonElement("autoGradingErrors")]
+        public List<string> AutoGradingErrors { get; set; } = new();
+
         [BsonElement("gradedAt")]
         public DateTime? GradedAt { get; set; }
 

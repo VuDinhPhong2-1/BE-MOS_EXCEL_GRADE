@@ -38,6 +38,24 @@ namespace MOS.ExcelGrading.API.Controllers
             MaxScore = 20
         },
         new() {
+            Endpoint = GradingApiEndpoints.Project02,
+            DisplayName = "Project 02",
+            Description = "Chấm điểm Project 02",
+            MaxScore = 28
+        },
+        new() {
+            Endpoint = GradingApiEndpoints.Project03,
+            DisplayName = "Project 03",
+            Description = "Chấm điểm Project 03 (Task 1-5 tự động, Task 6 thủ công)",
+            MaxScore = 20
+        },
+        new() {
+            Endpoint = GradingApiEndpoints.Project04,
+            DisplayName = "Project 04",
+            Description = "Chấm điểm Project 04",
+            MaxScore = 28
+        },
+        new() {
             Endpoint = GradingApiEndpoints.Project09,
             DisplayName = "Project 09",
             Description = "Chấm điểm Project 09",

@@ -65,7 +65,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             var userRole = role ?? UserRoles.Teacher;
             if (!UserRoles.IsValidRole(userRole))
-                userRole = UserRoles.Student;
+                userRole = UserRoles.Teacher;
 
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
 
@@ -127,7 +127,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (user == null)
             {
-                var role = UserRoles.Student;
+                var role = UserRoles.Teacher;
                 var newUser = new User
                 {
                     Email = payload.Email,

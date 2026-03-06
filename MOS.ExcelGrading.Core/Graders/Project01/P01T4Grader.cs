@@ -45,7 +45,16 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
                     return result;
                 }
 
-                if (studentFormula.Contains("COUNT", StringComparison.OrdinalIgnoreCase))
+                var usesCountBlank = studentFormula.Contains("COUNTBLANK(", StringComparison.OrdinalIgnoreCase);
+                var usesCountIfFamily = studentFormula.Contains("COUNTIF(", StringComparison.OrdinalIgnoreCase)
+                    || studentFormula.Contains("COUNTIFS(", StringComparison.OrdinalIgnoreCase);
+                var referencesSepColumn = studentFormula.Contains("TABLE1[SEP]", StringComparison.OrdinalIgnoreCase)
+                    || studentFormula.Contains("[SEP]", StringComparison.OrdinalIgnoreCase)
+                    || studentFormula.Contains("K22:K46", StringComparison.OrdinalIgnoreCase);
+                var checksBlank = usesCountBlank
+                    || studentFormula.Contains("\"\"");
+
+                if (usesCountBlank || usesCountIfFamily)
                 {
                     score += 1;
                     result.Details.Add("Có sử dụng hàm đếm");
@@ -55,29 +64,27 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
                     result.Errors.Add("Công thức chưa dùng hàm đếm phù hợp");
                 }
 
-                if (studentFormula.Contains("COUNTIF(", StringComparison.OrdinalIgnoreCase)
-                    || studentFormula.Contains("COUNTIFS(", StringComparison.OrdinalIgnoreCase)
-                    || studentFormula.Contains("COUNTBLANK(", StringComparison.OrdinalIgnoreCase))
+                if (referencesSepColumn)
                 {
                     score += 1;
-                    result.Details.Add("Dùng đúng nhóm hàm cho bài đếm thiếu hàng");
+                    result.Details.Add("Công thức tham chiếu đúng cột Sep cần kiểm tra");
                 }
                 else
                 {
-                    result.Errors.Add("Chưa dùng COUNTIF/COUNTIFS/COUNTBLANK");
+                    result.Errors.Add("Công thức chưa tham chiếu cột Sep (Table1[Sep])");
                 }
 
-                if (studentFormula.Contains("\"\""))
+                if (checksBlank)
                 {
                     score += 1;
-                    result.Details.Add("Có điều kiện kiểm tra ô trống (mục thiếu hàng)");
+                    result.Details.Add("Công thức có điều kiện đếm ô trống phù hợp");
                 }
                 else
                 {
-                    result.Errors.Add("Thiếu điều kiện kiểm tra ô trống trong công thức");
+                    result.Errors.Add("Thiếu điều kiện đếm ô trống");
                 }
 
-                result.Score = score;
+                result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {

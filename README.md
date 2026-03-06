@@ -62,6 +62,9 @@ After grading, backend now stores task-level snapshots for analytics.
 Grading endpoints now use only one upload file:
 
 - `POST /api/grading/project01` (`multipart/form-data`)
+- `POST /api/grading/project02` (`multipart/form-data`)
+- `POST /api/grading/project03` (`multipart/form-data`) - Task 1-5 auto, Task 6 manual note
+- `POST /api/grading/project04` (`multipart/form-data`)
 - `POST /api/grading/project09` (`multipart/form-data`)
 
 Required form field:

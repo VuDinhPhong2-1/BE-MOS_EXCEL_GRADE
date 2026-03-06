@@ -1,4 +1,5 @@
-﻿using OfficeOpenXml;
+using OfficeOpenXml;
+using OfficeOpenXml.Table;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 
@@ -21,8 +22,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
 
             try
             {
-                var studentMenu = studentSheet.Workbook.Worksheets["Menu Items"];
+                const string targetAddress = "B5:F10";
+                const string targetName = "Units_Sold";
+                const string oldName = "Table2";
 
+                var studentMenu = studentSheet.Workbook.Worksheets["Menu Items"];
                 if (studentMenu == null)
                 {
                     result.Errors.Add("Không tìm thấy sheet 'Menu Items'");
@@ -31,62 +35,60 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
 
                 decimal score = 0;
                 var studentTables = studentMenu.Tables.ToList();
-                var studentNames = studentTables
-                    .Select(t => t.Name)
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var targetTable = FindTableByAddress(studentTables, targetAddress);
 
-                // Điều kiện 1: phải có Units_Sold
-                if (studentNames.Contains("Units_Sold"))
+                // 1) Xác định đúng bảng đích theo vùng dữ liệu gốc của đề.
+                if (targetTable != null)
                 {
                     score += 1;
-                    result.Details.Add("Có bảng tên 'Units_Sold'");
+                    result.Details.Add($"Tìm thấy bảng mục tiêu tại vùng {targetAddress}");
                 }
                 else
                 {
-                    result.Errors.Add("Không tìm thấy bảng tên 'Units_Sold'");
+                    result.Errors.Add($"Không tìm thấy bảng mục tiêu tại vùng {targetAddress}");
                 }
 
-                // Điều kiện 2: không còn Table2
-                if (!studentNames.Contains("Table2"))
+                // 2) Bảng ở vùng đích phải được đổi tên thành Units_Sold.
+                if (targetTable != null &&
+                    targetTable.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase))
                 {
-                    score += 1;
-                    result.Details.Add("Không còn bảng tên 'Table2'");
+                    score += 2;
+                    result.Details.Add($"Bảng tại {targetAddress} đã đổi tên đúng thành '{targetName}'");
                 }
                 else
                 {
-                    result.Errors.Add("Vẫn còn bảng tên 'Table2'");
+                    var currentName = targetTable?.Name ?? "(không xác định)";
+                    result.Errors.Add($"Bảng tại {targetAddress} chưa đổi đúng tên. Hiện tại: '{currentName}'");
                 }
 
-                // Điều kiện 3: các bảng còn lại vẫn giữ Table1/Table3/Table4
-                var expectedOtherNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
-                {
-                    "Table1",
-                    "Table3",
-                    "Table4"
-                };
-
-                if (expectedOtherNames.All(studentNames.Contains))
+                // 3) Không còn tên cũ Table2 trong Menu Items.
+                var hasOldName = studentTables.Any(t =>
+                    t.Name.Equals(oldName, StringComparison.OrdinalIgnoreCase));
+                if (!hasOldName)
                 {
                     score += 1;
-                    result.Details.Add("Các bảng còn lại giữ đúng tên: Table1, Table3, Table4");
+                    result.Details.Add($"Không còn bảng tên cũ '{oldName}'");
                 }
                 else
                 {
-                    result.Errors.Add("Tên các bảng còn lại không đúng bộ Table1/Table3/Table4");
+                    result.Errors.Add($"Vẫn còn bảng tên cũ '{oldName}'");
                 }
 
-                // Điều kiện 4: số lượng bảng giữ nguyên (chỉ đổi tên, không thêm/bớt bảng)
-                var studentUnitsSold = studentMenu.Tables.FirstOrDefault(t =>
-                    t.Name.Equals("Units_Sold", StringComparison.OrdinalIgnoreCase));
+                // 4) Anti-cheat: Units_Sold phải thuộc đúng bảng đích, không phải bảng khác.
+                var unitsSoldTables = studentTables
+                    .Where(t => t.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
 
-                if (studentUnitsSold != null && studentTables.Count == 4)
+                if (unitsSoldTables.Count == 1 &&
+                    targetTable != null &&
+                    ReferenceEquals(unitsSoldTables[0], targetTable))
                 {
-                    score += 1;
-                    result.Details.Add("Số lượng bảng giữ nguyên sau khi đổi tên");
+                    result.Details.Add($"Tên '{targetName}' được gán đúng cho bảng mục tiêu");
                 }
                 else
                 {
-                    result.Errors.Add("Số lượng bảng thay đổi hoặc chưa đổi tên đúng");
+                    result.Errors.Add(
+                        $"Tên '{targetName}' đang gán sai bảng hoặc bị trùng (số bảng trùng tên: {unitsSoldTables.Count})");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
@@ -97,6 +99,12 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
             }
 
             return result;
+        }
+
+        private static ExcelTable? FindTableByAddress(IEnumerable<ExcelTable> tables, string expectedAddress)
+        {
+            return tables.FirstOrDefault(t =>
+                t.Address.Address.Equals(expectedAddress, StringComparison.OrdinalIgnoreCase));
         }
     }
 }

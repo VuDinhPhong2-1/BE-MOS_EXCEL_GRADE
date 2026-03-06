@@ -57,6 +57,7 @@ namespace MOS.ExcelGrading.Core.Services
                         AssignmentName = assignment?.Name ?? "",
                         ScoreValue = score.ScoreValue,
                         Feedback = score.Feedback,
+                        AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
                         GradedAt = score.GradedAt,
                         GradedBy = score.GradedBy,
                         GradedByName = graderName
@@ -103,6 +104,7 @@ namespace MOS.ExcelGrading.Core.Services
                         AssignmentName = assignment?.Name ?? "",
                         ScoreValue = score.ScoreValue,
                         Feedback = score.Feedback,
+                        AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
                         GradedAt = score.GradedAt,
                         GradedBy = score.GradedBy,
                         GradedByName = graderName
@@ -146,6 +148,7 @@ namespace MOS.ExcelGrading.Core.Services
                         ScoreValue = score?.ScoreValue,
                         MaxScore = assignment.MaxScore,
                         Feedback = score?.Feedback,
+                        AutoGradingErrors = score?.AutoGradingErrors ?? new List<string>(),
                         GradedAt = score?.GradedAt
                     });
 
@@ -200,6 +203,7 @@ namespace MOS.ExcelGrading.Core.Services
                     var update = Builders<Score>.Update
                         .Set(s => s.ScoreValue, request.ScoreValue)
                         .Set(s => s.Feedback, request.Feedback)
+                        .Set(s => s.AutoGradingErrors, request.AutoGradingErrors ?? new List<string>())
                         .Set(s => s.GradedAt, DateTime.UtcNow)
                         .Set(s => s.GradedBy, gradedBy)
                         .Set(s => s.UpdatedAt, DateTime.UtcNow)
@@ -209,6 +213,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                     existingScore.ScoreValue = request.ScoreValue;
                     existingScore.Feedback = request.Feedback;
+                    existingScore.AutoGradingErrors = request.AutoGradingErrors ?? new List<string>();
                     existingScore.GradedAt = DateTime.UtcNow;
                     existingScore.GradedBy = gradedBy;
 
@@ -227,6 +232,7 @@ namespace MOS.ExcelGrading.Core.Services
                         ClassId = request.ClassId,
                         ScoreValue = request.ScoreValue,
                         Feedback = request.Feedback,
+                        AutoGradingErrors = request.AutoGradingErrors ?? new List<string>(),
                         GradedAt = DateTime.UtcNow,
                         GradedBy = gradedBy,
                         CreatedBy = gradedBy,
@@ -262,7 +268,8 @@ namespace MOS.ExcelGrading.Core.Services
                         AssignmentId = request.AssignmentId,
                         ClassId = request.ClassId,
                         ScoreValue = item.ScoreValue,
-                        Feedback = item.Feedback
+                        Feedback = item.Feedback,
+                        AutoGradingErrors = item.AutoGradingErrors
                     };
 
                     var score = await CreateOrUpdateScoreAsync(scoreRequest, gradedBy);
@@ -337,6 +344,7 @@ namespace MOS.ExcelGrading.Core.Services
                         AssignmentName = assignment?.Name ?? "",
                         ScoreValue = score.ScoreValue,
                         Feedback = score.Feedback,
+                        AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
                         GradedAt = score.GradedAt,
                         GradedBy = score.GradedBy,
                         GradedByName = graderName

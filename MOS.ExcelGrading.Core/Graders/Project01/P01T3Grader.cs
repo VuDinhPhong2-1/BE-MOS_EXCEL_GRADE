@@ -52,16 +52,30 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
                     result.Errors.Add("Công thức chưa dùng hàm SUM");
                 }
 
-                var requiredNames = new[]
+                // named range đầu có 2 biến thể chính tả phổ biến: SPECIALITY/SPECIALTY.
+                var hitCount = 0;
+                if (studentFormula.Contains("SPECIALITY_TOTAL", StringComparison.OrdinalIgnoreCase)
+                    || studentFormula.Contains("SPECIALTY_TOTAL", StringComparison.OrdinalIgnoreCase))
                 {
-                    "SPECIALTY_TOTAL",
-                    "SMOOTHIES_TOTAL",
-                    "SANDWICHES_TOTAL",
-                    "SOUPS_TOTAL"
-                };
+                    hitCount++;
+                }
 
-                var hitCount = requiredNames.Count(n => studentFormula.Contains(n, StringComparison.OrdinalIgnoreCase));
-                if (hitCount == requiredNames.Length)
+                if (studentFormula.Contains("SMOOTHIES_TOTAL", StringComparison.OrdinalIgnoreCase))
+                {
+                    hitCount++;
+                }
+
+                if (studentFormula.Contains("SANDWICHES_TOTAL", StringComparison.OrdinalIgnoreCase))
+                {
+                    hitCount++;
+                }
+
+                if (studentFormula.Contains("SOUPS_TOTAL", StringComparison.OrdinalIgnoreCase))
+                {
+                    hitCount++;
+                }
+
+                if (hitCount == 4)
                 {
                     score += 2;
                     result.Details.Add("Công thức dùng đủ 4 named range yêu cầu");

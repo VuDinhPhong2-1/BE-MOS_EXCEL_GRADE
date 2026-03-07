@@ -195,6 +195,8 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
+                await EnsureStudentCanBeGradedAsync(request.StudentId);
+
                 var existingScore = await GetScoreAsync(request.StudentId, request.AssignmentId);
 
                 if (existingScore != null)
@@ -251,6 +253,23 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 _logger.LogError(ex, "❌ Error creating/updating score");
                 throw;
+            }
+        }
+
+        private async Task EnsureStudentCanBeGradedAsync(string studentId)
+        {
+            var student = await _students.Find(s => s.Id == studentId).FirstOrDefaultAsync();
+            if (student == null)
+            {
+                throw new InvalidOperationException($"Không tìm thấy học sinh: {studentId}");
+            }
+
+            var normalizedStatus = (student.Status ?? string.Empty).Trim().ToLowerInvariant();
+            var isInactiveByStatus = normalizedStatus == "inactive";
+            if (!student.IsActive || isInactiveByStatus)
+            {
+                throw new InvalidOperationException(
+                    $"Học sinh '{student.MiddleName} {student.FirstName}' đang ở trạng thái ngừng, không thể chấm điểm.");
             }
         }
 

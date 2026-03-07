@@ -108,6 +108,10 @@ namespace MOS.ExcelGrading.API.Controllers
                 var score = await _scoreService.CreateOrUpdateScoreAsync(request, userId);
                 return Ok(score);
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating/updating score");
@@ -136,6 +140,10 @@ namespace MOS.ExcelGrading.API.Controllers
                     message = $"Chấm điểm thành công {scores.Count} học sinh",
                     scores = scores
                 });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {

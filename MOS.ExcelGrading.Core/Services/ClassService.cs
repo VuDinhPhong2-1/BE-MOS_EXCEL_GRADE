@@ -8,6 +8,10 @@ namespace MOS.ExcelGrading.Core.Services
     public class ClassService : IClassService
     {
         private readonly IMongoCollection<Class> _classes;
+        private readonly IMongoCollection<Student> _students;
+        private readonly IMongoCollection<Assignment> _assignments;
+        private readonly IMongoCollection<Score> _scores;
+        private readonly IMongoCollection<GradingAttempt> _gradingAttempts;
         private readonly ILogger<ClassService> _logger;
 
         public ClassService(
@@ -16,6 +20,10 @@ namespace MOS.ExcelGrading.Core.Services
         {
             _logger = logger;
             _classes = database.GetCollection<Class>("Classes");
+            _students = database.GetCollection<Student>("students");
+            _assignments = database.GetCollection<Assignment>("assignments");
+            _scores = database.GetCollection<Score>("scores");
+            _gradingAttempts = database.GetCollection<GradingAttempt>("gradingAttempts");
 
             _logger.LogInformation("✅ ClassService initialized successfully");
         }
@@ -184,12 +192,24 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 _logger.LogInformation($"📤 DeleteClassAsync called: Id={id}");
 
-                // ✅ HARD DELETE (xóa hẳn khỏi database)
+                // Xóa dữ liệu con trước để tránh dữ liệu mồ côi.
+                var deletedStudents = await _students.DeleteManyAsync(s => s.ClassId == id);
+                var deletedAssignments = await _assignments.DeleteManyAsync(a => a.ClassId == id);
+                var deletedScores = await _scores.DeleteManyAsync(s => s.ClassId == id);
+                var deletedAttempts = await _gradingAttempts.DeleteManyAsync(a => a.ClassId == id);
+
+                // HARD DELETE class chính.
                 var result = await _classes.DeleteOneAsync(c => c.Id == id);
 
                 if (result.DeletedCount > 0)
                 {
-                    _logger.LogInformation($"✅ Class deleted successfully: Id={id}");
+                    _logger.LogInformation(
+                        "✅ Class deleted successfully: Id={ClassId} | Students={StudentCount}, Assignments={AssignmentCount}, Scores={ScoreCount}, Attempts={AttemptCount}",
+                        id,
+                        deletedStudents.DeletedCount,
+                        deletedAssignments.DeletedCount,
+                        deletedScores.DeletedCount,
+                        deletedAttempts.DeletedCount);
                 }
                 else
                 {

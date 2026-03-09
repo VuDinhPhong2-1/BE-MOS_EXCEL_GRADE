@@ -11,6 +11,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
             string ownerId,
             bool isAdmin,
             IReadOnlyCollection<SaveScheduleAttendanceItem> items,
+            ScheduleReportsRequest? reports,
             string updatedBy);
     }
 }

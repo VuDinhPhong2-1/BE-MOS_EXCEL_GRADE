@@ -307,6 +307,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     ownerId,
                     isAdmin,
                     request.Items,
+                    request.Reports,
                     ownerId);
 
                 result.Date = ToVietnamLocalDate(result.Date);

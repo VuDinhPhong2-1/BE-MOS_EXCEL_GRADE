@@ -46,6 +46,8 @@ namespace MOS.ExcelGrading.Core.Models
         [StringLength(500)]
         public string? Notes { get; set; }
 
+        public ScheduleReportBundle Reports { get; set; } = new();
+
         public bool IsActive { get; set; } = true;
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

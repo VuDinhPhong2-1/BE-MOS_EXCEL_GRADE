@@ -6,7 +6,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
 {
     public interface IAssignmentService
     {
-        Task<List<Assignment>> GetAssignmentsByClassIdAsync(string classId);
+        Task<List<Assignment>> GetAssignmentsByClassIdAsync(string classId, bool includeInactive = false);
         Task<List<AssignmentWithStatsResponse>> GetAssignmentsWithStatsByClassIdAsync(string classId);
         Task<Assignment?> GetAssignmentByIdAsync(string id);
         Task<Assignment> CreateAssignmentAsync(CreateAssignmentRequest request, string userId);

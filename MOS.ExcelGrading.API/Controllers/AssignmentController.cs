@@ -56,6 +56,30 @@ namespace MOS.ExcelGrading.API.Controllers
             MaxScore = 28
         },
         new() {
+            Endpoint = GradingApiEndpoints.Project05,
+            DisplayName = "Dự án 05",
+            Description = "Chấm điểm Dự án 05",
+            MaxScore = 24
+        },
+        new() {
+            Endpoint = GradingApiEndpoints.Project06,
+            DisplayName = "Dự án 06",
+            Description = "Chấm điểm Dự án 06",
+            MaxScore = 24
+        },
+        new() {
+            Endpoint = GradingApiEndpoints.Project07,
+            DisplayName = "Dự án 07",
+            Description = "Chấm điểm Dự án 07",
+            MaxScore = 24
+        },
+        new() {
+            Endpoint = GradingApiEndpoints.Project08,
+            DisplayName = "Dự án 08",
+            Description = "Chấm điểm Dự án 08",
+            MaxScore = 24
+        },
+        new() {
             Endpoint = GradingApiEndpoints.Project09,
             DisplayName = "Dự án 09",
             Description = "Chấm điểm Dự án 09",
@@ -70,11 +94,11 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Lấy danh sách bài tập theo lớp
         /// </summary>
         [HttpGet("class/{classId}")]
-        public async Task<IActionResult> GetByClass(string classId)
+        public async Task<IActionResult> GetByClass(string classId, [FromQuery] bool includeInactive = false)
         {
             try
             {
-                var assignments = await _assignmentService.GetAssignmentsByClassIdAsync(classId);
+                var assignments = await _assignmentService.GetAssignmentsByClassIdAsync(classId, includeInactive);
                 return Ok(assignments);
             }
             catch (Exception ex)

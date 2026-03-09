@@ -26,12 +26,15 @@ namespace MOS.ExcelGrading.Core.Services
             _logger = logger;
         }
 
-        public async Task<List<Assignment>> GetAssignmentsByClassIdAsync(string classId)
+        public async Task<List<Assignment>> GetAssignmentsByClassIdAsync(string classId, bool includeInactive = false)
         {
             try
             {
-                var filter = Builders<Assignment>.Filter.Eq(a => a.ClassId, classId) &
-                             Builders<Assignment>.Filter.Eq(a => a.IsActive, true);
+                var filter = Builders<Assignment>.Filter.Eq(a => a.ClassId, classId);
+                if (!includeInactive)
+                {
+                    filter &= Builders<Assignment>.Filter.Eq(a => a.IsActive, true);
+                }
 
                 return await _assignments.Find(filter)
                     .SortByDescending(a => a.CreatedAt)

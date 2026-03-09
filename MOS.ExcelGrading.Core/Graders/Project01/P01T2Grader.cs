@@ -50,7 +50,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
 
                 // 2) Bảng ở vùng đích phải được đổi tên thành Units_Sold.
                 if (targetTable != null &&
-                    targetTable.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase))
+                    targetTable.Name.Equals(targetName, StringComparison.Ordinal))
                 {
                     score += 2;
                     result.Details.Add($"Bảng tại {targetAddress} đã đổi tên đúng thành '{targetName}'");
@@ -63,7 +63,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
 
                 // 3) Không còn tên cũ Table2 trong Menu Items.
                 var hasOldName = studentTables.Any(t =>
-                    t.Name.Equals(oldName, StringComparison.OrdinalIgnoreCase));
+                    t.Name.Equals(oldName, StringComparison.Ordinal));
                 if (!hasOldName)
                 {
                     score += 1;
@@ -76,7 +76,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
 
                 // 4) Anti-cheat: Units_Sold phải thuộc đúng bảng đích, không phải bảng khác.
                 var unitsSoldTables = studentTables
-                    .Where(t => t.Name.Equals(targetName, StringComparison.OrdinalIgnoreCase))
+                    .Where(t => t.Name.Equals(targetName, StringComparison.Ordinal))
                     .ToList();
 
                 if (unitsSoldTables.Count == 1 &&

@@ -194,6 +194,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     username = user.Username,
                     email = user.Email,
                     fullName = user.FullName,
+                    phoneNumber = user.PhoneNumber,
                     role = user.Role,
                     permissions = user.Permissions,
                     avatar = user.Avatar,
@@ -206,6 +207,46 @@ namespace MOS.ExcelGrading.API.Controllers
             {
                 _logger.LogError(ex, "Lỗi khi lấy thông tin user");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi" });
+            }
+        }
+
+        /// <summary>
+        /// Cập nhật thông tin tài khoản hiện tại
+        /// </summary>
+        [HttpPut("me")]
+        [Authorize]
+        public async Task<IActionResult> UpdateCurrentUserProfile([FromBody] UpdateProfileRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userId))
+                    return Unauthorized(new { message = "Mã xác thực không hợp lệ" });
+
+                var updatedUser = await _userService.UpdateProfileAsync(userId, request);
+                if (updatedUser == null)
+                    return NotFound(new { message = "Không tìm thấy người dùng hoặc tài khoản đã bị vô hiệu hóa" });
+
+                return Ok(new
+                {
+                    userId = updatedUser.Id,
+                    username = updatedUser.Username,
+                    email = updatedUser.Email,
+                    fullName = updatedUser.FullName,
+                    phoneNumber = updatedUser.PhoneNumber,
+                    avatar = updatedUser.Avatar,
+                    role = updatedUser.Role,
+                    permissions = updatedUser.Permissions,
+                    isActive = updatedUser.IsActive
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi cập nhật hồ sơ người dùng");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật thông tin tài khoản" });
             }
         }
     }

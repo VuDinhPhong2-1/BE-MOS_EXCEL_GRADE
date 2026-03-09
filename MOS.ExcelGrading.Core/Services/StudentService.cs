@@ -62,11 +62,14 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
+                var competencyLevel = NormalizeCompetencyLevel(request.CompetencyLevel);
                 var student = new Student
                 {
                     MiddleName = request.MiddleName,
                     FirstName = request.FirstName,
                     Status = request.Status ?? "Active",
+                    CompetencyLevel = competencyLevel,
+                    Notes = request.Notes?.Trim(),
                     TeacherId = userId, // Lấy ID của user tạo student
                     ClassId = request.ClassId,
                     CreatedAt = DateTime.UtcNow,
@@ -106,6 +109,12 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (!string.IsNullOrEmpty(request.Status))
                     updateBuilder = updateBuilder.Set(s => s.Status, request.Status);
+
+                if (request.CompetencyLevel != null)
+                    updateBuilder = updateBuilder.Set(s => s.CompetencyLevel, NormalizeCompetencyLevel(request.CompetencyLevel));
+
+                if (request.Notes != null)
+                    updateBuilder = updateBuilder.Set(s => s.Notes, request.Notes.Trim());
 
                 if (!string.IsNullOrEmpty(request.ClassId))
                     updateBuilder = updateBuilder.Set(s => s.ClassId, request.ClassId);
@@ -215,10 +224,12 @@ namespace MOS.ExcelGrading.Core.Services
                         var student = new Student
                         {
                             MiddleName = middleName,
-                            FirstName = firstName,
-                            Status = "Active",
-                            TeacherId = userId, // User đang import
-                            ClassId = classId,
+                        FirstName = firstName,
+                        Status = "Active",
+                        CompetencyLevel = null,
+                        Notes = null,
+                        TeacherId = userId, // User đang import
+                        ClassId = classId,
                             CreatedAt = DateTime.UtcNow,
                             CreatedBy = userId,
                             IsActive = true
@@ -279,6 +290,8 @@ namespace MOS.ExcelGrading.Core.Services
                         MiddleName = item.MiddleName.Trim(),
                         FirstName = item.FirstName.Trim(),
                         Status = "Active",
+                        CompetencyLevel = null,
+                        Notes = null,
                         TeacherId = userId, // User đang import
                         ClassId = request.ClassId,   // DÙNG ClassId ở ngoài body!
                         CreatedAt = DateTime.UtcNow,
@@ -340,12 +353,25 @@ namespace MOS.ExcelGrading.Core.Services
                 MiddleName = student.MiddleName,
                 FirstName = student.FirstName,
                 Status = student.Status,
+                CompetencyLevel = student.CompetencyLevel,
+                Notes = student.Notes,
                 TeacherId = student.TeacherId,
                 ClassId = student.ClassId,
                 CreatedAt = student.CreatedAt,
                 UpdatedAt = student.UpdatedAt,
                 IsActive = student.IsActive
             };
+        }
+
+        private static string? NormalizeCompetencyLevel(string? rawValue)
+        {
+            if (string.IsNullOrWhiteSpace(rawValue))
+            {
+                return null;
+            }
+
+            var normalized = rawValue.Trim().ToUpperInvariant();
+            return normalized is "A" or "B" or "C" or "D" ? normalized : null;
         }
     }
 }

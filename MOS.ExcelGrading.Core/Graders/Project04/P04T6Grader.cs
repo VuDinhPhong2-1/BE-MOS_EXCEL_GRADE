@@ -39,9 +39,8 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 result.Score += 1m;
                 result.Details.Add("Tim thay chart can cham");
 
-                var yTitle = chart.YAxis?.Title?.Text?.Trim() ?? string.Empty;
-                var normalizedTitle = new string(yTitle.Where(char.IsLetterOrDigit).ToArray()).ToLowerInvariant();
-                if (!string.IsNullOrWhiteSpace(yTitle))
+                var yTitle = chart.YAxis?.Title?.Text ?? string.Empty;
+                if (yTitle.Length > 0)
                 {
                     result.Score += 1.5m;
                     result.Details.Add($"Truc doc da co tieu de: '{yTitle}'");
@@ -51,14 +50,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                     result.Errors.Add("Truc doc chua co tieu de");
                 }
 
-                if (normalizedTitle == "hours")
+                if (string.Equals(yTitle, "Hours", StringComparison.Ordinal))
                 {
                     result.Score += 1.5m;
                     result.Details.Add("Tieu de truc doc dung 'Hours'");
                 }
                 else
                 {
-                    result.Errors.Add($"Tieu de truc doc chua dung. Hien tai: '{yTitle}' (normalized: '{normalizedTitle}')");
+                    result.Errors.Add($"Tieu de truc doc chua dung chinh ta. Hien tai: '{yTitle}', mong doi dung chinh xac 'Hours'.");
                 }
 
                 result.Score = Math.Min(MaxScore, result.Score);

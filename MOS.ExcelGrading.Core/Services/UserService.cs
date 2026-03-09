@@ -223,6 +223,26 @@ namespace MOS.ExcelGrading.Core.Services
             return await _users.Find(u => u.Username == username).FirstOrDefaultAsync();
         }
 
+        public async Task<User?> UpdateProfileAsync(string userId, UpdateProfileRequest request)
+        {
+            var fullName = string.IsNullOrWhiteSpace(request.FullName) ? null : request.FullName.Trim();
+            var phoneNumber = string.IsNullOrWhiteSpace(request.PhoneNumber) ? null : request.PhoneNumber.Trim();
+            var avatar = string.IsNullOrWhiteSpace(request.Avatar) ? null : request.Avatar.Trim();
+
+            var update = Builders<User>.Update
+                .Set(u => u.FullName, fullName)
+                .Set(u => u.PhoneNumber, phoneNumber)
+                .Set(u => u.Avatar, avatar);
+
+            return await _users.FindOneAndUpdateAsync(
+                filter: u => u.Id == userId && u.IsActive,
+                update: update,
+                options: new FindOneAndUpdateOptions<User>
+                {
+                    ReturnDocument = ReturnDocument.After
+                });
+        }
+
         private async Task<string> GenerateUniqueUsernameAsync(string email)
         {
             var baseUsername = email.Split('@')[0];

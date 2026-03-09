@@ -246,6 +246,226 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         /// <summary>
+        /// Chấm điểm dự án 05
+        /// Chi Teacher va Admin duoc phep
+        /// </summary>
+        [HttpPost("project05")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject05(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
+
+                if (!IsExcelFile(studentFile))
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject05Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project05,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project05");
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
+            }
+        }
+
+        /// <summary>
+        /// Cham diem du an 06
+        /// Chi Teacher va Admin duoc phep
+        /// </summary>
+        [HttpPost("project06")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject06(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                    return BadRequest(new { error = "Can cung cap file: studentFile" });
+
+                if (!IsExcelFile(studentFile))
+                    return BadRequest(new { error = "File phai co dinh dang .xlsx hoac .xlsm" });
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject06Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project06,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project06");
+                return StatusCode(500, new { error = "Loi he thong khi cham diem" });
+            }
+        }
+
+        /// <summary>
+        /// Cham diem du an 07
+        /// Chi Teacher va Admin duoc phep
+        /// </summary>
+        [HttpPost("project07")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject07(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                    return BadRequest(new { error = "Can cung cap file: studentFile" });
+
+                if (!IsExcelFile(studentFile))
+                    return BadRequest(new { error = "File phai co dinh dang .xlsx hoac .xlsm" });
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject07Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project07,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project07");
+                return StatusCode(500, new { error = "Loi he thong khi cham diem" });
+            }
+        }
+
+        /// <summary>
+        /// Cham diem du an 08
+        /// Chi Teacher va Admin duoc phep
+        /// </summary>
+        [HttpPost("project08")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject08(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                    return BadRequest(new { error = "Can cung cap file: studentFile" });
+
+                if (!IsExcelFile(studentFile))
+                    return BadRequest(new { error = "File phai co dinh dang .xlsx hoac .xlsm" });
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject08Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project08,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project08");
+                return StatusCode(500, new { error = "Loi he thong khi cham diem" });
+            }
+        }
+
+        /// <summary>
         /// Chấm điểm Project 09
         /// Chỉ Teacher và Admin mới được phép sử dụng
         /// </summary>

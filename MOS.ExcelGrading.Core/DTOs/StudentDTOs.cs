@@ -15,6 +15,12 @@ namespace MOS.ExcelGrading.Core.DTOs
 
         public string Status { get; set; } = "Active";
 
+        [RegularExpression("^([ABCD])?$", ErrorMessage = "Năng lực phải là A, B, C hoặc D")]
+        public string? CompetencyLevel { get; set; }
+
+        [StringLength(500)]
+        public string? Notes { get; set; }
+
         public string? TeacherId { get; set; }
         public string? ClassId { get; set; }
         public string? TeacherName { get; set; }
@@ -30,6 +36,12 @@ namespace MOS.ExcelGrading.Core.DTOs
 
         public string? Status { get; set; }
 
+        [RegularExpression("^([ABCD])?$", ErrorMessage = "Năng lực phải là A, B, C hoặc D")]
+        public string? CompetencyLevel { get; set; }
+
+        [StringLength(500)]
+        public string? Notes { get; set; }
+
         public string? TeacherId { get; set; }
 
         public string? TeacherName { get; set; }
@@ -43,6 +55,8 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string FirstName { get; set; } = string.Empty;
         public string FullName => $"{MiddleName} {FirstName}";
         public string Status { get; set; } = string.Empty;
+        public string? CompetencyLevel { get; set; }
+        public string? Notes { get; set; }
         public string? TeacherId { get; set; }
         public string? ClassId { get; set; }
         public DateTime CreatedAt { get; set; }

@@ -23,8 +23,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
         public static string ExtractRightHeaderText(string? rightHeaderRaw)
         {
             var raw = rightHeaderRaw ?? string.Empty;
-            return raw.Replace("&R", string.Empty, StringComparison.OrdinalIgnoreCase).Trim();
+            return raw.Replace("&R", string.Empty, StringComparison.OrdinalIgnoreCase);
         }
     }
 }
-

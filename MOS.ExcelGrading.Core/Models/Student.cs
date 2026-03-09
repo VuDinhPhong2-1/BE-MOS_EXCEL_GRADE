@@ -22,6 +22,12 @@ namespace MOS.ExcelGrading.Core.Models
         [Required]
         public string Status { get; set; } = "Active"; // Active, Inactive, Special, Auto Active
 
+        [StringLength(1)]
+        public string? CompetencyLevel { get; set; } // A, B, C, D
+
+        [StringLength(500)]
+        public string? Notes { get; set; }
+
         [BsonRepresentation(BsonType.ObjectId)]
         public string? TeacherId { get; set; } // Lấy ID của user tạo student này
 

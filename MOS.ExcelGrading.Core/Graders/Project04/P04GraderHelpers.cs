@@ -53,8 +53,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
 
         public static bool IsGraduationChartSheetName(string? name)
         {
-            var n = (name ?? string.Empty).Trim();
-            return string.Equals(n, "Graduation Chart", StringComparison.Ordinal);
+            return string.Equals(name ?? string.Empty, "Graduation Chart", StringComparison.Ordinal);
         }
     }
 }

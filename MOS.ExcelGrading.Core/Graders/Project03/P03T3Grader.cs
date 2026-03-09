@@ -30,7 +30,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
 
                 var rightHeaderRaw = ws.HeaderFooter?.OddHeader?.RightAlignedText ?? string.Empty;
                 var rightText = P03GraderHelpers.ExtractRightHeaderText(rightHeaderRaw);
-                if (string.Equals(rightText, "Sequential", StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(rightText, "Sequential", StringComparison.Ordinal))
                 {
                     result.Score += 3m;
                     result.Details.Add("Header ben phai dung noi dung 'Sequential'");
@@ -62,4 +62,3 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
         }
     }
 }
-

@@ -81,6 +81,10 @@ namespace MOS.ExcelGrading.API.Controllers
                     student
                 );
             }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error in Create");
@@ -105,6 +109,10 @@ namespace MOS.ExcelGrading.API.Controllers
                     return NotFound(new { message = "Không tìm thấy học sinh" });
 
                 return Ok(student);
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
             }
             catch (Exception ex)
             {

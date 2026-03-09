@@ -62,11 +62,17 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
+                var firstName = request.FirstName?.Trim();
+                if (string.IsNullOrWhiteSpace(firstName))
+                {
+                    throw new ArgumentException("Tên là bắt buộc");
+                }
+
                 var competencyLevel = NormalizeCompetencyLevel(request.CompetencyLevel);
                 var student = new Student
                 {
-                    MiddleName = request.MiddleName,
-                    FirstName = request.FirstName,
+                    MiddleName = request.MiddleName?.Trim() ?? string.Empty,
+                    FirstName = firstName,
                     Status = request.Status ?? "Active",
                     CompetencyLevel = competencyLevel,
                     Notes = request.Notes?.Trim(),
@@ -101,11 +107,18 @@ namespace MOS.ExcelGrading.Core.Services
                     .Set(s => s.UpdatedAt, DateTime.UtcNow)
                     .Set(s => s.UpdatedBy, userId);
 
-                if (!string.IsNullOrEmpty(request.MiddleName))
-                    updateBuilder = updateBuilder.Set(s => s.MiddleName, request.MiddleName);
+                if (request.MiddleName != null)
+                    updateBuilder = updateBuilder.Set(s => s.MiddleName, request.MiddleName.Trim());
 
-                if (!string.IsNullOrEmpty(request.FirstName))
-                    updateBuilder = updateBuilder.Set(s => s.FirstName, request.FirstName);
+                if (request.FirstName != null)
+                {
+                    var firstName = request.FirstName.Trim();
+                    if (string.IsNullOrWhiteSpace(firstName))
+                    {
+                        throw new ArgumentException("Tên là bắt buộc");
+                    }
+                    updateBuilder = updateBuilder.Set(s => s.FirstName, firstName);
+                }
 
                 if (!string.IsNullOrEmpty(request.Status))
                     updateBuilder = updateBuilder.Set(s => s.Status, request.Status);
@@ -212,10 +225,10 @@ namespace MOS.ExcelGrading.Core.Services
                         var firstName = worksheet.Cells[row, 2].Value?.ToString()?.Trim();
                         var classId = worksheet.Cells[row, 3].Value?.ToString()?.Trim();
 
-                        // Validate
-                        if (string.IsNullOrEmpty(middleName) || string.IsNullOrEmpty(firstName))
+                        // Validate: chỉ bắt buộc tên, họ đệm có thể trống.
+                        if (string.IsNullOrEmpty(firstName))
                         {
-                            result.Errors.Add( $"Dòng {row}: Thiếu thông tin họ tên");
+                            result.Errors.Add( $"Dòng {row}: Thiếu tên");
                             result.FailedCount++;
                             continue;
                         }
@@ -223,8 +236,8 @@ namespace MOS.ExcelGrading.Core.Services
                         // Tạo student
                         var student = new Student
                         {
-                            MiddleName = middleName,
-                        FirstName = firstName,
+                            MiddleName = middleName ?? string.Empty,
+                            FirstName = firstName,
                         Status = "Active",
                         CompetencyLevel = null,
                         Notes = null,
@@ -277,17 +290,17 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     var item = request.Students[i];
 
-                    // Validate
-                    if (string.IsNullOrWhiteSpace(item.MiddleName) || string.IsNullOrWhiteSpace(item.FirstName))
+                    // Validate: chỉ bắt buộc tên, họ đệm có thể trống.
+                    if (string.IsNullOrWhiteSpace(item.FirstName))
                     {
-                        result.Errors.Add($"Dòng {i + 1}: Thiếu thông tin họ đệm hoặc tên");
+                        result.Errors.Add($"Dòng {i + 1}: Thiếu tên");
                         result.FailedCount++;
                         continue;
                     }
 
                     var student = new Student
                     {
-                        MiddleName = item.MiddleName.Trim(),
+                        MiddleName = item.MiddleName?.Trim() ?? string.Empty,
                         FirstName = item.FirstName.Trim(),
                         Status = "Active",
                         CompetencyLevel = null,

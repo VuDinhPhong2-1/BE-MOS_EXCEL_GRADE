@@ -11,7 +11,6 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonRepresentation(BsonType.ObjectId)]
         public string? Id { get; set; }
 
-        [Required(ErrorMessage = "Họ và tên đệm là bắt buộc")]
         [StringLength(100)]
         public string MiddleName { get; set; } = string.Empty;
 

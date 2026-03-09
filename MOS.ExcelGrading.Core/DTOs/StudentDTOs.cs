@@ -5,9 +5,8 @@ namespace MOS.ExcelGrading.Core.DTOs
 {
     public class CreateStudentRequest
     {
-        [Required]
         [StringLength(100)]
-        public string MiddleName { get; set; } = string.Empty;
+        public string? MiddleName { get; set; }
 
         [Required]
         [StringLength(100)]
@@ -53,7 +52,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string Id { get; set; } = string.Empty;
         public string MiddleName { get; set; } = string.Empty;
         public string FirstName { get; set; } = string.Empty;
-        public string FullName => $"{MiddleName} {FirstName}";
+        public string FullName => $"{MiddleName} {FirstName}".Trim();
         public string Status { get; set; } = string.Empty;
         public string? CompetencyLevel { get; set; }
         public string? Notes { get; set; }

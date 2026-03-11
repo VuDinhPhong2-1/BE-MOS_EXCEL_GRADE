@@ -16,17 +16,20 @@ namespace MOS.ExcelGrading.API.Controllers
 
         private readonly IScheduleService _scheduleService;
         private readonly IClassService _classService;
+        private readonly IComputerRoomService _computerRoomService;
         private readonly IAttendanceService _attendanceService;
         private readonly ILogger<ScheduleController> _logger;
 
         public ScheduleController(
             IScheduleService scheduleService,
             IClassService classService,
+            IComputerRoomService computerRoomService,
             IAttendanceService attendanceService,
             ILogger<ScheduleController> logger)
         {
             _scheduleService = scheduleService;
             _classService = classService;
+            _computerRoomService = computerRoomService;
             _attendanceService = attendanceService;
             _logger = logger;
         }
@@ -113,6 +116,15 @@ namespace MOS.ExcelGrading.API.Controllers
                     return classValidation.ErrorResult!;
                 }
 
+                var roomValidation = await ValidateAndResolveRoomContextAsync(
+                    classValidation.SchoolId,
+                    request.RoomId,
+                    request.RoomName);
+                if (!roomValidation.IsValid)
+                {
+                    return roomValidation.ErrorResult!;
+                }
+
                 var schedule = new TeacherSchedule
                 {
                     OwnerId = ownerId,
@@ -120,7 +132,8 @@ namespace MOS.ExcelGrading.API.Controllers
                     ClassId = classValidation.ClassId,
                     ClassName = classValidation.ClassName,
                     Subject = request.Subject.Trim(),
-                    RoomName = request.RoomName?.Trim(),
+                    RoomName = roomValidation.RoomName,
+                    RoomId = roomValidation.RoomId,
                     PeriodLabel = request.PeriodLabel?.Trim(),
                     Date = ToUtcFromVietnamLocalDate(request.Date.Date),
                     StartTime = request.StartTime.Trim(),
@@ -177,6 +190,15 @@ namespace MOS.ExcelGrading.API.Controllers
                     return classValidation.ErrorResult!;
                 }
 
+                var roomValidation = await ValidateAndResolveRoomContextAsync(
+                    classValidation.SchoolId,
+                    request.RoomId,
+                    request.RoomName);
+                if (!roomValidation.IsValid)
+                {
+                    return roomValidation.ErrorResult!;
+                }
+
                 var schedule = new TeacherSchedule
                 {
                     OwnerId = string.IsNullOrWhiteSpace(existing.OwnerId) ? ownerId : existing.OwnerId,
@@ -184,7 +206,8 @@ namespace MOS.ExcelGrading.API.Controllers
                     ClassId = classValidation.ClassId,
                     ClassName = classValidation.ClassName,
                     Subject = request.Subject.Trim(),
-                    RoomName = request.RoomName?.Trim(),
+                    RoomName = roomValidation.RoomName,
+                    RoomId = roomValidation.RoomId,
                     PeriodLabel = request.PeriodLabel?.Trim(),
                     Date = ToUtcFromVietnamLocalDate(request.Date.Date),
                     StartTime = request.StartTime.Trim(),
@@ -361,6 +384,34 @@ namespace MOS.ExcelGrading.API.Controllers
                 classEntity.SchoolId);
         }
 
+        private async Task<RoomContextValidationResult> ValidateAndResolveRoomContextAsync(
+            string schoolId,
+            string? roomId,
+            string? roomName)
+        {
+            if (string.IsNullOrWhiteSpace(roomId))
+            {
+                return RoomContextValidationResult.Success(
+                    null,
+                    string.IsNullOrWhiteSpace(roomName) ? null : roomName.Trim());
+            }
+
+            var room = await _computerRoomService.GetByIdAsync(roomId.Trim());
+            if (room == null)
+            {
+                return RoomContextValidationResult.Fail(
+                    NotFound(new { message = "Không tìm thấy phòng máy đã chọn" }));
+            }
+
+            if (!string.Equals(room.SchoolId, schoolId, StringComparison.Ordinal))
+            {
+                return RoomContextValidationResult.Fail(
+                    BadRequest(new { message = "Phòng máy đã chọn không thuộc trường của lớp học" }));
+            }
+
+            return RoomContextValidationResult.Success(room.Id, room.Name);
+        }
+
         private static DateTime GetVietnamToday()
         {
             return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, VietnamTimeZone).Date;
@@ -429,6 +480,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 ClassName = schedule.ClassName,
                 Subject = schedule.Subject,
                 RoomName = schedule.RoomName,
+                RoomId = schedule.RoomId,
                 PeriodLabel = schedule.PeriodLabel,
                 Date = localDate,
                 DayOfWeek = ConvertToVietnameseDayOfWeek(localDate.DayOfWeek),
@@ -467,6 +519,19 @@ namespace MOS.ExcelGrading.API.Controllers
 
             public static ClassContextValidationResult Success(string classId, string className, string schoolId)
                 => new(true, null, classId, className, schoolId);
+        }
+
+        private readonly record struct RoomContextValidationResult(
+            bool IsValid,
+            IActionResult? ErrorResult,
+            string? RoomId,
+            string? RoomName)
+        {
+            public static RoomContextValidationResult Fail(IActionResult errorResult)
+                => new(false, errorResult, null, null);
+
+            public static RoomContextValidationResult Success(string? roomId, string? roomName)
+                => new(true, null, roomId, roomName);
         }
     }
 }

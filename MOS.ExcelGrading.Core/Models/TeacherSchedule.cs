@@ -30,6 +30,9 @@ namespace MOS.ExcelGrading.Core.Models
         [StringLength(100)]
         public string? RoomName { get; set; }
 
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string? RoomId { get; set; }
+
         [StringLength(60)]
         public string? PeriodLabel { get; set; }
 

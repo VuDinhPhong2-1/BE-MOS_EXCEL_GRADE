@@ -47,6 +47,8 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string StartTime { get; set; } = string.Empty;
         public string EndTime { get; set; } = string.Empty;
         public string? RoomName { get; set; }
+        public string? RoomId { get; set; }
+        public ScheduleComputerRoomSnapshotResponse? ComputerRoom { get; set; }
         public List<ScheduleAttendanceStudentResponse> Students { get; set; } = new();
         public int PresentCount { get; set; }
         public int AbsentCount { get; set; }
@@ -239,5 +241,24 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string ClassName { get; set; } = string.Empty;
         public int CurrentStudents { get; set; }
         public int? MaxStudents { get; set; }
+    }
+
+    public class ScheduleComputerRoomSnapshotResponse
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int StudentMachineCount { get; set; }
+        public int TeacherMachineCount { get; set; }
+        public int BrokenMachineCount { get; set; }
+        public int AvailableStudentMachines { get; set; }
+        public int CurrentClassStudents { get; set; }
+        public int MissingMachinesForStudents { get; set; }
+        public string TotalMachinesText { get; set; } = string.Empty;
+        public string NetSupportStatus { get; set; } = string.Empty;
+        public string AudioStatus { get; set; } = string.Empty;
+        public string CoolingStatus { get; set; } = string.Empty;
+        public string DevicesPoweredOffStatus { get; set; } = string.Empty;
+        public string SeatingOrderStatus { get; set; } = string.Empty;
+        public string RoomHygieneStatus { get; set; } = string.Empty;
     }
 }

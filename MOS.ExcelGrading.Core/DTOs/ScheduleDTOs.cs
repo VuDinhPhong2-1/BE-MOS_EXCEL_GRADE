@@ -17,6 +17,8 @@ namespace MOS.ExcelGrading.Core.DTOs
         [StringLength(100)]
         public string? RoomName { get; set; }
 
+        public string? RoomId { get; set; }
+
         [StringLength(60)]
         public string? PeriodLabel { get; set; }
 
@@ -50,6 +52,8 @@ namespace MOS.ExcelGrading.Core.DTOs
         [StringLength(100)]
         public string? RoomName { get; set; }
 
+        public string? RoomId { get; set; }
+
         [StringLength(60)]
         public string? PeriodLabel { get; set; }
 
@@ -79,6 +83,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string ClassName { get; set; } = string.Empty;
         public string Subject { get; set; } = string.Empty;
         public string? RoomName { get; set; }
+        public string? RoomId { get; set; }
         public string? PeriodLabel { get; set; }
         public DateTime Date { get; set; }
         public int DayOfWeek { get; set; }

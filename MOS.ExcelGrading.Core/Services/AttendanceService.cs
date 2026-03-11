@@ -12,15 +12,20 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly IMongoCollection<Student> _students;
         private readonly IMongoCollection<Class> _classes;
         private readonly IMongoCollection<TeacherSchedule> _schedules;
+        private readonly IComputerRoomService _computerRoomService;
         private readonly ILogger<AttendanceService> _logger;
         private static int _indexInitialized;
 
-        public AttendanceService(IMongoDatabase database, ILogger<AttendanceService> logger)
+        public AttendanceService(
+            IMongoDatabase database,
+            IComputerRoomService computerRoomService,
+            ILogger<AttendanceService> logger)
         {
             _attendances = database.GetCollection<StudentScheduleAttendance>("scheduleAttendances");
             _students = database.GetCollection<Student>("students");
             _classes = database.GetCollection<Class>("Classes");
             _schedules = database.GetCollection<TeacherSchedule>("teacherSchedules");
+            _computerRoomService = computerRoomService;
             _logger = logger;
 
             if (Interlocked.Exchange(ref _indexInitialized, 1) == 0)
@@ -92,9 +97,10 @@ namespace MOS.ExcelGrading.Core.Services
 
             var sameRoomSessionSchedules = await GetSameRoomSessionSchedulesAsync(schedule, ownerId);
             var roomSessionContext = await BuildRoomSessionContextAsync(schedule, classInfo, sameRoomSessionSchedules);
-            var reports = BuildReportsResponse(schedule, roomSessionContext);
+            var roomSnapshot = await ResolveComputerRoomSnapshotAsync(schedule, classInfo);
+            var reports = BuildReportsResponse(schedule, roomSessionContext, roomSnapshot);
 
-            return BuildResponse(schedule, classInfo.Id, rows, reports, roomSessionContext);
+            return BuildResponse(schedule, classInfo.Id, rows, reports, roomSessionContext, roomSnapshot);
         }
 
         public async Task<ScheduleAttendanceResponse> SaveScheduleAttendanceAsync(
@@ -391,12 +397,18 @@ namespace MOS.ExcelGrading.Core.Services
 
         private static ScheduleReportsResponse BuildReportsResponse(
             TeacherSchedule schedule,
-            ScheduleRoomSessionContextResponse roomSessionContext)
+            ScheduleRoomSessionContextResponse roomSessionContext,
+            ScheduleComputerRoomSnapshotResponse? roomSnapshot)
         {
             var persisted = schedule.Reports ?? new ScheduleReportBundle();
             persisted.StartLesson ??= new StartLessonReport();
             persisted.Professional ??= new ProfessionalReport();
             persisted.EndLesson ??= new EndLessonReport();
+
+            var roomNameDefault = FirstNonEmpty(schedule.RoomName, roomSnapshot?.Name);
+            var totalMachinesDefault = roomSnapshot?.TotalMachinesText ?? string.Empty;
+            var brokenMachinesDefault = roomSnapshot?.BrokenMachineCount.ToString() ?? string.Empty;
+            var missingMachinesDefault = roomSnapshot?.MissingMachinesForStudents.ToString() ?? string.Empty;
 
             return new ScheduleReportsResponse
             {
@@ -404,14 +416,14 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     TeacherName = persisted.StartLesson.TeacherName,
                     AssistantName = persisted.StartLesson.AssistantName,
-                    RoomName = FirstNonEmpty(persisted.StartLesson.RoomName, schedule.RoomName),
-                    TotalMachines = persisted.StartLesson.TotalMachines,
-                    BrokenMachinesSummary = persisted.StartLesson.BrokenMachinesSummary,
-                    MissingMachinesForStudents = persisted.StartLesson.MissingMachinesForStudents,
-                    NetSupportStatus = persisted.StartLesson.NetSupportStatus,
-                    AudioStatus = persisted.StartLesson.AudioStatus,
-                    CoolingStatus = persisted.StartLesson.CoolingStatus,
-                    HygieneStatus = persisted.StartLesson.HygieneStatus
+                    RoomName = FirstNonEmpty(persisted.StartLesson.RoomName, roomNameDefault),
+                    TotalMachines = FirstNonEmpty(persisted.StartLesson.TotalMachines, totalMachinesDefault),
+                    BrokenMachinesSummary = FirstNonEmpty(persisted.StartLesson.BrokenMachinesSummary, brokenMachinesDefault),
+                    MissingMachinesForStudents = FirstNonEmpty(persisted.StartLesson.MissingMachinesForStudents, missingMachinesDefault),
+                    NetSupportStatus = FirstNonEmpty(persisted.StartLesson.NetSupportStatus, roomSnapshot?.NetSupportStatus),
+                    AudioStatus = FirstNonEmpty(persisted.StartLesson.AudioStatus, roomSnapshot?.AudioStatus),
+                    CoolingStatus = FirstNonEmpty(persisted.StartLesson.CoolingStatus, roomSnapshot?.CoolingStatus),
+                    HygieneStatus = FirstNonEmpty(persisted.StartLesson.HygieneStatus, roomSnapshot?.RoomHygieneStatus)
                 },
                 Professional = new ProfessionalReportResponse
                 {
@@ -429,19 +441,19 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     TeacherName = persisted.EndLesson.TeacherName,
                     AssistantName = persisted.EndLesson.AssistantName,
-                    RoomName = FirstNonEmpty(persisted.EndLesson.RoomName, schedule.RoomName),
-                    TotalMachines = persisted.EndLesson.TotalMachines,
+                    RoomName = FirstNonEmpty(persisted.EndLesson.RoomName, roomNameDefault),
+                    TotalMachines = FirstNonEmpty(persisted.EndLesson.TotalMachines, totalMachinesDefault),
                     ClassStudentCountSummary = FirstNonEmpty(
                         persisted.EndLesson.ClassStudentCountSummary,
                         roomSessionContext.SharedClassStudentSummary),
                     StudentMaterialCoverageRate = persisted.EndLesson.StudentMaterialCoverageRate,
-                    BrokenMachinesSummary = persisted.EndLesson.BrokenMachinesSummary,
-                    NetSupportStatus = persisted.EndLesson.NetSupportStatus,
-                    AudioStatus = persisted.EndLesson.AudioStatus,
-                    CoolingStatus = persisted.EndLesson.CoolingStatus,
-                    DevicesPoweredOffStatus = persisted.EndLesson.DevicesPoweredOffStatus,
-                    SeatingOrderStatus = persisted.EndLesson.SeatingOrderStatus,
-                    RoomHygieneStatus = persisted.EndLesson.RoomHygieneStatus,
+                    BrokenMachinesSummary = FirstNonEmpty(persisted.EndLesson.BrokenMachinesSummary, brokenMachinesDefault),
+                    NetSupportStatus = FirstNonEmpty(persisted.EndLesson.NetSupportStatus, roomSnapshot?.NetSupportStatus),
+                    AudioStatus = FirstNonEmpty(persisted.EndLesson.AudioStatus, roomSnapshot?.AudioStatus),
+                    CoolingStatus = FirstNonEmpty(persisted.EndLesson.CoolingStatus, roomSnapshot?.CoolingStatus),
+                    DevicesPoweredOffStatus = FirstNonEmpty(persisted.EndLesson.DevicesPoweredOffStatus, roomSnapshot?.DevicesPoweredOffStatus),
+                    SeatingOrderStatus = FirstNonEmpty(persisted.EndLesson.SeatingOrderStatus, roomSnapshot?.SeatingOrderStatus),
+                    RoomHygieneStatus = FirstNonEmpty(persisted.EndLesson.RoomHygieneStatus, roomSnapshot?.RoomHygieneStatus),
                     StudentRuleComplianceStatus = persisted.EndLesson.StudentRuleComplianceStatus,
                     ViolationListSummary = persisted.EndLesson.ViolationListSummary
                 }
@@ -656,12 +668,65 @@ namespace MOS.ExcelGrading.Core.Services
             return fallback?.Trim() ?? string.Empty;
         }
 
+        private async Task<ScheduleComputerRoomSnapshotResponse?> ResolveComputerRoomSnapshotAsync(
+            TeacherSchedule schedule,
+            Class classInfo)
+        {
+            ComputerRoom? room = null;
+
+            if (!string.IsNullOrWhiteSpace(schedule.RoomId))
+            {
+                room = await _computerRoomService.GetByIdAsync(schedule.RoomId.Trim());
+            }
+
+            var schoolId = !string.IsNullOrWhiteSpace(schedule.SchoolId)
+                ? schedule.SchoolId.Trim()
+                : classInfo.SchoolId;
+
+            if (room == null && !string.IsNullOrWhiteSpace(schoolId) && !string.IsNullOrWhiteSpace(schedule.RoomName))
+            {
+                room = await _computerRoomService.GetBySchoolAndNameAsync(
+                    schoolId,
+                    schedule.RoomName.Trim(),
+                    includeInactive: true);
+            }
+
+            if (room == null)
+            {
+                return null;
+            }
+
+            var availableStudentMachines = Math.Max(0, room.StudentMachineCount - room.BrokenMachineCount);
+            var currentClassStudents = Math.Max(0, classInfo.CurrentStudents);
+            var missingMachinesForStudents = Math.Max(0, currentClassStudents - availableStudentMachines);
+
+            return new ScheduleComputerRoomSnapshotResponse
+            {
+                Id = room.Id ?? string.Empty,
+                Name = room.Name,
+                StudentMachineCount = room.StudentMachineCount,
+                TeacherMachineCount = room.TeacherMachineCount,
+                BrokenMachineCount = room.BrokenMachineCount,
+                AvailableStudentMachines = availableStudentMachines,
+                CurrentClassStudents = currentClassStudents,
+                MissingMachinesForStudents = missingMachinesForStudents,
+                TotalMachinesText = $"{room.StudentMachineCount} + {room.TeacherMachineCount} GV",
+                NetSupportStatus = room.NetSupportStatus,
+                AudioStatus = room.AudioStatus,
+                CoolingStatus = room.CoolingStatus,
+                DevicesPoweredOffStatus = room.DevicesPoweredOffStatus,
+                SeatingOrderStatus = room.SeatingOrderStatus,
+                RoomHygieneStatus = room.RoomHygieneStatus
+            };
+        }
+
         private static ScheduleAttendanceResponse BuildResponse(
             TeacherSchedule schedule,
             string classId,
             IReadOnlyCollection<ScheduleAttendanceStudentResponse> rows,
             ScheduleReportsResponse reports,
-            ScheduleRoomSessionContextResponse roomSessionContext)
+            ScheduleRoomSessionContextResponse roomSessionContext,
+            ScheduleComputerRoomSnapshotResponse? roomSnapshot)
         {
             return new ScheduleAttendanceResponse
             {
@@ -674,6 +739,8 @@ namespace MOS.ExcelGrading.Core.Services
                 StartTime = schedule.StartTime,
                 EndTime = schedule.EndTime,
                 RoomName = schedule.RoomName,
+                RoomId = schedule.RoomId,
+                ComputerRoom = roomSnapshot,
                 Students = rows.ToList(),
                 PresentCount = rows.Count(x => x.AttendanceStatus == AttendanceStatus.Present),
                 AbsentCount = rows.Count(x => x.AttendanceStatus == AttendanceStatus.Absent),

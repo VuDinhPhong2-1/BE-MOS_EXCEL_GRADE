@@ -82,6 +82,7 @@ namespace MOS.ExcelGrading.Core.Services
                 Builders<TeacherSchedule>.Update.Set(x => x.ClassName, schedule.ClassName),
                 Builders<TeacherSchedule>.Update.Set(x => x.Subject, schedule.Subject),
                 Builders<TeacherSchedule>.Update.Set(x => x.RoomName, schedule.RoomName),
+                Builders<TeacherSchedule>.Update.Set(x => x.RoomId, schedule.RoomId),
                 Builders<TeacherSchedule>.Update.Set(x => x.PeriodLabel, schedule.PeriodLabel),
                 Builders<TeacherSchedule>.Update.Set(x => x.Date, schedule.Date),
                 Builders<TeacherSchedule>.Update.Set(x => x.StartTime, schedule.StartTime),

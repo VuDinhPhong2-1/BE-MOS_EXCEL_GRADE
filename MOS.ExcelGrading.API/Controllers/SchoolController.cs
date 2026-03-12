@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// <summary>
         /// Lấy danh sách schools
         /// Admin: Tất cả schools
-        /// Teacher: Chỉ schools mà mình tạo ra
+        /// Teacher: Tất cả schools (dùng chung)
         /// Student: Chỉ schools mà mình được gán vào
         /// </summary>
         [HttpGet]
@@ -62,18 +62,9 @@ namespace MOS.ExcelGrading.API.Controllers
                 // ✅ LẤY DANH SÁCH SCHOOLS
                 List<School> schools;
 
-                if (userRole == UserRoles.Admin)
-                {
-                    schools = await _schoolService.GetAllSchoolsAsync(includeInactive);
-                    _logger.LogInformation(
-                        $"[GET SCHOOLS] Admin {username} (ID: {userId}) lấy tất cả {schools.Count} schools (includeInactive: {includeInactive})");
-                }
-                else
-                {
-                    schools = await _schoolService.GetSchoolsByOwnerIdAsync(userId, includeInactive);
-                    _logger.LogInformation(
-                        $"[GET SCHOOLS] {userRole} {username} (ID: {userId}) lấy {schools.Count} schools của mình (includeInactive: {includeInactive})");
-                }
+                schools = await _schoolService.GetAllSchoolsAsync(includeInactive);
+                _logger.LogInformation(
+                    $"[GET SCHOOLS] {userRole} {username} (ID: {userId}) lấy {schools.Count} schools (includeInactive: {includeInactive})");
 
                 // ✅ TẠO RESPONSE
                 var response = schools.Select(s => new SchoolResponse
@@ -112,7 +103,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// <summary>
         /// Lấy school theo ID
         /// Admin: Xem tất cả
-        /// Teacher/Student: Chỉ xem school mà mình là owner hoặc được gán vào
+        /// Teacher/Student: Xem school dùng chung
         /// </summary>
         [HttpGet("{id}")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
@@ -140,13 +131,6 @@ namespace MOS.ExcelGrading.API.Controllers
                 {
                     _logger.LogWarning($"[GET SCHOOL] User {username} tìm school ID {id} không tồn tại");
                     return NotFound(new { message = "Không tìm thấy trường" });
-                }
-
-                // ✅ KIỂM TRA QUYỀN TRUY CẬP
-                if (userRole != UserRoles.Admin && school.OwnerId != userId)
-                {
-                    _logger.LogWarning($"[GET SCHOOL] User {username} (ID: {userId}) không có quyền xem school {id}");
-                    return Forbid();
                 }
 
                 _logger.LogInformation($"[GET SCHOOL] User {username} xem school {school.Name} (ID: {id})");
@@ -264,7 +248,7 @@ namespace MOS.ExcelGrading.API.Controllers
 
         /// <summary>
         /// Cập nhật school
-        /// Chỉ owner hoặc Admin mới được phép
+        /// Teacher và Admin được phép
         /// </summary>
         [HttpPut("{id}")]
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
@@ -294,13 +278,6 @@ namespace MOS.ExcelGrading.API.Controllers
                 {
                     _logger.LogWarning($"[UPDATE SCHOOL] User {username} cập nhật school ID {id} không tồn tại");
                     return NotFound(new { message = "Không tìm thấy trường" });
-                }
-
-                // ✅ KIỂM TRA QUYỀN: Chỉ owner hoặc Admin mới được sửa
-                if (userRole != UserRoles.Admin && existingSchool.OwnerId != userId)
-                {
-                    _logger.LogWarning($"[UPDATE SCHOOL] User {username} (ID: {userId}) không có quyền sửa school {id}");
-                    return Forbid();
                 }
 
                 // Cập nhật các field
@@ -371,10 +348,10 @@ namespace MOS.ExcelGrading.API.Controllers
 
         /// <summary>
         /// Xóa school
-        /// Chỉ owner hoặc Admin mới được phép
+        /// Chỉ Admin mới được phép
         /// </summary>
         [HttpDelete("{id}")]
-        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [Authorize(Roles = $"{UserRoles.Admin}")]
         public async Task<IActionResult> DeleteSchool(string id)
         {
             try
@@ -398,13 +375,6 @@ namespace MOS.ExcelGrading.API.Controllers
                 {
                     _logger.LogWarning($"[DELETE SCHOOL] User {username} xóa school ID {id} không tồn tại");
                     return NotFound(new { message = "Không tìm thấy trường" });
-                }
-
-                // ✅ KIỂM TRA QUYỀN: Chỉ owner hoặc Admin mới được xóa
-                if (userRole != UserRoles.Admin && school.OwnerId != userId)
-                {
-                    _logger.LogWarning($"[DELETE SCHOOL] User {username} (ID: {userId}) không có quyền xóa school {id}");
-                    return Forbid();
                 }
 
                 var result = await _schoolService.DeleteSchoolAsync(id);

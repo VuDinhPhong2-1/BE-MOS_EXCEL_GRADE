@@ -8,6 +8,8 @@
         public int? MaxStudents { get; set; }
         public string? AcademicYear { get; set; }
         public string? Grade { get; set; }
+        public string? AttendanceSpreadsheetId { get; set; }
+        public string? AttendanceWorksheetName { get; set; }
         public string? TeacherId { get; set; }
         public bool? IsActive { get; set; }
     }

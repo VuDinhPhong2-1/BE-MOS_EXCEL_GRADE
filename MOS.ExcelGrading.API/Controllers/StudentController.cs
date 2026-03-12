@@ -14,13 +14,19 @@ namespace MOS.ExcelGrading.API.Controllers
     public class StudentController : ControllerBase
     {
         private readonly IStudentService _studentService;
+        private readonly IClassService _classService;
+        private readonly IGoogleSheetAttendanceSyncService _googleSheetAttendanceSyncService;
         private readonly ILogger<StudentController> _logger;
 
         public StudentController(
             IStudentService studentService,
+            IClassService classService,
+            IGoogleSheetAttendanceSyncService googleSheetAttendanceSyncService,
             ILogger<StudentController> logger)
         {
             _studentService = studentService;
+            _classService = classService;
+            _googleSheetAttendanceSyncService = googleSheetAttendanceSyncService;
             _logger = logger;
         }
 
@@ -72,6 +78,10 @@ namespace MOS.ExcelGrading.API.Controllers
                     return BadRequest(ModelState);
 
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "system";
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+
+                if (!await CanManageClassAsync(request.ClassId, userId, userRole))
+                    return Forbid();
 
                 var student = await _studentService.CreateAsync(request, userId);
 
@@ -103,6 +113,17 @@ namespace MOS.ExcelGrading.API.Controllers
                     return BadRequest(ModelState);
 
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "system";
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+                var existingStudent = await _studentService.GetByIdAsync(id);
+                if (existingStudent == null)
+                    return NotFound(new { message = "Không tìm thấy học sinh" });
+
+                var targetClassId = !string.IsNullOrWhiteSpace(request.ClassId)
+                    ? request.ClassId
+                    : existingStudent.ClassId;
+
+                if (!await CanManageClassAsync(targetClassId, userId, userRole))
+                    return Forbid();
 
                 var student = await _studentService.UpdateAsync(id, request, userId);
                 if (student == null)
@@ -128,6 +149,15 @@ namespace MOS.ExcelGrading.API.Controllers
         {
             try
             {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "system";
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+                var existingStudent = await _studentService.GetByIdAsync(id);
+                if (existingStudent == null)
+                    return NotFound(new { message = "Không tìm thấy học sinh" });
+
+                if (!await CanManageClassAsync(existingStudent.ClassId, userId, userRole))
+                    return Forbid();
+
                 var result = await _studentService.DeleteAsync(id);
                 if (!result)
                     return NotFound(new { message = "Không tìm thấy học sinh" });
@@ -192,6 +222,10 @@ namespace MOS.ExcelGrading.API.Controllers
                     return BadRequest(new { message = "Danh sách học sinh trống" });
 
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "system";
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+
+                if (!await CanManageClassAsync(request.ClassId, userId, userRole))
+                    return Forbid();
 
                 var result = await _studentService.BulkImportAsync(request, userId);
 
@@ -229,6 +263,62 @@ namespace MOS.ExcelGrading.API.Controllers
             }
         }
 
+        [HttpPost("class/{classId}/sync-google-sheet-student-metadata")]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        public async Task<IActionResult> SyncStudentMetadataToGoogleSheet(string classId)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "system";
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+
+                if (!await CanManageClassAsync(classId, userId, userRole))
+                    return Forbid();
+
+                var syncResult = await _googleSheetAttendanceSyncService.SyncClassStudentMetadataAsync(
+                    classId,
+                    userId,
+                    throwOnError: true,
+                    cancellationToken: HttpContext.RequestAborted);
+
+                var message = "Đã đồng bộ xếp loại và ghi chú học sinh lên Google Sheet";
+                if (syncResult != null)
+                {
+                    message =
+                        $"{message} | Tab: {syncResult.WorksheetName} | Cột XL: {syncResult.ClassificationColumnLetter} | Cột Ghi chú: {syncResult.NotesColumnLetter} | Ghép tên: {syncResult.MatchedStudentCount}/{syncResult.TotalStudentCount}";
+
+                    if (syncResult.UnmatchedStudentCount > 0)
+                    {
+                        message = $"{message} | Chưa map: {syncResult.UnmatchedStudentCount}";
+                    }
+                }
+
+                return Ok(new { message, sync = syncResult });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error in SyncStudentMetadataToGoogleSheet: {classId}");
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
+            }
+        }
+
+
+        private async Task<bool> CanManageClassAsync(string? classId, string userId, string userRole)
+        {
+            if (userRole == UserRoles.Admin)
+                return true;
+
+            if (string.IsNullOrWhiteSpace(classId))
+                return false;
+
+            var classEntity = await _classService.GetClassByIdAsync(classId);
+            return classEntity != null &&
+                   (classEntity.OwnerId == userId || classEntity.ManagerTeacherIds?.Contains(userId) == true);
+        }
 
     }
 }

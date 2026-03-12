@@ -223,6 +223,17 @@ namespace MOS.ExcelGrading.Core.Services
             return await _users.Find(u => u.Username == username).FirstOrDefaultAsync();
         }
 
+        public async Task<List<User>> GetTeachersAsync(bool includeInactive = false)
+        {
+            var filter = Builders<User>.Filter.Eq(u => u.Role, UserRoles.Teacher);
+            if (!includeInactive)
+            {
+                filter &= Builders<User>.Filter.Eq(u => u.IsActive, true);
+            }
+
+            return await _users.Find(filter).ToListAsync();
+        }
+
         public async Task<User?> UpdateProfileAsync(string userId, UpdateProfileRequest request)
         {
             var fullName = string.IsNullOrWhiteSpace(request.FullName) ? null : request.FullName.Trim();

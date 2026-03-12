@@ -30,6 +30,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string MiddleName { get; set; } = string.Empty;
         public string FirstName { get; set; } = string.Empty;
         public string FullName { get; set; } = string.Empty;
+        public string CompetencyLevel { get; set; } = string.Empty;
         public string StudentStatus { get; set; } = string.Empty;
         public string AttendanceStatus { get; set; } = MOS.ExcelGrading.Core.Models.AttendanceStatus.Present;
         public string? Note { get; set; }
@@ -46,6 +47,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public DateTime Date { get; set; }
         public string StartTime { get; set; } = string.Empty;
         public string EndTime { get; set; } = string.Empty;
+        public string? PeriodLabel { get; set; }
         public string? RoomName { get; set; }
         public string? RoomId { get; set; }
         public ScheduleComputerRoomSnapshotResponse? ComputerRoom { get; set; }

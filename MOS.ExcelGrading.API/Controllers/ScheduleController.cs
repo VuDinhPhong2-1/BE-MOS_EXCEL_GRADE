@@ -18,6 +18,7 @@ namespace MOS.ExcelGrading.API.Controllers
         private readonly IClassService _classService;
         private readonly IComputerRoomService _computerRoomService;
         private readonly IAttendanceService _attendanceService;
+        private readonly IGoogleSheetAttendanceSyncService _googleSheetAttendanceSyncService;
         private readonly ILogger<ScheduleController> _logger;
 
         public ScheduleController(
@@ -25,12 +26,14 @@ namespace MOS.ExcelGrading.API.Controllers
             IClassService classService,
             IComputerRoomService computerRoomService,
             IAttendanceService attendanceService,
+            IGoogleSheetAttendanceSyncService googleSheetAttendanceSyncService,
             ILogger<ScheduleController> logger)
         {
             _scheduleService = scheduleService;
             _classService = classService;
             _computerRoomService = computerRoomService;
             _attendanceService = attendanceService;
+            _googleSheetAttendanceSyncService = googleSheetAttendanceSyncService;
             _logger = logger;
         }
 
@@ -344,6 +347,61 @@ namespace MOS.ExcelGrading.API.Controllers
             {
                 _logger.LogError(ex, "Lỗi khi lưu điểm danh theo lịch");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi lưu điểm danh" });
+            }
+        }
+
+        [HttpPost("{id}/attendance/sync-google-sheet")]
+        public async Task<IActionResult> SyncAttendanceToGoogleSheet(string id)
+        {
+            try
+            {
+                var ownerId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+                var role = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+                var isAdmin = role == UserRoles.Admin;
+                if (string.IsNullOrWhiteSpace(ownerId))
+                    return Unauthorized(new { message = "Mã xác thực không hợp lệ" });
+
+                var existing = await _scheduleService.GetByIdAsync(id);
+                if (existing == null)
+                    return NotFound(new { message = "Không tìm thấy lịch dạy" });
+
+                var canAccess = isAdmin
+                    || existing.OwnerId == ownerId
+                    || string.IsNullOrWhiteSpace(existing.OwnerId);
+
+                if (!canAccess)
+                    return Forbid();
+
+                var response = await _attendanceService.GetScheduleAttendanceAsync(existing, ownerId, isAdmin);
+                response.Date = ToVietnamLocalDate(response.Date);
+
+                var syncResult = await _googleSheetAttendanceSyncService.SyncScheduleAttendanceAsync(
+                    response,
+                    ownerId,
+                    throwOnError: true,
+                    cancellationToken: HttpContext.RequestAborted);
+
+                var message = "Đã đồng bộ điểm danh với Google Sheet";
+                if (syncResult != null)
+                {
+                    message = $"{message} | Tab: {syncResult.WorksheetName} | Cột: {syncResult.ColumnLetter} | Ghép tên: {syncResult.MatchedStudentCount}/{syncResult.TotalStudentCount}";
+
+                    if (syncResult.UnmatchedAttendanceStudentCount > 0)
+                    {
+                        message = $"{message} | Chưa map: {syncResult.UnmatchedAttendanceStudentCount}";
+                    }
+                }
+
+                return Ok(new { message, sync = syncResult });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi đồng bộ điểm danh với Google Sheet");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi đồng bộ Google Sheet" });
             }
         }
 

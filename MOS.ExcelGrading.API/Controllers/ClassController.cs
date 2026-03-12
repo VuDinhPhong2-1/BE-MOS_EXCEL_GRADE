@@ -14,15 +14,18 @@ namespace MOS.ExcelGrading.API.Controllers
     {
         private readonly IClassService _classService;
         private readonly ISchoolService _schoolService;
+        private readonly IUserService _userService;
         private readonly ILogger<ClassController> _logger;
 
         public ClassController(
             IClassService classService,
             ISchoolService schoolService,
+            IUserService userService,
             ILogger<ClassController> logger)
         {
             _classService = classService;
             _schoolService = schoolService;
+            _userService = userService;
             _logger = logger;
         }
 
@@ -50,21 +53,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     classes = await _classService.GetClassesByOwnerIdAsync(userId, includeInactive);
                 }
 
-                var response = classes.Select(c => new ClassResponse
-                {
-                    Id = c.Id ?? string.Empty,
-                    Name = c.Name,
-                    SchoolId = c.SchoolId,
-                    OwnerId = c.OwnerId,
-                    Description = c.Description,
-                    MaxStudents = c.MaxStudents,
-                    CurrentStudents = c.CurrentStudents,
-                    AcademicYear = c.AcademicYear,
-                    Grade = c.Grade,
-                    StudentIds = c.StudentIds,
-                    CreatedAt = c.CreatedAt,
-                    IsActive = c.IsActive
-                }).ToList();
+                var response = classes.Select(ToClassResponse).ToList();
 
                 return Ok(response);
             }
@@ -77,6 +66,7 @@ namespace MOS.ExcelGrading.API.Controllers
 
         /// <summary>
         /// Lấy danh sách classes theo SchoolId
+        /// Teacher/Admin: Được xem tất cả class trong trường
         /// </summary>
         [HttpGet("school/{schoolId}")]
         public async Task<IActionResult> GetClassesBySchoolId(string schoolId, [FromQuery] bool includeInactive = false)
@@ -113,13 +103,6 @@ namespace MOS.ExcelGrading.API.Controllers
                     return NotFound(new { message = "Không tìm thấy trường" });
                 }
 
-                // ✅ KIỂM TRA QUYỀN TRUY CẬP
-                if (userRole != UserRoles.Admin && school.OwnerId != userId)
-                {
-                    _logger.LogWarning($"❌ Access denied: userId={userId}, schoolOwnerId={school.OwnerId}");
-                    return Forbid();
-                }
-
                 // ✅ LẤY DANH SÁCH LỚP
                 List<Class> classes;
                 try
@@ -133,21 +116,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     return StatusCode(500, new { message = "Lỗi khi lấy danh sách lớp", error = ex.Message });
                 }
 
-                var response = classes.Select(c => new ClassResponse
-                {
-                    Id = c.Id ?? string.Empty,
-                    Name = c.Name,
-                    SchoolId = c.SchoolId,
-                    OwnerId = c.OwnerId,
-                    Description = c.Description,
-                    MaxStudents = c.MaxStudents,
-                    CurrentStudents = c.CurrentStudents,
-                    AcademicYear = c.AcademicYear,
-                    Grade = c.Grade,
-                    StudentIds = c.StudentIds,
-                    CreatedAt = c.CreatedAt,
-                    IsActive = c.IsActive
-                }).ToList();
+                var response = classes.Select(ToClassResponse).ToList();
 
                 return Ok(response);
             }
@@ -166,35 +135,12 @@ namespace MOS.ExcelGrading.API.Controllers
         {
             try
             {
-                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
-                var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
-
                 var classEntity = await _classService.GetClassByIdAsync(id);
 
                 if (classEntity == null)
                     return NotFound(new { message = "Không tìm thấy lớp" });
 
-                // Kiểm tra quyền truy cập
-                if (userRole != UserRoles.Admin && classEntity.OwnerId != userId)
-                {
-                    return Forbid();
-                }
-
-                var response = new ClassResponse
-                {
-                    Id = classEntity.Id ?? string.Empty,
-                    Name = classEntity.Name,
-                    SchoolId = classEntity.SchoolId,
-                    OwnerId = classEntity.OwnerId,
-                    Description = classEntity.Description,
-                    MaxStudents = classEntity.MaxStudents,
-                    CurrentStudents = classEntity.CurrentStudents,
-                    AcademicYear = classEntity.AcademicYear,
-                    Grade = classEntity.Grade,
-                    StudentIds = classEntity.StudentIds,
-                    CreatedAt = classEntity.CreatedAt,
-                    IsActive = classEntity.IsActive
-                };
+                var response = ToClassResponse(classEntity);
 
                 return Ok(response);
             }
@@ -208,7 +154,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// <summary>
         /// Tạo class mới
         /// Teacher chỉ tạo được class trong school mà mình là owner
-        /// </summary>
+    /// </summary>
         [HttpPost]
         public async Task<IActionResult> CreateClass([FromBody] CreateClassRequest request)
         {
@@ -243,6 +189,8 @@ namespace MOS.ExcelGrading.API.Controllers
                     MaxStudents = request.MaxStudents,
                     AcademicYear = request.AcademicYear,
                     Grade = request.Grade,
+                    AttendanceSpreadsheetId = NormalizeOptional(request.AttendanceSpreadsheetId),
+                    AttendanceWorksheetName = NormalizeOptional(request.AttendanceWorksheetName),
                 };
 
                 var createdClass = await _classService.CreateClassAsync(classEntity, userId);
@@ -250,20 +198,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 return CreatedAtAction(
                     nameof(GetClassById),
                     new { id = createdClass.Id },
-                    new ClassResponse
-                    {
-                        Id = createdClass.Id ?? string.Empty,
-                        Name = createdClass.Name,
-                        SchoolId = createdClass.SchoolId,
-                        OwnerId = createdClass.OwnerId,
-                        Description = createdClass.Description,
-                        MaxStudents = createdClass.MaxStudents,
-                        CurrentStudents = createdClass.CurrentStudents,
-                        AcademicYear = createdClass.AcademicYear,
-                        Grade = createdClass.Grade,
-                        CreatedAt = createdClass.CreatedAt,
-                        IsActive = createdClass.IsActive
-                    }
+                    ToClassResponse(createdClass)
                 );
             }
             catch (Exception ex)
@@ -293,7 +228,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     return NotFound(new { message = "Không tìm thấy lớp" });
 
                 // Kiểm tra quyền: Chỉ owner hoặc Admin mới được sửa
-                if (userRole != UserRoles.Admin && existingClass.OwnerId != userId)
+                if (!CanManageClass(existingClass, userId, userRole))
                 {
                     return Forbid();
                 }
@@ -306,6 +241,10 @@ namespace MOS.ExcelGrading.API.Controllers
                 existingClass.MaxStudents = request.MaxStudents ?? existingClass.MaxStudents;
                 existingClass.AcademicYear = request.AcademicYear ?? existingClass.AcademicYear;
                 existingClass.Grade = request.Grade ?? existingClass.Grade;
+                if (request.AttendanceSpreadsheetId != null)
+                    existingClass.AttendanceSpreadsheetId = NormalizeOptional(request.AttendanceSpreadsheetId);
+                if (request.AttendanceWorksheetName != null)
+                    existingClass.AttendanceWorksheetName = NormalizeOptional(request.AttendanceWorksheetName);
 
                 if (request.IsActive.HasValue)
                     existingClass.IsActive = request.IsActive.Value;
@@ -315,21 +254,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 if (updatedClass == null)
                     return NotFound(new { message = "Không thể cập nhật lớp" });
 
-                return Ok(new ClassResponse
-                {
-                    Id = updatedClass.Id ?? string.Empty,
-                    Name = updatedClass.Name,
-                    SchoolId = updatedClass.SchoolId,
-                    OwnerId = updatedClass.OwnerId,
-                    Description = updatedClass.Description,
-                    MaxStudents = updatedClass.MaxStudents,
-                    CurrentStudents = updatedClass.CurrentStudents,
-                    AcademicYear = updatedClass.AcademicYear,
-                    Grade = updatedClass.Grade,
-                    StudentIds = updatedClass.StudentIds,
-                    CreatedAt = updatedClass.CreatedAt,
-                    IsActive = updatedClass.IsActive
-                });
+                return Ok(ToClassResponse(updatedClass));
             }
             catch (Exception ex)
             {
@@ -355,7 +280,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     return NotFound(new { message = "Không tìm thấy lớp" });
 
                 // Kiểm tra quyền: Chỉ owner hoặc Admin mới được xóa
-                if (userRole != UserRoles.Admin && classEntity.OwnerId != userId)
+                if (!CanManageClass(classEntity, userId, userRole))
                 {
                     return Forbid();
                 }
@@ -390,7 +315,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     return NotFound(new { message = "Không tìm thấy lớp" });
 
                 // Kiểm tra quyền
-                if (userRole != UserRoles.Admin && classEntity.OwnerId != userId)
+                if (!CanManageClass(classEntity, userId, userRole))
                 {
                     return Forbid();
                 }
@@ -425,7 +350,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     return NotFound(new { message = "Không tìm thấy lớp" });
 
                 // Kiểm tra quyền
-                if (userRole != UserRoles.Admin && classEntity.OwnerId != userId)
+                if (!CanManageClass(classEntity, userId, userRole))
                 {
                     return Forbid();
                 }
@@ -442,6 +367,131 @@ namespace MOS.ExcelGrading.API.Controllers
                 _logger.LogError(ex, "Lỗi khi xóa học sinh khỏi lớp");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi" });
             }
+        }
+
+        [HttpPost("{id}/handover")]
+        public async Task<IActionResult> GrantClassManagement(string id, [FromBody] ClassHandoverRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+                var teacherId = request.TeacherId?.Trim() ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(teacherId))
+                    return BadRequest(new { message = "TeacherId là bắt buộc" });
+
+                var classEntity = await _classService.GetClassByIdAsync(id);
+                if (classEntity == null)
+                    return NotFound(new { message = "Không tìm thấy lớp" });
+
+                if (userRole != UserRoles.Admin && classEntity.OwnerId != userId)
+                    return Forbid();
+
+                var teacher = await _userService.GetUserByIdAsync(teacherId);
+                if (teacher == null || teacher.Role != UserRoles.Teacher || !teacher.IsActive)
+                    return BadRequest(new { message = "Giáo viên không hợp lệ hoặc đã bị vô hiệu hóa" });
+
+                if (teacherId == classEntity.OwnerId)
+                    return BadRequest(new { message = "Giáo viên chính đã có toàn quyền lớp này" });
+
+                classEntity.ManagerTeacherIds ??= new List<string>();
+
+                if (!classEntity.ManagerTeacherIds.Contains(teacherId))
+                    classEntity.ManagerTeacherIds.Add(teacherId);
+
+                var updatedClass = await _classService.UpdateClassAsync(id, classEntity, userId);
+                if (updatedClass == null)
+                    return NotFound(new { message = "Không thể cập nhật bàn giao lớp" });
+
+                return Ok(ToClassResponse(updatedClass));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi bàn giao quyền quản lý lớp");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi" });
+            }
+        }
+
+        [HttpDelete("{id}/handover/{teacherId}")]
+        public async Task<IActionResult> RevokeClassManagement(string id, string teacherId)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+                var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+                var targetTeacherId = teacherId?.Trim() ?? string.Empty;
+
+                if (string.IsNullOrWhiteSpace(targetTeacherId))
+                    return BadRequest(new { message = "TeacherId là bắt buộc" });
+
+                var classEntity = await _classService.GetClassByIdAsync(id);
+                if (classEntity == null)
+                    return NotFound(new { message = "Không tìm thấy lớp" });
+
+                if (userRole != UserRoles.Admin && classEntity.OwnerId != userId)
+                    return Forbid();
+
+                if (targetTeacherId == classEntity.OwnerId)
+                    return BadRequest(new { message = "Không thể thu hồi quyền của giáo viên chính" });
+
+                classEntity.ManagerTeacherIds ??= new List<string>();
+                classEntity.ManagerTeacherIds.RemoveAll(x => x == targetTeacherId);
+
+                var updatedClass = await _classService.UpdateClassAsync(id, classEntity, userId);
+                if (updatedClass == null)
+                    return NotFound(new { message = "Không thể cập nhật bàn giao lớp" });
+
+                return Ok(ToClassResponse(updatedClass));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi thu hồi quyền quản lý lớp");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi" });
+            }
+        }
+
+        private static bool CanManageClass(Class classEntity, string userId, string userRole)
+        {
+            if (userRole == UserRoles.Admin)
+                return true;
+
+            if (classEntity.OwnerId == userId)
+                return true;
+
+            return classEntity.ManagerTeacherIds?.Contains(userId) == true;
+        }
+
+        private static ClassResponse ToClassResponse(Class classEntity)
+        {
+            return new ClassResponse
+            {
+                Id = classEntity.Id ?? string.Empty,
+                Name = classEntity.Name,
+                SchoolId = classEntity.SchoolId,
+                OwnerId = classEntity.OwnerId,
+                Description = classEntity.Description,
+                MaxStudents = classEntity.MaxStudents,
+                CurrentStudents = classEntity.CurrentStudents,
+                AcademicYear = classEntity.AcademicYear,
+                Grade = classEntity.Grade,
+                AttendanceSpreadsheetId = classEntity.AttendanceSpreadsheetId,
+                AttendanceWorksheetName = classEntity.AttendanceWorksheetName,
+                StudentIds = classEntity.StudentIds,
+                ManagerTeacherIds = classEntity.ManagerTeacherIds ?? new List<string>(),
+                CreatedAt = classEntity.CreatedAt,
+                IsActive = classEntity.IsActive
+            };
+        }
+
+        private static string? NormalizeOptional(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value)
+                ? null
+                : value.Trim();
         }
     }
 }

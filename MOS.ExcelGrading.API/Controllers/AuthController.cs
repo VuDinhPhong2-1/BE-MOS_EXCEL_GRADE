@@ -211,6 +211,46 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         /// <summary>
+        /// Lấy danh sách giáo viên để gán quyền/bàn giao
+        /// </summary>
+        [HttpGet("teachers")]
+        [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        public async Task<IActionResult> GetTeachers([FromQuery] bool includeInactive = false)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.ViewUsers);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {username} (ID: {userId}) không có quyền {Permissions.ViewUsers}");
+                    return Forbid();
+                }
+
+                var teachers = await _userService.GetTeachersAsync(includeInactive);
+                var response = teachers.Select(t => new
+                {
+                    userId = t.Id ?? string.Empty,
+                    username = t.Username,
+                    fullName = t.FullName,
+                    email = t.Email,
+                    isActive = t.IsActive
+                });
+
+                return Ok(response);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi lấy danh sách giáo viên");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách giáo viên" });
+            }
+        }
+
+        /// <summary>
         /// Cập nhật thông tin tài khoản hiện tại
         /// </summary>
         [HttpPut("me")]

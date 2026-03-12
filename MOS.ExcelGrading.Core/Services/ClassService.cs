@@ -370,6 +370,9 @@ namespace MOS.ExcelGrading.Core.Services
                     .Set(c => c.CurrentStudents, classEntity.CurrentStudents)
                     .Set(c => c.AcademicYear, classEntity.AcademicYear)
                     .Set(c => c.Grade, classEntity.Grade)
+                    .Set(c => c.AttendanceSpreadsheetId, classEntity.AttendanceSpreadsheetId)
+                    .Set(c => c.AttendanceWorksheetName, classEntity.AttendanceWorksheetName)
+                    .Set(c => c.ManagerTeacherIds, classEntity.ManagerTeacherIds ?? new List<string>())
                     .Set(c => c.IsActive, classEntity.IsActive)
                     .Set(c => c.UpdatedAt, classEntity.UpdatedAt)
                     .Set(c => c.UpdatedBy, classEntity.UpdatedBy);

@@ -34,9 +34,17 @@ namespace MOS.ExcelGrading.Core.Models
         public int CurrentStudents { get; set; } = 0;
         public string? AcademicYear { get; set; }
         public string? Grade { get; set; }
+        [StringLength(300)]
+        public string? AttendanceSpreadsheetId { get; set; }
+
+        [StringLength(120)]
+        public string? AttendanceWorksheetName { get; set; }
 
         [BsonRepresentation(BsonType.ObjectId)]
         public List<string> StudentIds { get; set; } = new List<string>();
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        public List<string> ManagerTeacherIds { get; set; } = new List<string>();
 
         // ========== METADATA ==========
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

@@ -14,7 +14,10 @@
         public int CurrentStudents { get; set; }
         public string? AcademicYear { get; set; }
         public string? Grade { get; set; }
+        public string? AttendanceSpreadsheetId { get; set; }
+        public string? AttendanceWorksheetName { get; set; }
         public List<string> StudentIds { get; set; } = new List<string>();
+        public List<string> ManagerTeacherIds { get; set; } = new List<string>();
         public DateTime CreatedAt { get; set; }
         public bool IsActive { get; set; }
     }

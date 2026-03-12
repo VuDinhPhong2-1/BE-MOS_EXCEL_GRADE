@@ -11,6 +11,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
         Task<AuthResponse?> RefreshTokenAsync(string refreshToken);
         Task<User?> GetUserByIdAsync(string id);
         Task<User?> GetUserByUsernameAsync(string username);
+        Task<List<User>> GetTeachersAsync(bool includeInactive = false);
         Task<User?> UpdateProfileAsync(string userId, UpdateProfileRequest request);
         Task<bool> RevokeRefreshTokenAsync(string userId);
     }

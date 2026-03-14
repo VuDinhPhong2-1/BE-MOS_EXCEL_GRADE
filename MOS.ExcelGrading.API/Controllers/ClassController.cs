@@ -117,11 +117,18 @@ namespace MOS.ExcelGrading.API.Controllers
                 {
                     try
                     {
+                        _logger.LogInformation("[CACHE LOOKUP] classesBySchool key={CacheKey}", cacheKey);
                         var cachedResponse = await _cache.GetJsonAsync<List<ClassResponse>>(cacheKey);
                         if (cachedResponse != null)
                         {
+                            _logger.LogInformation(
+                                "[CACHE HIT] classesBySchool key={CacheKey}, count={Count}",
+                                cacheKey,
+                                cachedResponse.Count);
                             return Ok(cachedResponse);
                         }
+
+                        _logger.LogInformation("[CACHE MISS] classesBySchool key={CacheKey}", cacheKey);
                     }
                     catch (Exception cacheEx)
                     {
@@ -148,10 +155,16 @@ namespace MOS.ExcelGrading.API.Controllers
                 {
                     try
                     {
+                        var ttl = ResolveTtl(_redisSettings.ClassesBySchoolTtlSeconds);
                         await _cache.SetJsonAsync(
                             cacheKey,
                             response,
-                            ResolveTtl(_redisSettings.ClassesBySchoolTtlSeconds));
+                            ttl);
+                        _logger.LogInformation(
+                            "[CACHE SET] classesBySchool key={CacheKey}, count={Count}, ttlSeconds={TtlSeconds}",
+                            cacheKey,
+                            response.Count,
+                            ttl.TotalSeconds);
                     }
                     catch (Exception cacheEx)
                     {

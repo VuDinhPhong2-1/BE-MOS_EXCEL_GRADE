@@ -10,6 +10,7 @@
         public string? Website { get; set; }
         public string? Description { get; set; }
         public string? Logo { get; set; }
+        public string? AttendanceSpreadsheetId { get; set; }
         public bool? IsActive { get; set; }
     }
 }

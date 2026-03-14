@@ -74,6 +74,7 @@ namespace MOS.ExcelGrading.Core.Services
                 .Set(s => s.Website, school.Website)
                 .Set(s => s.Description, school.Description)
                 .Set(s => s.Logo, school.Logo)
+                .Set(s => s.AttendanceSpreadsheetId, school.AttendanceSpreadsheetId)
                 .Set(s => s.IsActive, school.IsActive)
                 .Set(s => s.UpdatedAt, school.UpdatedAt)
                 .Set(s => s.UpdatedBy, school.UpdatedBy);

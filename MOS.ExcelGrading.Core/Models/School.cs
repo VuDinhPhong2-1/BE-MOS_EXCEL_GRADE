@@ -31,6 +31,9 @@ namespace MOS.ExcelGrading.Core.Models
         public string? Description { get; set; }
         public string? Logo { get; set; }
 
+        [StringLength(300)]
+        public string? AttendanceSpreadsheetId { get; set; }
+
         // ========== PHÂN QUYỀN ==========
         /// <summary>
         /// ID của Teacher tạo ra school này (Owner)

@@ -234,6 +234,33 @@ namespace MOS.ExcelGrading.Core.Services
             return await _users.Find(filter).ToListAsync();
         }
 
+        public async Task<User?> UpdateTeacherPermissionsAsync(string teacherId, IReadOnlyCollection<string> permissions)
+        {
+            if (string.IsNullOrWhiteSpace(teacherId))
+                return null;
+
+            var allPermissionKeys = Permissions.GetRolePermissions()
+                .SelectMany(item => item.Value)
+                .Distinct(StringComparer.Ordinal)
+                .ToHashSet(StringComparer.Ordinal);
+
+            var normalizedPermissions = (permissions ?? Array.Empty<string>())
+                .Where(permission => !string.IsNullOrWhiteSpace(permission))
+                .Select(permission => permission.Trim())
+                .Where(permission => allPermissionKeys.Contains(permission))
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(permission => permission, StringComparer.Ordinal)
+                .ToList();
+
+            return await _users.FindOneAndUpdateAsync(
+                filter: user => user.Id == teacherId && user.Role == UserRoles.Teacher,
+                update: Builders<User>.Update.Set(user => user.Permissions, normalizedPermissions),
+                options: new FindOneAndUpdateOptions<User>
+                {
+                    ReturnDocument = ReturnDocument.After
+                });
+        }
+
         public async Task<User?> UpdateProfileAsync(string userId, UpdateProfileRequest request)
         {
             var fullName = string.IsNullOrWhiteSpace(request.FullName) ? null : request.FullName.Trim();

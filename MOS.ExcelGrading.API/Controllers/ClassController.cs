@@ -1,5 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Options;
+using MOS.ExcelGrading.API.Helpers;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -15,17 +18,23 @@ namespace MOS.ExcelGrading.API.Controllers
         private readonly IClassService _classService;
         private readonly ISchoolService _schoolService;
         private readonly IUserService _userService;
+        private readonly IDistributedCache _cache;
+        private readonly RedisSettings _redisSettings;
         private readonly ILogger<ClassController> _logger;
 
         public ClassController(
             IClassService classService,
             ISchoolService schoolService,
             IUserService userService,
+            IDistributedCache cache,
+            IOptions<RedisSettings> redisOptions,
             ILogger<ClassController> logger)
         {
             _classService = classService;
             _schoolService = schoolService;
             _userService = userService;
+            _cache = cache;
+            _redisSettings = redisOptions.Value;
             _logger = logger;
         }
 
@@ -103,6 +112,23 @@ namespace MOS.ExcelGrading.API.Controllers
                     return NotFound(new { message = "Không tìm thấy trường" });
                 }
 
+                var cacheKey = $"classes:school:v1:school:{schoolId}:user:{userId}:role:{userRole}:inactive:{includeInactive}";
+                if (_redisSettings.Enabled)
+                {
+                    try
+                    {
+                        var cachedResponse = await _cache.GetJsonAsync<List<ClassResponse>>(cacheKey);
+                        if (cachedResponse != null)
+                        {
+                            return Ok(cachedResponse);
+                        }
+                    }
+                    catch (Exception cacheEx)
+                    {
+                        _logger.LogWarning(cacheEx, "[CACHE] Không thể đọc cache danh sách lớp theo trường");
+                    }
+                }
+
                 // ✅ LẤY DANH SÁCH LỚP
                 List<Class> classes;
                 try
@@ -117,6 +143,21 @@ namespace MOS.ExcelGrading.API.Controllers
                 }
 
                 var response = classes.Select(ToClassResponse).ToList();
+
+                if (_redisSettings.Enabled)
+                {
+                    try
+                    {
+                        await _cache.SetJsonAsync(
+                            cacheKey,
+                            response,
+                            ResolveTtl(_redisSettings.ClassesBySchoolTtlSeconds));
+                    }
+                    catch (Exception cacheEx)
+                    {
+                        _logger.LogWarning(cacheEx, "[CACHE] Không thể ghi cache danh sách lớp theo trường");
+                    }
+                }
 
                 return Ok(response);
             }
@@ -189,7 +230,8 @@ namespace MOS.ExcelGrading.API.Controllers
                     MaxStudents = request.MaxStudents,
                     AcademicYear = request.AcademicYear,
                     Grade = request.Grade,
-                    AttendanceSpreadsheetId = NormalizeOptional(request.AttendanceSpreadsheetId),
+                    AttendanceSpreadsheetId = NormalizeOptional(request.AttendanceSpreadsheetId)
+                        ?? NormalizeOptional(school.AttendanceSpreadsheetId),
                     AttendanceWorksheetName = NormalizeOptional(request.AttendanceWorksheetName),
                 };
 
@@ -485,6 +527,12 @@ namespace MOS.ExcelGrading.API.Controllers
                 CreatedAt = classEntity.CreatedAt,
                 IsActive = classEntity.IsActive
             };
+        }
+
+        private static TimeSpan ResolveTtl(int configuredSeconds, int fallbackSeconds = 60)
+        {
+            var safeSeconds = configuredSeconds > 0 ? configuredSeconds : fallbackSeconds;
+            return TimeSpan.FromSeconds(safeSeconds);
         }
 
         private static string? NormalizeOptional(string? value)

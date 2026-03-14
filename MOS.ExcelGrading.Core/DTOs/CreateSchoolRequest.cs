@@ -16,5 +16,6 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string? Website { get; set; }
         public string? Description { get; set; }
         public string? Logo { get; set; }
+        public string? AttendanceSpreadsheetId { get; set; }
     }
 }

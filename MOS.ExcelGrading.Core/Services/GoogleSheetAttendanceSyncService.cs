@@ -21,17 +21,20 @@ namespace MOS.ExcelGrading.Core.Services
         private const string PresenceMark = "x";
 
         private readonly IClassService _classService;
+        private readonly ISchoolService _schoolService;
         private readonly IStudentService _studentService;
         private readonly IOptions<GoogleSheetsSettings> _settings;
         private readonly ILogger<GoogleSheetAttendanceSyncService> _logger;
 
         public GoogleSheetAttendanceSyncService(
             IClassService classService,
+            ISchoolService schoolService,
             IStudentService studentService,
             IOptions<GoogleSheetsSettings> settings,
             ILogger<GoogleSheetAttendanceSyncService> logger)
         {
             _classService = classService;
+            _schoolService = schoolService;
             _studentService = studentService;
             _settings = settings;
             _logger = logger;
@@ -83,16 +86,18 @@ namespace MOS.ExcelGrading.Core.Services
                     return null;
                 }
 
-                // Thứ tự ưu tiên spreadsheetId: class.AttendanceSpreadsheetId -> GoogleSheets.DefaultSpreadsheetId.
-                var spreadsheetId = ResolveSpreadsheetId(
-                    classEntity.AttendanceSpreadsheetId,
-                    settings.DefaultSpreadsheetId);
+                // SpreadsheetId lấy duy nhất theo cấu hình của Trường: School.AttendanceSpreadsheetId.
+                var schoolEntity = string.IsNullOrWhiteSpace(classEntity.SchoolId)
+                    ? null
+                    : await _schoolService.GetSchoolByIdAsync(classEntity.SchoolId);
+
+                var spreadsheetId = ParseSpreadsheetId(schoolEntity?.AttendanceSpreadsheetId) ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(spreadsheetId))
                 {
                     if (throwOnError)
                     {
                         throw new InvalidOperationException(
-                            "Chưa cấu hình AttendanceSpreadsheetId cho lớp và cũng chưa có GoogleSheets:DefaultSpreadsheetId.");
+                            "Chưa cấu hình AttendanceSpreadsheetId cho trường.");
                     }
 
                     _logger.LogInformation(
@@ -175,9 +180,10 @@ namespace MOS.ExcelGrading.Core.Services
 
                     // Nếu là lỗi khác (Google API, tab sai, quyền sai...) thì bổ sung context để FE debug.
                     var classConfig = await _classService.GetClassByIdAsync(attendance.ClassId);
-                    var effectiveSpreadsheetId = ResolveSpreadsheetId(
-                        classConfig?.AttendanceSpreadsheetId,
-                        settings.DefaultSpreadsheetId);
+                    var schoolConfig = classConfig == null || string.IsNullOrWhiteSpace(classConfig.SchoolId)
+                        ? null
+                        : await _schoolService.GetSchoolByIdAsync(classConfig.SchoolId);
+                    var effectiveSpreadsheetId = ParseSpreadsheetId(schoolConfig?.AttendanceSpreadsheetId) ?? string.Empty;
                     var effectiveWorksheet = FirstNonEmpty(
                         classConfig?.AttendanceWorksheetName,
                         attendance.ClassName,
@@ -233,15 +239,17 @@ namespace MOS.ExcelGrading.Core.Services
                     return null;
                 }
 
-                var spreadsheetId = ResolveSpreadsheetId(
-                    classEntity.AttendanceSpreadsheetId,
-                    settings.DefaultSpreadsheetId);
+                var schoolEntity = string.IsNullOrWhiteSpace(classEntity.SchoolId)
+                    ? null
+                    : await _schoolService.GetSchoolByIdAsync(classEntity.SchoolId);
+
+                var spreadsheetId = ParseSpreadsheetId(schoolEntity?.AttendanceSpreadsheetId) ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(spreadsheetId))
                 {
                     if (throwOnError)
                     {
                         throw new InvalidOperationException(
-                            "Chưa cấu hình AttendanceSpreadsheetId cho lớp và cũng chưa có GoogleSheets:DefaultSpreadsheetId.");
+                            "Chưa cấu hình AttendanceSpreadsheetId cho trường.");
                     }
 
                     _logger.LogInformation(
@@ -318,9 +326,10 @@ namespace MOS.ExcelGrading.Core.Services
                     }
 
                     var classConfig = await _classService.GetClassByIdAsync(classId);
-                    var effectiveSpreadsheetId = ResolveSpreadsheetId(
-                        classConfig?.AttendanceSpreadsheetId,
-                        settings.DefaultSpreadsheetId);
+                    var schoolConfig = classConfig == null || string.IsNullOrWhiteSpace(classConfig.SchoolId)
+                        ? null
+                        : await _schoolService.GetSchoolByIdAsync(classConfig.SchoolId);
+                    var effectiveSpreadsheetId = ParseSpreadsheetId(schoolConfig?.AttendanceSpreadsheetId) ?? string.Empty;
                     var effectiveWorksheet = FirstNonEmpty(
                         classConfig?.AttendanceWorksheetName,
                         classConfig?.Name);
@@ -1198,17 +1207,6 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return letters;
-        }
-
-        private static string ResolveSpreadsheetId(string? classConfigValue, string? defaultConfigValue)
-        {
-            var classId = ParseSpreadsheetId(classConfigValue);
-            if (!string.IsNullOrWhiteSpace(classId))
-            {
-                return classId;
-            }
-
-            return ParseSpreadsheetId(defaultConfigValue) ?? string.Empty;
         }
 
         private static string? ParseSpreadsheetId(string? value)

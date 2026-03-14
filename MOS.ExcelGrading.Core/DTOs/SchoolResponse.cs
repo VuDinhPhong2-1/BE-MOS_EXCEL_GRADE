@@ -11,6 +11,7 @@
         public string? Website { get; set; }
         public string? Description { get; set; }
         public string? Logo { get; set; }
+        public string? AttendanceSpreadsheetId { get; set; }
         public string OwnerId { get; set; } = string.Empty;
         public string? OwnerName { get; set; }
         public DateTime CreatedAt { get; set; }

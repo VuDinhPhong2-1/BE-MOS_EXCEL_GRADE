@@ -1,5 +1,8 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Options;
+using MOS.ExcelGrading.API.Helpers;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -12,11 +15,19 @@ namespace MOS.ExcelGrading.API.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IUserService _userService;
+        private readonly IDistributedCache _cache;
+        private readonly RedisSettings _redisSettings;
         private readonly ILogger<AuthController> _logger;
 
-        public AuthController(IUserService userService, ILogger<AuthController> logger)
+        public AuthController(
+            IUserService userService,
+            IDistributedCache cache,
+            IOptions<RedisSettings> redisOptions,
+            ILogger<AuthController> logger)
         {
             _userService = userService;
+            _cache = cache;
+            _redisSettings = redisOptions.Value;
             _logger = logger;
         }
 
@@ -231,15 +242,49 @@ namespace MOS.ExcelGrading.API.Controllers
                     return Forbid();
                 }
 
-                var teachers = await _userService.GetTeachersAsync(includeInactive);
-                var response = teachers.Select(t => new
+                var cacheKey = $"teachers:list:v1:user:{userId}:inactive:{includeInactive}";
+                if (_redisSettings.Enabled)
                 {
-                    userId = t.Id ?? string.Empty,
-                    username = t.Username,
-                    fullName = t.FullName,
-                    email = t.Email,
-                    isActive = t.IsActive
-                });
+                    try
+                    {
+                        var cachedResponse = await _cache.GetJsonAsync<List<TeacherListItemResponse>>(cacheKey);
+                        if (cachedResponse != null)
+                        {
+                            return Ok(cachedResponse);
+                        }
+                    }
+                    catch (Exception cacheEx)
+                    {
+                        _logger.LogWarning(cacheEx, "[CACHE] Không thể đọc cache danh sách giáo viên");
+                    }
+                }
+
+                var teachers = await _userService.GetTeachersAsync(includeInactive);
+                var response = teachers.Select(t => new TeacherListItemResponse
+                {
+                    UserId = t.Id ?? string.Empty,
+                    Username = t.Username ?? string.Empty,
+                    FullName = t.FullName ?? string.Empty,
+                    Email = t.Email ?? string.Empty,
+                    Role = t.Role ?? string.Empty,
+                    Permissions = t.Permissions ?? new List<string>(),
+                    IsActive = t.IsActive
+                }).ToList();
+
+                if (_redisSettings.Enabled)
+                {
+                    try
+                    {
+                        await _cache.SetJsonAsync(
+                            cacheKey,
+                            response,
+                            ResolveTtl(_redisSettings.TeachersTtlSeconds));
+                    }
+                    catch (Exception cacheEx)
+                    {
+                        _logger.LogWarning(cacheEx, "[CACHE] Không thể ghi cache danh sách giáo viên");
+                    }
+                }
 
                 return Ok(response);
             }
@@ -247,6 +292,85 @@ namespace MOS.ExcelGrading.API.Controllers
             {
                 _logger.LogError(ex, "Lỗi khi lấy danh sách giáo viên");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách giáo viên" });
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách permission để Admin phân quyền giáo viên
+        /// </summary>
+        [HttpGet("permissions")]
+        [Authorize(Roles = $"{UserRoles.Admin}")]
+        public IActionResult GetPermissionCatalog()
+        {
+            var permissionCatalog = Permissions.GetRolePermissions()
+                .SelectMany(item => item.Value)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(item => item, StringComparer.Ordinal)
+                .ToList();
+
+            var teacherDefaults = Permissions.GetRolePermissions().TryGetValue(UserRoles.Teacher, out var defaults)
+                ? defaults
+                : new List<string>();
+
+            return Ok(new
+            {
+                permissions = permissionCatalog,
+                teacherDefaultPermissions = teacherDefaults
+            });
+        }
+
+        /// <summary>
+        /// Admin cập nhật permission cho giáo viên
+        /// </summary>
+        [HttpPut("teachers/{teacherId}/permissions")]
+        [Authorize(Roles = $"{UserRoles.Admin}")]
+        public async Task<IActionResult> UpdateTeacherPermissions(string teacherId, [FromBody] UpdateUserPermissionsRequest request)
+        {
+            try
+            {
+                var adminUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var adminUsername = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.EditUsers);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {adminUsername} (ID: {adminUserId}) không có quyền {Permissions.EditUsers}");
+                    return Forbid();
+                }
+
+                if (string.IsNullOrWhiteSpace(teacherId))
+                    return BadRequest(new { message = "TeacherId là bắt buộc" });
+
+                if (request == null)
+                    return BadRequest(new { message = "Dữ liệu phân quyền không hợp lệ" });
+
+                var updatedTeacher = await _userService.UpdateTeacherPermissionsAsync(teacherId, request.Permissions);
+                if (updatedTeacher == null)
+                    return NotFound(new { message = "Không tìm thấy giáo viên để cập nhật quyền" });
+
+                _logger.LogInformation(
+                    "[UPDATE TEACHER PERMISSIONS] Admin {AdminUsername} (ID: {AdminUserId}) cập nhật quyền cho teacher {TeacherId}",
+                    adminUsername,
+                    adminUserId,
+                    teacherId);
+
+                return Ok(new
+                {
+                    userId = updatedTeacher.Id ?? string.Empty,
+                    username = updatedTeacher.Username,
+                    fullName = updatedTeacher.FullName,
+                    email = updatedTeacher.Email,
+                    role = updatedTeacher.Role,
+                    permissions = updatedTeacher.Permissions,
+                    isActive = updatedTeacher.IsActive
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi cập nhật permission cho giáo viên");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật phân quyền" });
             }
         }
 
@@ -288,6 +412,23 @@ namespace MOS.ExcelGrading.API.Controllers
                 _logger.LogError(ex, "Lỗi khi cập nhật hồ sơ người dùng");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật thông tin tài khoản" });
             }
+        }
+
+        private static TimeSpan ResolveTtl(int configuredSeconds, int fallbackSeconds = 60)
+        {
+            var safeSeconds = configuredSeconds > 0 ? configuredSeconds : fallbackSeconds;
+            return TimeSpan.FromSeconds(safeSeconds);
+        }
+
+        private sealed class TeacherListItemResponse
+        {
+            public string UserId { get; init; } = string.Empty;
+            public string Username { get; init; } = string.Empty;
+            public string FullName { get; init; } = string.Empty;
+            public string Email { get; init; } = string.Empty;
+            public string Role { get; init; } = string.Empty;
+            public List<string> Permissions { get; init; } = new();
+            public bool IsActive { get; init; }
         }
     }
 }

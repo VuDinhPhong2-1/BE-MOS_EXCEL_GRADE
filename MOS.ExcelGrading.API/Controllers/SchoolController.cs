@@ -1,5 +1,9 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Options;
+using MOS.ExcelGrading.API.Helpers;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -13,11 +17,19 @@ namespace MOS.ExcelGrading.API.Controllers
     public class SchoolController : ControllerBase
     {
         private readonly ISchoolService _schoolService;
+        private readonly IDistributedCache _cache;
+        private readonly RedisSettings _redisSettings;
         private readonly ILogger<SchoolController> _logger;
 
-        public SchoolController(ISchoolService schoolService, ILogger<SchoolController> logger)
+        public SchoolController(
+            ISchoolService schoolService,
+            IDistributedCache cache,
+            IOptions<RedisSettings> redisOptions,
+            ILogger<SchoolController> logger)
         {
             _schoolService = schoolService;
+            _cache = cache;
+            _redisSettings = redisOptions.Value;
             _logger = logger;
         }
 
@@ -59,6 +71,23 @@ namespace MOS.ExcelGrading.API.Controllers
                     return Forbid();
                 }
 
+                var cacheKey = $"schools:list:v1:user:{userId}:role:{userRole}:inactive:{includeInactive}";
+                if (_redisSettings.Enabled)
+                {
+                    try
+                    {
+                        var cachedResponse = await _cache.GetJsonAsync<List<SchoolResponse>>(cacheKey);
+                        if (cachedResponse != null)
+                        {
+                            return Ok(cachedResponse);
+                        }
+                    }
+                    catch (Exception cacheEx)
+                    {
+                        _logger.LogWarning(cacheEx, "[CACHE] Không thể đọc cache danh sách trường");
+                    }
+                }
+
                 // ✅ LẤY DANH SÁCH SCHOOLS
                 List<School> schools;
 
@@ -78,6 +107,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     Website = s.Website,
                     Description = s.Description,
                     Logo = s.Logo,
+                    AttendanceSpreadsheetId = s.AttendanceSpreadsheetId,
                     OwnerId = s.OwnerId,
                     CreatedAt = s.CreatedAt,
                     IsActive = s.IsActive
@@ -86,6 +116,21 @@ namespace MOS.ExcelGrading.API.Controllers
                 // ✅ LOG THÀNH CÔNG
                 _logger.LogInformation(
                     $"[GET SCHOOLS SUCCESS] User {username} (ID: {userId}) - Trả về {response.Count} schools");
+
+                if (_redisSettings.Enabled)
+                {
+                    try
+                    {
+                        await _cache.SetJsonAsync(
+                            cacheKey,
+                            response,
+                            ResolveTtl(_redisSettings.SchoolsTtlSeconds));
+                    }
+                    catch (Exception cacheEx)
+                    {
+                        _logger.LogWarning(cacheEx, "[CACHE] Không thể ghi cache danh sách trường");
+                    }
+                }
 
                 return Ok(response);
             }
@@ -146,6 +191,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     Website = school.Website,
                     Description = school.Description,
                     Logo = school.Logo,
+                    AttendanceSpreadsheetId = school.AttendanceSpreadsheetId,
                     OwnerId = school.OwnerId,
                     CreatedAt = school.CreatedAt,
                     IsActive = school.IsActive
@@ -177,6 +223,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
                 var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+                var isAdmin = string.Equals(userRole, UserRoles.Admin, StringComparison.Ordinal);
 
                 // ✅ KIỂM TRA PERMISSION
                 var hasPermission = User.Claims.Any(c =>
@@ -201,6 +248,20 @@ namespace MOS.ExcelGrading.API.Controllers
                     return BadRequest(new { message = "Mã trường đã tồn tại" });
                 }
 
+                var normalizedSpreadsheetId = NormalizeOptional(request.AttendanceSpreadsheetId);
+                if (!isAdmin && !string.IsNullOrWhiteSpace(normalizedSpreadsheetId))
+                {
+                    _logger.LogWarning(
+                        "[CREATE SCHOOL] User {Username} (ID: {UserId}, Role: {Role}) cố gắng set AttendanceSpreadsheetId nhưng không đủ quyền",
+                        username,
+                        userId,
+                        userRole);
+                    return StatusCode(StatusCodes.Status403Forbidden, new
+                    {
+                        message = "Chỉ Admin mới được cấu hình Spreadsheet ID Google Sheet."
+                    });
+                }
+
                 var school = new School
                 {
                     Name = request.Name,
@@ -210,7 +271,8 @@ namespace MOS.ExcelGrading.API.Controllers
                     Email = request.Email,
                     Website = request.Website,
                     Description = request.Description,
-                    Logo = request.Logo
+                    Logo = request.Logo,
+                    AttendanceSpreadsheetId = isAdmin ? normalizedSpreadsheetId : null
                 };
 
                 var createdSchool = await _schoolService.CreateSchoolAsync(school, userId);
@@ -233,6 +295,7 @@ namespace MOS.ExcelGrading.API.Controllers
                         Website = createdSchool.Website,
                         Description = createdSchool.Description,
                         Logo = createdSchool.Logo,
+                        AttendanceSpreadsheetId = createdSchool.AttendanceSpreadsheetId,
                         OwnerId = createdSchool.OwnerId,
                         CreatedAt = createdSchool.CreatedAt,
                         IsActive = createdSchool.IsActive
@@ -262,6 +325,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
                 var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? string.Empty;
+                var isAdmin = string.Equals(userRole, UserRoles.Admin, StringComparison.Ordinal);
 
                 // ✅ KIỂM TRA PERMISSION
                 var hasPermission = User.Claims.Any(c =>
@@ -307,6 +371,34 @@ namespace MOS.ExcelGrading.API.Controllers
                 existingSchool.Website = request.Website ?? existingSchool.Website;
                 existingSchool.Description = request.Description ?? existingSchool.Description;
                 existingSchool.Logo = request.Logo ?? existingSchool.Logo;
+                if (request.AttendanceSpreadsheetId != null)
+                {
+                    var normalizedRequestedSpreadsheetId = NormalizeOptional(request.AttendanceSpreadsheetId);
+                    var normalizedCurrentSpreadsheetId = NormalizeOptional(existingSchool.AttendanceSpreadsheetId);
+                    var isSpreadsheetChanged = !string.Equals(
+                        normalizedRequestedSpreadsheetId,
+                        normalizedCurrentSpreadsheetId,
+                        StringComparison.Ordinal);
+
+                    if (isSpreadsheetChanged && !isAdmin)
+                    {
+                        _logger.LogWarning(
+                            "[UPDATE SCHOOL] User {Username} (ID: {UserId}, Role: {Role}) cố gắng đổi AttendanceSpreadsheetId của school {SchoolId} nhưng không đủ quyền",
+                            username,
+                            userId,
+                            userRole,
+                            id);
+                        return StatusCode(StatusCodes.Status403Forbidden, new
+                        {
+                            message = "Chỉ Admin mới được thay đổi Spreadsheet ID Google Sheet."
+                        });
+                    }
+
+                    if (isAdmin)
+                    {
+                        existingSchool.AttendanceSpreadsheetId = normalizedRequestedSpreadsheetId;
+                    }
+                }
 
                 if (request.IsActive.HasValue)
                     existingSchool.IsActive = request.IsActive.Value;
@@ -334,6 +426,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     Website = updatedSchool.Website,
                     Description = updatedSchool.Description,
                     Logo = updatedSchool.Logo,
+                    AttendanceSpreadsheetId = updatedSchool.AttendanceSpreadsheetId,
                     OwnerId = updatedSchool.OwnerId,
                     CreatedAt = updatedSchool.CreatedAt,
                     IsActive = updatedSchool.IsActive
@@ -410,6 +503,20 @@ namespace MOS.ExcelGrading.API.Controllers
                 .ToArray());
 
             return normalized;
+        }
+
+        private static string? NormalizeOptional(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return null;
+
+            return value.Trim();
+        }
+
+        private static TimeSpan ResolveTtl(int configuredSeconds, int fallbackSeconds = 60)
+        {
+            var safeSeconds = configuredSeconds > 0 ? configuredSeconds : fallbackSeconds;
+            return TimeSpan.FromSeconds(safeSeconds);
         }
     }
 }

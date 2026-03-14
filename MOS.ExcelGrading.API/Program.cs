@@ -15,6 +15,27 @@ builder.Services.Configure<MongoDbSettings>(
     builder.Configuration.GetSection("MongoDbSettings"));
 builder.Services.Configure<GoogleSheetsSettings>(
     builder.Configuration.GetSection("GoogleSheets"));
+builder.Services.Configure<RedisSettings>(
+    builder.Configuration.GetSection("Redis"));
+
+var redisSettings = builder.Configuration.GetSection("Redis").Get<RedisSettings>() ?? new RedisSettings();
+var useRedisCache = redisSettings.Enabled && !string.IsNullOrWhiteSpace(redisSettings.ConnectionString);
+
+if (useRedisCache)
+{
+    builder.Services.AddStackExchangeRedisCache(options =>
+    {
+        options.Configuration = redisSettings.ConnectionString;
+        options.InstanceName = string.IsNullOrWhiteSpace(redisSettings.InstanceName)
+            ? "mos-grader:"
+            : $"{redisSettings.InstanceName.Trim()}:";
+    });
+}
+else
+{
+    // Fallback để app vẫn chạy kể cả khi chưa cấu hình Redis
+    builder.Services.AddDistributedMemoryCache();
+}
 
 // ✅ ĐĂNG KÝ IMongoDatabase
 builder.Services.AddSingleton<IMongoDatabase>(sp =>
@@ -121,6 +142,9 @@ var app = builder.Build();
 app.Logger.LogInformation("AppMode: {AppMode}", appMode);
 app.Logger.LogInformation("CorsProfile: {CorsProfile}", corsProfile);
 app.Logger.LogInformation("CORS allowed origins: {Origins}", string.Join(", ", allowedOrigins));
+app.Logger.LogInformation(
+    "Cache provider: {Provider}",
+    useRedisCache ? "Redis (StackExchangeRedisCache)" : "InMemory (DistributedMemoryCache)");
 
 // ========== MIDDLEWARE PIPELINE ==========
 app.UseCors("AllowConfiguredOrigins");

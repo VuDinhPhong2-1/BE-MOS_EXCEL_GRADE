@@ -29,65 +29,50 @@ namespace MOS.ExcelGrading.API.Controllers
         [HttpGet("grading-endpoints")]
         public IActionResult GetGradingEndpoints()
         {
-            var endpoints = new List<GradingEndpointInfo>
-    {
-        new() {
-            Endpoint = GradingApiEndpoints.Project01,
-            DisplayName = "Dự án 01",
-            Description = "Chấm điểm Dự án 01",
-            MaxScore = 20
-        },
-        new() {
-            Endpoint = GradingApiEndpoints.Project02,
-            DisplayName = "Dự án 02",
-            Description = "Chấm điểm Dự án 02",
-            MaxScore = 28
-        },
-        new() {
-            Endpoint = GradingApiEndpoints.Project03,
-            DisplayName = "Dự án 03",
-            Description = "Chấm điểm Dự án 03 (Task 1-5 tự động, Task 6 thủ công)",
-            MaxScore = 20
-        },
-        new() {
-            Endpoint = GradingApiEndpoints.Project04,
-            DisplayName = "Dự án 04",
-            Description = "Chấm điểm Dự án 04",
-            MaxScore = 28
-        },
-        new() {
-            Endpoint = GradingApiEndpoints.Project05,
-            DisplayName = "Dự án 05",
-            Description = "Chấm điểm Dự án 05",
-            MaxScore = 24
-        },
-        new() {
-            Endpoint = GradingApiEndpoints.Project06,
-            DisplayName = "Dự án 06",
-            Description = "Chấm điểm Dự án 06",
-            MaxScore = 24
-        },
-        new() {
-            Endpoint = GradingApiEndpoints.Project07,
-            DisplayName = "Dự án 07",
-            Description = "Chấm điểm Dự án 07",
-            MaxScore = 24
-        },
-        new() {
-            Endpoint = GradingApiEndpoints.Project08,
-            DisplayName = "Dự án 08",
-            Description = "Chấm điểm Dự án 08",
-            MaxScore = 24
-        },
-        new() {
-            Endpoint = GradingApiEndpoints.Project09,
-            DisplayName = "Dự án 09",
-            Description = "Chấm điểm Dự án 09",
-            MaxScore = 32
-        }
-    };
+            var implementedExcelProjects = new List<(int Number, string Description, double RawMaxScore)>
+            {
+                (1, "Chấm điểm Dự án 01", 20),
+                (2, "Chấm điểm Dự án 02", 28),
+                (3, "Chấm điểm Dự án 03 (Task 1-5 tự động, Task 6 thủ công)", 20),
+                (4, "Chấm điểm Dự án 04", 28),
+                (5, "Chấm điểm Dự án 05", 24),
+                (6, "Chấm điểm Dự án 06", 24),
+                (7, "Chấm điểm Dự án 07", 24),
+                (8, "Chấm điểm Dự án 08", 24),
+                (9, "Chấm điểm Dự án 09", 32),
+                (10, "Chấm điểm Dự án 10", 24),
+                (11, "Chấm điểm Dự án 11", 24)
+            };
+
+            var endpoints = implementedExcelProjects
+                .Select(item => BuildExcelEndpointInfo(item.Number, item.Description, item.RawMaxScore))
+                .OrderBy(item => item.DisplayName, StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), ignoreCase: true))
+                .ToList();
 
             return Ok(endpoints);
+        }
+
+        private static GradingEndpointInfo BuildExcelEndpointInfo(int projectNumber, string baseDescription, double rawMaxScore)
+        {
+            var endpoint = GradingApiEndpoints.ToExcelProjectEndpoint(projectNumber);
+            var practice = PracticeScoring.ResolveByProjectNumber(projectNumber);
+            var practiceProjectScore = (double)PracticeScoring.CalculateProjectMaxScore(projectNumber);
+
+            return new GradingEndpointInfo
+            {
+                Endpoint = endpoint,
+                DisplayName = $"Project {projectNumber:00} - Excel",
+                Description =
+                    $"{baseDescription}. Quy đổi theo {practice.Name}: {practiceProjectScore:0.##}/{practice.TotalScore} điểm.",
+                MaxScore = practiceProjectScore,
+                RawMaxScore = rawMaxScore,
+                Subject = GradingApiSubjects.Excel,
+                PracticeCode = practice.Code,
+                PracticeName = practice.Name,
+                PracticeTotalScore = practice.TotalScore,
+                PracticeProjectCount = practice.ProjectCount,
+                ApiPath = $"/api/grading/{endpoint}"
+            };
         }
         
         /// <summary>

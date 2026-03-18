@@ -127,9 +127,9 @@ namespace MOS.ExcelGrading.Core.Services
             try
             {
                 if (request.MaxScore.HasValue &&
-                    (request.MaxScore.Value < 0 || request.MaxScore.Value > 100))
+                    (request.MaxScore.Value < 0 || request.MaxScore.Value > 1000))
                 {
-                    throw new ArgumentException("Điểm tối đa phải nằm trong khoảng từ 0 đến 100");
+                    throw new ArgumentException("Điểm tối đa phải nằm trong khoảng từ 0 đến 1000");
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.GradingType) &&
@@ -152,6 +152,10 @@ namespace MOS.ExcelGrading.Core.Services
                     throw new ArgumentException($"GradingApiEndpoint không hợp lệ: {request.GradingApiEndpoint}");
                 }
 
+                var normalizedEndpoint = string.IsNullOrWhiteSpace(request.GradingApiEndpoint)
+                    ? null
+                    : GradingApiEndpoints.NormalizeEndpoint(request.GradingApiEndpoint);
+
                 var updateDefinitions = new List<UpdateDefinition<Assignment>>();
                 var builder = Builders<Assignment>.Update;
 
@@ -168,7 +172,7 @@ namespace MOS.ExcelGrading.Core.Services
                     updateDefinitions.Add(builder.Set(a => a.GradingType, request.GradingType));
 
                 if (request.GradingApiEndpoint != null)
-                    updateDefinitions.Add(builder.Set(a => a.GradingApiEndpoint, request.GradingApiEndpoint));
+                    updateDefinitions.Add(builder.Set(a => a.GradingApiEndpoint, normalizedEndpoint));
 
                 // If switching to manual grading, clear endpoint.
                 if (request.GradingType == GradingTypes.Manual)
@@ -259,9 +263,9 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
-                if (request.MaxScore < 0 || request.MaxScore > 100)
+                if (request.MaxScore < 0 || request.MaxScore > 1000)
                 {
-                    throw new ArgumentException("Điểm tối đa phải nằm trong khoảng từ 0 đến 100");
+                    throw new ArgumentException("Điểm tối đa phải nằm trong khoảng từ 0 đến 1000");
                 }
 
                 if (request.GradingType != GradingTypes.Auto &&
@@ -282,6 +286,8 @@ namespace MOS.ExcelGrading.Core.Services
                     {
                         throw new ArgumentException($"GradingApiEndpoint không hợp lệ: {request.GradingApiEndpoint}");
                     }
+
+                    request.GradingApiEndpoint = GradingApiEndpoints.NormalizeEndpoint(request.GradingApiEndpoint);
                 }
                 else
                 {

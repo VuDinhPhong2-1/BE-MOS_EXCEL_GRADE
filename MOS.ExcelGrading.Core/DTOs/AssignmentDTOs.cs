@@ -1,4 +1,6 @@
 ﻿// MOS.ExcelGrading.Core/DTOs/AssignmentDTOs.cs
+using MOS.ExcelGrading.Core.Models;
+
 namespace MOS.ExcelGrading.Core.DTOs
 {
     public class CreateAssignmentRequest
@@ -16,7 +18,7 @@ namespace MOS.ExcelGrading.Core.DTOs
 
         /// <summary>
         /// API endpoint để chấm điểm (chỉ dùng khi GradingType = "auto")
-        /// Ví dụ: "project09", "project10"
+        /// Ví dụ: "excel/project09", "excel/project10"
         /// </summary>
         public string? GradingApiEndpoint { get; set; }
     }
@@ -65,7 +67,14 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string Endpoint { get; set; } = string.Empty;
         public string DisplayName { get; set; } = string.Empty;
         public string Description { get; set; } = string.Empty;
-        public int MaxScore { get; set; } // ----> Sử dụng kiểu int
+        public double MaxScore { get; set; }
+        public double RawMaxScore { get; set; }
+        public string Subject { get; set; } = GradingApiSubjects.Excel;
+        public string PracticeCode { get; set; } = string.Empty;
+        public string PracticeName { get; set; } = string.Empty;
+        public int PracticeTotalScore { get; set; } = PracticeScoring.PracticeTotalScore;
+        public int PracticeProjectCount { get; set; }
+        public string ApiPath { get; set; } = string.Empty;
     }
 
 }

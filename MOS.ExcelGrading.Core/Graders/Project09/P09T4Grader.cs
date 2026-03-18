@@ -1,6 +1,8 @@
-﻿using OfficeOpenXml;
+using System.Globalization;
+using System.Xml;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
+using OfficeOpenXml;
 
 namespace MOS.ExcelGrading.Core.Graders.Project09
 {
@@ -21,139 +23,123 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
 
             try
             {
-                decimal score = 0;
-
-                // Rule 1: Có AutoFilter (2 điểm)
-                var autoFilterAddress = studentSheet.AutoFilter?.Address;
-                if (autoFilterAddress != null)
+                var ws = P09GraderHelpers.GetSheet(studentSheet.Workbook, "Data");
+                if (ws == null)
                 {
-                    score += 2m;
-                    result.Details.Add($"✓ Đã bật AutoFilter tại {autoFilterAddress}");
+                    result.Errors.Add("Khong tim thay sheet 'Data'.");
+                    return result;
+                }
 
-                    // Rule 2: Filter đúng cột Total với range 34000-45000 (2 điểm)
-                    var filterColumn = GetFilterColumn(studentSheet, "Total");
+                decimal score = 0m;
 
-                    if (filterColumn != null)
-                    {
-                        if (CheckFilterRange(studentSheet, filterColumn.Value, 34000, 45000))
-                        {
-                            score += 2m;
-                            result.Details.Add("✓ Filter đúng khoảng 34,000 - 45,000");
-                        }
-                        else
-                        {
-                            result.Errors.Add("❌ Filter range không đúng hoặc có giá trị ngoài khoảng");
-                        }
-                    }
-                    else
-                    {
-                        result.Errors.Add("❌ Không tìm thấy filter trên cột Total");
-                    }
+                var filterAddress = ws.AutoFilter?.Address?.Address ?? string.Empty;
+                if (string.Equals(
+                        P09GraderHelpers.NormalizeRange(filterAddress),
+                        "A17:K29",
+                        StringComparison.OrdinalIgnoreCase))
+                {
+                    score += 1m;
+                    result.Details.Add("AutoFilter dung vung A17:K29.");
                 }
                 else
                 {
-                    result.Errors.Add("❌ Chưa bật AutoFilter");
+                    result.Errors.Add($"AutoFilter chua dung. Hien tai: '{filterAddress}'.");
                 }
 
-                result.Score = score;
+                var ns = P09GraderHelpers.CreateWorksheetNamespaceManager(ws.WorksheetXml);
+                var autoFilterNode = ws.WorksheetXml.SelectSingleNode("//x:autoFilter", ns);
+                if (autoFilterNode == null)
+                {
+                    result.Errors.Add("Khong tim thay node autoFilter trong XML.");
+                    result.Score = score;
+                    return result;
+                }
+
+                var filterColumnNode = autoFilterNode.SelectSingleNode("x:filterColumn[@colId='10']", ns);
+                if (filterColumnNode != null)
+                {
+                    score += 1m;
+                    result.Details.Add("Filter dat dung cot Total (colId=10).");
+                }
+                else
+                {
+                    result.Errors.Add("Khong tim thay filterColumn voi colId=10.");
+                }
+
+                var customFiltersNode = filterColumnNode?.SelectSingleNode("x:customFilters", ns);
+                var andAttr = customFiltersNode?.Attributes?["and"]?.Value ?? string.Empty;
+                var hasAnd = string.Equals(andAttr, "1", StringComparison.OrdinalIgnoreCase)
+                             || string.Equals(andAttr, "true", StringComparison.OrdinalIgnoreCase);
+
+                if (!hasAnd)
+                {
+                    result.Errors.Add("customFilters chua dat dieu kien AND.");
+                }
+
+                var hasLowerBound = HasCustomFilter(customFiltersNode, ns, "greaterThanOrEqual", 34000m);
+                var hasUpperBound = HasCustomFilter(customFiltersNode, ns, "lessThanOrEqual", 45000m);
+                if (hasAnd && hasLowerBound && hasUpperBound)
+                {
+                    score += 2m;
+                    result.Details.Add("Dieu kien filter dung: >= 34000 va <= 45000.");
+                }
+                else
+                {
+                    if (!hasLowerBound)
+                    {
+                        result.Errors.Add("Thieu dieu kien lower bound: >= 34000.");
+                    }
+
+                    if (!hasUpperBound)
+                    {
+                        result.Errors.Add("Thieu dieu kien upper bound: <= 45000.");
+                    }
+                }
+
+                result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"❌ Lỗi: {ex.Message}");
+                result.Errors.Add($"Loi: {ex.Message}");
             }
 
             return result;
         }
 
-        /// <summary>
-        /// Tìm cột có tên "Total" trong AutoFilter range
-        /// </summary>
-        private int? GetFilterColumn(ExcelWorksheet sheet, string columnName)
+        private static bool HasCustomFilter(
+            XmlNode? customFiltersNode,
+            XmlNamespaceManager ns,
+            string expectedOperator,
+            decimal expectedValue)
         {
-            try
+            if (customFiltersNode == null)
             {
-                var autoFilterAddress = sheet.AutoFilter?.Address;
-                if (autoFilterAddress == null)
-                    return null;
-
-                var range = sheet.Cells[autoFilterAddress.Address];
-                var headerRow = range.Start.Row;
-
-                // Duyệt qua các cột trong AutoFilter range
-                for (int col = range.Start.Column; col <= range.End.Column; col++)
-                {
-                    var cellValue = sheet.Cells[headerRow, col].Value?.ToString();
-
-                    if (cellValue != null &&
-                        cellValue.Contains(columnName, StringComparison.OrdinalIgnoreCase))
-                    {
-                        Console.WriteLine($"✅ Found '{columnName}' column at index {col}");
-                        return col;
-                    }
-                }
-
-                Console.WriteLine($"❌ Column '{columnName}' not found");
-                return null;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Error finding column: {ex.Message}");
-                return null;
-            }
-        }
-
-        /// <summary>
-        /// Kiểm tra các dòng visible có giá trị trong khoảng min-max
-        /// </summary>
-        private bool CheckFilterRange(ExcelWorksheet sheet, int column, double min, double max)
-        {
-            try
-            {
-                var autoFilterAddress = sheet.AutoFilter?.Address;
-                if (autoFilterAddress == null)
-                    return false;
-
-                var autoFilterRange = sheet.Cells[autoFilterAddress.Address];
-                var startRow = autoFilterRange.Start.Row + 1; // Bỏ qua header
-                var endRow = autoFilterRange.End.Row;
-
-                int visibleCount = 0;
-                int outOfRangeCount = 0;
-
-                // Duyệt qua tất cả các dòng trong AutoFilter range
-                for (int row = startRow; row <= endRow; row++)
-                {
-                    // Bỏ qua dòng bị ẩn
-                    if (sheet.Row(row).Hidden)
-                        continue;
-
-                    visibleCount++;
-
-                    var cell = sheet.Cells[row, column];
-                    var cellValue = cell.Value;
-
-                    // Thử parse giá trị
-                    if (cellValue != null && double.TryParse(cellValue.ToString(), out double value))
-                    {
-                        // Kiểm tra có nằm trong khoảng không
-                        if (value < min || value > max)
-                        {
-                            outOfRangeCount++;
-                            Console.WriteLine($"⚠ Row {row}: Value {value} is out of range [{min}, {max}]");
-                        }
-                    }
-                }
-
-                Console.WriteLine($"Visible rows: {visibleCount}, Out of range: {outOfRangeCount}");
-
-                // Nếu có dòng visible ngoài khoảng → Filter sai
-                return outOfRangeCount == 0 && visibleCount > 0;
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"❌ Error checking filter range: {ex.Message}");
                 return false;
             }
+
+            var nodes = customFiltersNode.SelectNodes("x:customFilter", ns);
+            if (nodes == null)
+            {
+                return false;
+            }
+
+            foreach (XmlNode node in nodes)
+            {
+                var op = node.Attributes?["operator"]?.Value ?? string.Empty;
+                var valueText = node.Attributes?["val"]?.Value ?? string.Empty;
+                if (!decimal.TryParse(valueText, NumberStyles.Any, CultureInfo.InvariantCulture, out var value))
+                {
+                    continue;
+                }
+
+                if (string.Equals(op, expectedOperator, StringComparison.OrdinalIgnoreCase)
+                    && value == expectedValue)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
     }
 }

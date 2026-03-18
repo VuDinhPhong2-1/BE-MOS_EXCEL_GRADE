@@ -29,7 +29,8 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Chấm điểm Project 01
         /// Chỉ Teacher và Admin mới được phép sử dụng
         /// </summary>
-        [HttpPost("project01")]
+        [HttpPost("excel/project01")]
+        [HttpPost("project01")] // Legacy alias
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         [RequestSizeLimit(524288000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
@@ -84,7 +85,8 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Chấm điểm dự án 02
         /// Chi Teacher va Admin duoc phep
         /// </summary>
-        [HttpPost("project02")]
+        [HttpPost("excel/project02")]
+        [HttpPost("project02")] // Legacy alias
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         [RequestSizeLimit(524288000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
@@ -139,7 +141,8 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Chấm điểm dự án 03
         /// Chi Teacher va Admin duoc phep
         /// </summary>
-        [HttpPost("project03")]
+        [HttpPost("excel/project03")]
+        [HttpPost("project03")] // Legacy alias
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         [RequestSizeLimit(524288000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
@@ -194,7 +197,8 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Chấm điểm dự án 04
         /// Chi Teacher va Admin duoc phep
         /// </summary>
-        [HttpPost("project04")]
+        [HttpPost("excel/project04")]
+        [HttpPost("project04")] // Legacy alias
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         [RequestSizeLimit(524288000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
@@ -249,7 +253,8 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Chấm điểm dự án 05
         /// Chi Teacher va Admin duoc phep
         /// </summary>
-        [HttpPost("project05")]
+        [HttpPost("excel/project05")]
+        [HttpPost("project05")] // Legacy alias
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         [RequestSizeLimit(524288000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
@@ -304,7 +309,8 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Cham diem du an 06
         /// Chi Teacher va Admin duoc phep
         /// </summary>
-        [HttpPost("project06")]
+        [HttpPost("excel/project06")]
+        [HttpPost("project06")] // Legacy alias
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         [RequestSizeLimit(524288000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
@@ -359,7 +365,8 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Cham diem du an 07
         /// Chi Teacher va Admin duoc phep
         /// </summary>
-        [HttpPost("project07")]
+        [HttpPost("excel/project07")]
+        [HttpPost("project07")] // Legacy alias
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         [RequestSizeLimit(524288000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
@@ -414,7 +421,8 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Cham diem du an 08
         /// Chi Teacher va Admin duoc phep
         /// </summary>
-        [HttpPost("project08")]
+        [HttpPost("excel/project08")]
+        [HttpPost("project08")] // Legacy alias
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         [RequestSizeLimit(524288000)]
         [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
@@ -469,7 +477,8 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Chấm điểm Project 09
         /// Chỉ Teacher và Admin mới được phép sử dụng
         /// </summary>
-        [HttpPost("project09")]
+        [HttpPost("excel/project09")]
+        [HttpPost("project09")] // Legacy alias
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")] // ✅ CHỈ TEACHER VÀ ADMIN
         [RequestSizeLimit(524288000)] // 500MB
         [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
@@ -538,6 +547,126 @@ namespace MOS.ExcelGrading.API.Controllers
                 _logger.LogError(ex,
                     $"[GRADING ERROR] User: {username} (ID: {userId}) | Error: {ex.Message}");
 
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
+            }
+        }
+
+        /// <summary>
+        /// Chấm điểm Project 10
+        /// Chỉ Teacher và Admin mới được phép sử dụng
+        /// </summary>
+        [HttpPost("excel/project10")]
+        [HttpPost("project10")] // Legacy alias
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject10(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {username} (ID: {userId}) không có quyền {Permissions.CreateGrades}");
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                {
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
+                }
+
+                if (!IsExcelFile(studentFile))
+                {
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
+                }
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject10Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project10,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project10");
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
+            }
+        }
+
+        /// <summary>
+        /// Chấm điểm Project 11
+        /// Chỉ Teacher và Admin mới được phép sử dụng
+        /// </summary>
+        [HttpPost("excel/project11")]
+        [HttpPost("project11")] // Legacy alias
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject11(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {username} (ID: {userId}) không có quyền {Permissions.CreateGrades}");
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                {
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
+                }
+
+                if (!IsExcelFile(studentFile))
+                {
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
+                }
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject11Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project11,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project11");
                 return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
             }
         }

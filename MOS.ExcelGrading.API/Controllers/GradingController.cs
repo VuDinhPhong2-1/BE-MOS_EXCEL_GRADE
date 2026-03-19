@@ -46,12 +46,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
 
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) không có quyền {Permissions.CreateGrades}");
                     return Forbid();
                 }
 
@@ -102,12 +98,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
 
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
                     return Forbid();
                 }
 
@@ -158,12 +150,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
 
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
                     return Forbid();
                 }
 
@@ -214,12 +202,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
 
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
                     return Forbid();
                 }
 
@@ -270,12 +254,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
 
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
                     return Forbid();
                 }
 
@@ -326,12 +306,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
 
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
                     return Forbid();
                 }
 
@@ -382,12 +358,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
 
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
                     return Forbid();
                 }
 
@@ -438,12 +410,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
 
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) khong co quyen {Permissions.CreateGrades}");
                     return Forbid();
                 }
 
@@ -496,14 +464,10 @@ namespace MOS.ExcelGrading.API.Controllers
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
                 var userRole = User.FindFirst(ClaimTypes.Role)?.Value ?? "unknown";
 
-                // ✅ KIỂM TRA PERMISSION (tùy chọn - nếu muốn kiểm tra chi tiết hơn)
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                // ✅ KIỂM TRA PERMISSION
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) không có quyền {Permissions.CreateGrades}");
-                    return Forbid(); // 403 Forbidden
+                    return Forbid();
                 }
 
                 if (studentFile == null)
@@ -572,12 +536,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
 
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) không có quyền {Permissions.CreateGrades}");
                     return Forbid();
                 }
 
@@ -632,12 +592,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
                 var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
 
-                var hasPermission = User.Claims.Any(c =>
-                    c.Type == "permission" && c.Value == Permissions.CreateGrades);
-
-                if (!hasPermission)
+                if (!HasCreateGradesPermission(userId, username))
                 {
-                    _logger.LogWarning($"User {username} (ID: {userId}) không có quyền {Permissions.CreateGrades}");
                     return Forbid();
                 }
 
@@ -684,6 +640,23 @@ namespace MOS.ExcelGrading.API.Controllers
                 timestamp = DateTime.UtcNow,
                 maxUploadSize = "500MB"
             });
+        }
+
+        private bool HasCreateGradesPermission(string userId, string username)
+        {
+            var hasPermission = User.Claims.Any(c =>
+                c.Type == "permission" && c.Value == Permissions.CreateGrades);
+
+            if (!hasPermission)
+            {
+                _logger.LogWarning(
+                    "User {Username} (ID: {UserId}) không có quyền {Permission}",
+                    username,
+                    userId,
+                    Permissions.CreateGrades);
+            }
+
+            return hasPermission;
         }
 
         private bool IsExcelFile(IFormFile file)

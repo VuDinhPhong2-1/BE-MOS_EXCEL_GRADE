@@ -1,3 +1,4 @@
+using System.Xml;
 using OfficeOpenXml;
 using OfficeOpenXml.Drawing.Chart;
 using OfficeOpenXml.Table;
@@ -38,6 +39,22 @@ namespace MOS.ExcelGrading.Core.Graders.Project10
                 StringComparison.OrdinalIgnoreCase);
         }
 
+        public static string NormalizeFormula(string? formula)
+        {
+            return (formula ?? string.Empty)
+                .Trim()
+                .Replace("=", string.Empty, StringComparison.Ordinal)
+                .Replace("$", string.Empty, StringComparison.Ordinal)
+                .Replace(" ", string.Empty, StringComparison.Ordinal)
+                .Replace("_xlfn.", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .ToUpperInvariant();
+        }
+
+        public static string NormalizeText(string? value)
+        {
+            return (value ?? string.Empty).Trim();
+        }
+
         public static ExcelTable? FindTableByAddress(ExcelWorksheet sheet, string expectedAddress)
         {
             return sheet.Tables.FirstOrDefault(table =>
@@ -74,6 +91,67 @@ namespace MOS.ExcelGrading.Core.Graders.Project10
 
             return IsRangeMatch(series.XSeries?.ToString(), expectedXRange)
                    && IsRangeMatch(series.Series?.ToString(), expectedYRange);
+        }
+
+        public static bool TryGetDefinedName(ExcelWorkbook workbook, string definedName, out string value)
+        {
+            value = string.Empty;
+            var workbookXml = workbook.WorkbookXml;
+            if (workbookXml == null)
+            {
+                return false;
+            }
+
+            var ns = new XmlNamespaceManager(workbookXml.NameTable);
+            ns.AddNamespace("x", "http://schemas.openxmlformats.org/spreadsheetml/2006/main");
+            var node = workbookXml.SelectSingleNode(
+                $"//x:definedNames/x:definedName[@name='{definedName}']",
+                ns);
+
+            if (node == null)
+            {
+                return false;
+            }
+
+            value = node.InnerText ?? string.Empty;
+            return true;
+        }
+
+        public static (string ChoiceStyle, string FallbackStyle) GetChartAlternateStyles(ExcelChart chart)
+        {
+            var xml = chart.ChartXml;
+            var choiceStyle = xml.SelectSingleNode(
+                                  "/*[local-name()='chartSpace']/*[local-name()='AlternateContent']/*[local-name()='Choice']/*[local-name()='style']")
+                              ?.Attributes?["val"]?.Value
+                              ?? string.Empty;
+
+            var fallbackStyle = xml.SelectSingleNode(
+                                    "/*[local-name()='chartSpace']/*[local-name()='AlternateContent']/*[local-name()='Fallback']/*[local-name()='style']")
+                                ?.Attributes?["val"]?.Value
+                                ?? string.Empty;
+
+            return (choiceStyle.Trim(), fallbackStyle.Trim());
+        }
+
+        public static (string ColorStyleId, string ChartStyleId) GetStyleManagerIds(ExcelChart chart)
+        {
+            var colorStyleId = chart.StyleManager?.ColorsXml?.DocumentElement?.Attributes?["id"]?.Value?.Trim() ?? string.Empty;
+            var chartStyleId = chart.StyleManager?.StyleXml?.DocumentElement?.Attributes?["id"]?.Value?.Trim() ?? string.Empty;
+            return (colorStyleId, chartStyleId);
+        }
+
+        public static int FindRowContainsText(ExcelWorksheet worksheet, int column, int startRow, int endRow, string expectedText)
+        {
+            for (var row = startRow; row <= endRow; row++)
+            {
+                var text = NormalizeText(worksheet.Cells[row, column].Text);
+                if (string.Equals(text, NormalizeText(expectedText), StringComparison.OrdinalIgnoreCase))
+                {
+                    return row;
+                }
+            }
+
+            return -1;
         }
 
         public static string CellAddress(int row, int col)

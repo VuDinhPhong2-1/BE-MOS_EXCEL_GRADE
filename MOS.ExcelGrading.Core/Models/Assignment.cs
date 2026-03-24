@@ -97,7 +97,7 @@ namespace MOS.ExcelGrading.Core.Models
         public const int PracticeTotalScore = 1000;
 
         // Theo cấu hình yêu cầu hiện tại:
-        // Practice 01: 8 bài | Practice 02: 9 bài | Practice 03: 17 bài
+        // Practice 01: 8 bài | Practice 02: 8 bài | Practice 03: 8 bài
         private static readonly PracticeDefinition Practice01 = new()
         {
             Code = "practice01",
@@ -111,7 +111,7 @@ namespace MOS.ExcelGrading.Core.Models
             Code = "practice02",
             Name = "Practice 02",
             TotalScore = PracticeTotalScore,
-            ProjectCount = 9
+            ProjectCount = 8
         };
 
         private static readonly PracticeDefinition Practice03 = new()
@@ -119,7 +119,7 @@ namespace MOS.ExcelGrading.Core.Models
             Code = "practice03",
             Name = "Practice 03",
             TotalScore = PracticeTotalScore,
-            ProjectCount = 17
+            ProjectCount = 8
         };
 
         public static PracticeDefinition ResolveByProjectNumber(int projectNumber)

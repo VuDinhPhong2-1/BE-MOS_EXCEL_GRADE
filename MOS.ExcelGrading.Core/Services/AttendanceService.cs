@@ -148,13 +148,16 @@ namespace MOS.ExcelGrading.Core.Services
                 }
 
                 var normalizedStatus = NormalizeStatus(item.Status);
+                var normalizedNote = string.IsNullOrWhiteSpace(item.Note) ? null : item.Note.Trim();
                 var filter = Builders<StudentScheduleAttendance>.Filter.And(
                     Builders<StudentScheduleAttendance>.Filter.Eq(x => x.OwnerId, ownerId),
                     Builders<StudentScheduleAttendance>.Filter.Eq(x => x.ScheduleId, schedule.Id),
                     Builders<StudentScheduleAttendance>.Filter.Eq(x => x.StudentId, studentId)
                 );
 
-                if (normalizedStatus == AttendanceStatus.Present)
+                // Keep collection sparse: delete only when Present and note is empty.
+                // If there is a note (even with Present status), keep the record to avoid losing note data.
+                if (normalizedStatus == AttendanceStatus.Present && normalizedNote == null)
                 {
                     operations.Add(new DeleteOneModel<StudentScheduleAttendance>(filter));
                     continue;
@@ -168,7 +171,7 @@ namespace MOS.ExcelGrading.Core.Services
                     .Set(x => x.StudentId, studentId)
                     .Set(x => x.Date, schedule.Date)
                     .Set(x => x.Status, normalizedStatus)
-                    .Set(x => x.Note, item.Note?.Trim())
+                    .Set(x => x.Note, normalizedNote)
                     .Set(x => x.MarkedAt, now)
                     .Set(x => x.MarkedBy, updatedBy)
                     .Set(x => x.UpdatedAt, now)

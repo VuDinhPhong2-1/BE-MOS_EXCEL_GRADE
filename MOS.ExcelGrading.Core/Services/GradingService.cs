@@ -10,6 +10,11 @@ using MOS.ExcelGrading.Core.Graders.Project08;
 using MOS.ExcelGrading.Core.Graders.Project09;
 using MOS.ExcelGrading.Core.Graders.Project10;
 using MOS.ExcelGrading.Core.Graders.Project11;
+using MOS.ExcelGrading.Core.Graders.Project12;
+using MOS.ExcelGrading.Core.Graders.Project13;
+using MOS.ExcelGrading.Core.Graders.Project14;
+using MOS.ExcelGrading.Core.Graders.Project15;
+using MOS.ExcelGrading.Core.Graders.Project16;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 
@@ -28,6 +33,11 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly List<ITaskGrader> _project09Graders;
         private readonly List<ITaskGrader> _project10Graders;
         private readonly List<ITaskGrader> _project11Graders;
+        private readonly List<ITaskGrader> _project12Graders;
+        private readonly List<ITaskGrader> _project13Graders;
+        private readonly List<ITaskGrader> _project14Graders;
+        private readonly List<ITaskGrader> _project15Graders;
+        private readonly List<ITaskGrader> _project16Graders;
 
         public GradingService()
         {
@@ -140,6 +150,56 @@ namespace MOS.ExcelGrading.Core.Services
                 new P11T4Grader(),
                 new P11T5Grader(),
                 new P11T6Grader()
+            };
+
+            _project12Graders = new List<ITaskGrader>
+            {
+                new P12T1Grader(),
+                new P12T2Grader(),
+                new P12T3Grader(),
+                new P12T4Grader(),
+                new P12T5Grader(),
+                new P12T6Grader()
+            };
+
+            _project13Graders = new List<ITaskGrader>
+            {
+                new P13T1Grader(),
+                new P13T2Grader(),
+                new P13T3Grader(),
+                new P13T4Grader(),
+                new P13T5Grader(),
+                new P13T6Grader()
+            };
+
+            _project14Graders = new List<ITaskGrader>
+            {
+                new P14T1Grader(),
+                new P14T2Grader(),
+                new P14T3Grader(),
+                new P14T4Grader(),
+                new P14T5Grader(),
+                new P14T6Grader()
+            };
+
+            _project15Graders = new List<ITaskGrader>
+            {
+                new P15T1Grader(),
+                new P15T2Grader(),
+                new P15T3Grader(),
+                new P15T4Grader(),
+                new P15T5Grader(),
+                new P15T6Grader()
+            };
+
+            _project16Graders = new List<ITaskGrader>
+            {
+                new P16T1Grader(),
+                new P16T2Grader(),
+                new P16T3Grader(),
+                new P16T4Grader(),
+                new P16T5Grader(),
+                new P16T6Grader()
             };
 
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
@@ -509,6 +569,181 @@ namespace MOS.ExcelGrading.Core.Services
                 var studentSheet = studentPackage.Workbook.Worksheets[0];
 
                 foreach (var grader in _project11Graders)
+                {
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    result.TaskResults.Add(taskResult);
+                }
+
+                result.TotalScore = result.TaskResults.Sum(t => t.Score);
+                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+            }
+            catch (Exception ex)
+            {
+                result.TaskResults.Add(new TaskResult
+                {
+                    TaskId = "ERROR",
+                    TaskName = "Loi he thong",
+                    Errors = new List<string> { $"Loi: {ex.Message}" }
+                });
+            }
+
+            return result;
+        }
+
+        public async Task<GradingResult> GradeProject12Async(Stream studentFile)
+        {
+            var result = new GradingResult
+            {
+                ProjectId = "P12",
+                ProjectName = "Clothing Orders"
+            };
+
+            try
+            {
+                using var studentPackage = new ExcelPackage(studentFile);
+                var studentSheet = studentPackage.Workbook.Worksheets[0];
+
+                foreach (var grader in _project12Graders)
+                {
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    result.TaskResults.Add(taskResult);
+                }
+
+                result.TotalScore = result.TaskResults.Sum(t => t.Score);
+                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+            }
+            catch (Exception ex)
+            {
+                result.TaskResults.Add(new TaskResult
+                {
+                    TaskId = "ERROR",
+                    TaskName = "Loi he thong",
+                    Errors = new List<string> { $"Loi: {ex.Message}" }
+                });
+            }
+
+            return result;
+        }
+
+        public async Task<GradingResult> GradeProject13Async(Stream studentFile)
+        {
+            var result = new GradingResult
+            {
+                ProjectId = "P13",
+                ProjectName = "Retreat Plans"
+            };
+
+            try
+            {
+                using var studentPackage = new ExcelPackage(studentFile);
+                var studentSheet = studentPackage.Workbook.Worksheets[0];
+
+                foreach (var grader in _project13Graders)
+                {
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    result.TaskResults.Add(taskResult);
+                }
+
+                result.TotalScore = result.TaskResults.Sum(t => t.Score);
+                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+            }
+            catch (Exception ex)
+            {
+                result.TaskResults.Add(new TaskResult
+                {
+                    TaskId = "ERROR",
+                    TaskName = "Loi he thong",
+                    Errors = new List<string> { $"Loi: {ex.Message}" }
+                });
+            }
+
+            return result;
+        }
+
+        public async Task<GradingResult> GradeProject14Async(Stream studentFile)
+        {
+            var result = new GradingResult
+            {
+                ProjectId = "P14",
+                ProjectName = "Policy Renewals"
+            };
+
+            try
+            {
+                using var studentPackage = new ExcelPackage(studentFile);
+                var studentSheet = studentPackage.Workbook.Worksheets[0];
+
+                foreach (var grader in _project14Graders)
+                {
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    result.TaskResults.Add(taskResult);
+                }
+
+                result.TotalScore = result.TaskResults.Sum(t => t.Score);
+                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+            }
+            catch (Exception ex)
+            {
+                result.TaskResults.Add(new TaskResult
+                {
+                    TaskId = "ERROR",
+                    TaskName = "Loi he thong",
+                    Errors = new List<string> { $"Loi: {ex.Message}" }
+                });
+            }
+
+            return result;
+        }
+
+        public async Task<GradingResult> GradeProject15Async(Stream studentFile)
+        {
+            var result = new GradingResult
+            {
+                ProjectId = "P15",
+                ProjectName = "Tailspins Data Report"
+            };
+
+            try
+            {
+                using var studentPackage = new ExcelPackage(studentFile);
+                var studentSheet = studentPackage.Workbook.Worksheets[0];
+
+                foreach (var grader in _project15Graders)
+                {
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    result.TaskResults.Add(taskResult);
+                }
+
+                result.TotalScore = result.TaskResults.Sum(t => t.Score);
+                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+            }
+            catch (Exception ex)
+            {
+                result.TaskResults.Add(new TaskResult
+                {
+                    TaskId = "ERROR",
+                    TaskName = "Loi he thong",
+                    Errors = new List<string> { $"Loi: {ex.Message}" }
+                });
+            }
+
+            return result;
+        }
+
+        public async Task<GradingResult> GradeProject16Async(Stream studentFile)
+        {
+            var result = new GradingResult
+            {
+                ProjectId = "P16",
+                ProjectName = "List of Product"
+            };
+
+            try
+            {
+                using var studentPackage = new ExcelPackage(studentFile);
+                var studentSheet = studentPackage.Workbook.Worksheets[0];
+
+                foreach (var grader in _project16Graders)
                 {
                     var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
                     result.TaskResults.Add(taskResult);

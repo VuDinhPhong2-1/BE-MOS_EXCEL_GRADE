@@ -1,6 +1,7 @@
 using System.Xml;
 using OfficeOpenXml;
 using OfficeOpenXml.Table;
+using OfficeOpenXml.Style;
 
 namespace MOS.ExcelGrading.Core.Graders.Project11
 {
@@ -86,6 +87,25 @@ namespace MOS.ExcelGrading.Core.Graders.Project11
                 .Trim()
                 .TrimEnd('/')
                 .ToLowerInvariant();
+        }
+
+        public static string NormalizeText(string? value)
+        {
+            return (value ?? string.Empty).Trim();
+        }
+
+        public static bool HasMergeRange(ExcelWorksheet worksheet, string expectedRange)
+        {
+            return worksheet.MergedCells.Any(range =>
+                string.Equals(NormalizeRange(range), NormalizeRange(expectedRange), StringComparison.OrdinalIgnoreCase));
+        }
+
+        public static bool IsMergedCellCentered(ExcelWorksheet worksheet, string topLeftCell)
+        {
+            var style = worksheet.Cells[topLeftCell].Style;
+            var horizontalOk = style.HorizontalAlignment == ExcelHorizontalAlignment.Center
+                               || style.HorizontalAlignment == ExcelHorizontalAlignment.CenterContinuous;
+            return horizontalOk;
         }
     }
 }

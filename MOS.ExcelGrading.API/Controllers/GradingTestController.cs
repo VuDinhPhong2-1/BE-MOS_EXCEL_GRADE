@@ -15,7 +15,7 @@ namespace MOS.ExcelGrading.API.Controllers
             @"^project(?<number>\d{1,2})$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        private const int MaxSupportedProject = 11;
+        private const int MaxSupportedProject = 16;
 
         private readonly IGradingService _gradingService;
         private readonly ILogger<GradingTestController> _logger;
@@ -97,6 +97,11 @@ namespace MOS.ExcelGrading.API.Controllers
                 9 => await _gradingService.GradeProject09Async(studentStream),
                 10 => await _gradingService.GradeProject10Async(studentStream),
                 11 => await _gradingService.GradeProject11Async(studentStream),
+                12 => await _gradingService.GradeProject12Async(studentStream),
+                13 => await _gradingService.GradeProject13Async(studentStream),
+                14 => await _gradingService.GradeProject14Async(studentStream),
+                15 => await _gradingService.GradeProject15Async(studentStream),
+                16 => await _gradingService.GradeProject16Async(studentStream),
                 _ => throw new ArgumentOutOfRangeException(nameof(projectNumber))
             };
         }

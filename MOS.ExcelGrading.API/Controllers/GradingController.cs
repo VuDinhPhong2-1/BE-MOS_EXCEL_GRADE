@@ -628,6 +628,286 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         /// <summary>
+        /// Chấm điểm Project 12
+        /// Chỉ Teacher và Admin mới được phép sử dụng
+        /// </summary>
+        [HttpPost("excel/project12")]
+        [HttpPost("project12")] // Legacy alias
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject12(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                if (!HasCreateGradesPermission(userId, username))
+                {
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                {
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
+                }
+
+                if (!IsExcelFile(studentFile))
+                {
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
+                }
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject12Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project12,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project12");
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
+            }
+        }
+
+        /// <summary>
+        /// Chấm điểm Project 13
+        /// Chỉ Teacher và Admin mới được phép sử dụng
+        /// </summary>
+        [HttpPost("excel/project13")]
+        [HttpPost("project13")] // Legacy alias
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject13(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                if (!HasCreateGradesPermission(userId, username))
+                {
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                {
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
+                }
+
+                if (!IsExcelFile(studentFile))
+                {
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
+                }
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject13Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project13,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project13");
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
+            }
+        }
+
+        /// <summary>
+        /// Chấm điểm Project 14
+        /// Chỉ Teacher và Admin mới được phép sử dụng
+        /// </summary>
+        [HttpPost("excel/project14")]
+        [HttpPost("project14")] // Legacy alias
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject14(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                if (!HasCreateGradesPermission(userId, username))
+                {
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                {
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
+                }
+
+                if (!IsExcelFile(studentFile))
+                {
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
+                }
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject14Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project14,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project14");
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
+            }
+        }
+
+        /// <summary>
+        /// Chấm điểm Project 15
+        /// Chỉ Teacher và Admin mới được phép sử dụng
+        /// </summary>
+        [HttpPost("excel/project15")]
+        [HttpPost("project15")] // Legacy alias
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject15(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                if (!HasCreateGradesPermission(userId, username))
+                {
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                {
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
+                }
+
+                if (!IsExcelFile(studentFile))
+                {
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
+                }
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject15Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project15,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project15");
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
+            }
+        }
+
+        /// <summary>
+        /// Chấm điểm Project 16
+        /// Chỉ Teacher và Admin mới được phép sử dụng
+        /// </summary>
+        [HttpPost("excel/project16")]
+        [HttpPost("project16")] // Legacy alias
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeProject16(
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                if (!HasCreateGradesPermission(userId, username))
+                {
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                {
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
+                }
+
+                if (!IsExcelFile(studentFile))
+                {
+                    return BadRequest(new { error = "File phải có định dạng .xlsx hoặc .xlsm" });
+                }
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeProject16Async(studentStream);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    GradingApiEndpoints.Project16,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading project16");
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm" });
+            }
+        }
+
+        /// <summary>
         /// Health check - Không cần xác thực
         /// </summary>
         [HttpGet("health")]

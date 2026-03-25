@@ -23,8 +23,14 @@ namespace MOS.ExcelGrading.Core.Services
             string? classId,
             string? assignmentId,
             string? studentId,
-            string? gradedBy)
+            string? gradedBy,
+            bool persistToDatabase = false)
         {
+            if (!persistToDatabase)
+            {
+                return;
+            }
+
             try
             {
                 var attempt = new GradingAttempt

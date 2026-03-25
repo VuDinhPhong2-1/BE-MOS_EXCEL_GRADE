@@ -13,16 +13,19 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly IMongoCollection<Student> _students;
         private readonly IMongoCollection<Assignment> _assignments;
         private readonly IMongoCollection<User> _users;
+        private readonly IAnalyticsService _analyticsService;
         private readonly ILogger<ScoreService> _logger;
 
         public ScoreService(
             IMongoDatabase database,
+            IAnalyticsService analyticsService,
             ILogger<ScoreService> logger)
         {
             _scores = database.GetCollection<Score>("scores");
             _students = database.GetCollection<Student>("students");
             _assignments = database.GetCollection<Assignment>("assignments");
             _users = database.GetCollection<User>("users");
+            _analyticsService = analyticsService;
             _logger = logger;
         }
 
@@ -196,6 +199,7 @@ namespace MOS.ExcelGrading.Core.Services
             try
             {
                 await EnsureStudentCanBeGradedAsync(request.StudentId);
+                var assignment = await _assignments.Find(a => a.Id == request.AssignmentId).FirstOrDefaultAsync();
 
                 var existingScore = await GetScoreAsync(request.StudentId, request.AssignmentId);
 
@@ -222,6 +226,8 @@ namespace MOS.ExcelGrading.Core.Services
                     _logger.LogInformation("✅ Score updated for student {StudentId} by {GradedBy}",
                         request.StudentId, gradedBy);
 
+                    await SaveGradingAttemptFromSavedScoreAsync(request, assignment, gradedBy);
+
                     return existingScore;
                 }
                 else
@@ -245,6 +251,8 @@ namespace MOS.ExcelGrading.Core.Services
 
                     _logger.LogInformation("✅ Score created for student {StudentId} by {GradedBy}",
                         request.StudentId, gradedBy);
+
+                    await SaveGradingAttemptFromSavedScoreAsync(request, assignment, gradedBy);
 
                     return score;
                 }
@@ -377,6 +385,70 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 _logger.LogError(ex, "❌ Error getting all scores for class {ClassId}", classId);
                 throw;
+            }
+        }
+
+        private async Task SaveGradingAttemptFromSavedScoreAsync(
+            CreateScoreRequest request,
+            Assignment? assignment,
+            string gradedBy)
+        {
+            try
+            {
+                var normalizedEndpoint = GradingApiEndpoints.NormalizeEndpoint(assignment?.GradingApiEndpoint);
+                var projectEndpoint = string.IsNullOrWhiteSpace(normalizedEndpoint)
+                    ? GradingApiEndpoints.Project09
+                    : normalizedEndpoint;
+
+                var projectId = "MANUAL";
+                if (GradingApiEndpoints.TryExtractProjectNumber(projectEndpoint, out var projectNumber))
+                {
+                    projectId = $"P{projectNumber:00}";
+                }
+
+                var maxScoreValue = assignment?.MaxScore ?? 0d;
+                if (maxScoreValue <= 0d)
+                {
+                    maxScoreValue = 100d;
+                }
+
+                var scoreValue = request.ScoreValue ?? 0d;
+                var autoErrors = request.AutoGradingErrors?
+                    .Where(error => !string.IsNullOrWhiteSpace(error))
+                    .Select(error => error.Trim())
+                    .ToList() ?? new List<string>();
+
+                var gradingResult = new GradingResult
+                {
+                    ProjectId = projectId,
+                    ProjectName = assignment?.Name ?? "Saved Score",
+                    TotalScore = (decimal)scoreValue,
+                    MaxScore = (decimal)maxScoreValue,
+                    TaskResults = new List<TaskResult>
+                    {
+                        new()
+                        {
+                            TaskId = "SCORE-SAVE",
+                            TaskName = "Saved score snapshot",
+                            Score = (decimal)scoreValue,
+                            MaxScore = (decimal)maxScoreValue,
+                            Errors = autoErrors
+                        }
+                    }
+                };
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    gradingResult,
+                    projectEndpoint,
+                    request.ClassId,
+                    request.AssignmentId,
+                    request.StudentId,
+                    gradedBy,
+                    persistToDatabase: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Không thể lưu lịch sử lần chấm khi lưu điểm học sinh");
             }
         }
     }

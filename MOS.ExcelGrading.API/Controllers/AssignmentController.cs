@@ -42,9 +42,9 @@ namespace MOS.ExcelGrading.API.Controllers
                 (9, "Chấm điểm Dự án 09", 32),
                 (10, "Chấm điểm Dự án 10", 24),
                 (12, "Chấm điểm Dự án 11", 24),
-                (13, "Chấm điểm Dự án 11", 24)
-                (14, "Chấm điểm Dự án 11", 24)
-                (15, "Chấm điểm Dự án 11", 24)
+                (13, "Chấm điểm Dự án 11", 24),
+                (14, "Chấm điểm Dự án 11", 24),
+                (15, "Chấm điểm Dự án 11", 24),
                 (16, "Chấm điểm Dự án 11", 24)
             };
 

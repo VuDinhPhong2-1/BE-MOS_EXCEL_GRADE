@@ -41,7 +41,11 @@ namespace MOS.ExcelGrading.API.Controllers
                 (8, "Chấm điểm Dự án 08", 24),
                 (9, "Chấm điểm Dự án 09", 32),
                 (10, "Chấm điểm Dự án 10", 24),
-                (11, "Chấm điểm Dự án 11", 24)
+                (12, "Chấm điểm Dự án 11", 24),
+                (13, "Chấm điểm Dự án 11", 24)
+                (14, "Chấm điểm Dự án 11", 24)
+                (15, "Chấm điểm Dự án 11", 24)
+                (16, "Chấm điểm Dự án 11", 24)
             };
 
             var endpoints = implementedExcelProjects

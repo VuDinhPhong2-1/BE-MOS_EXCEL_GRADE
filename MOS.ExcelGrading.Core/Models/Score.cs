@@ -26,7 +26,7 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("classId")]
         public string ClassId { get; set; } = string.Empty;
 
-        [Range(0, 100)]
+        [Range(0, 1000)]
         [BsonElement("scoreValue")]
         public double? ScoreValue { get; set; }
 

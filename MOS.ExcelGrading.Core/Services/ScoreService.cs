@@ -1,5 +1,7 @@
 ﻿// MOS.ExcelGrading.Core/Services/ScoreService.cs
 using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
@@ -42,12 +44,7 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     var student = await _students.Find(s => s.Id == score.StudentId).FirstOrDefaultAsync();
 
-                    string? graderName = null;
-                    if (!string.IsNullOrEmpty(score.GradedBy))
-                    {
-                        var grader = await _users.Find(u => u.Id == score.GradedBy).FirstOrDefaultAsync();
-                        graderName = grader?.FullName ?? grader?.Username;
-                    }
+                    var graderName = await ResolveGraderNameAsync(score.GradedBy);
 
                     result.Add(new ScoreResponse
                     {
@@ -89,12 +86,7 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     var assignment = await _assignments.Find(a => a.Id == score.AssignmentId).FirstOrDefaultAsync();
 
-                    string? graderName = null;
-                    if (!string.IsNullOrEmpty(score.GradedBy))
-                    {
-                        var grader = await _users.Find(u => u.Id == score.GradedBy).FirstOrDefaultAsync();
-                        graderName = grader?.FullName ?? grader?.Username;
-                    }
+                    var graderName = await ResolveGraderNameAsync(score.GradedBy);
 
                     result.Add(new ScoreResponse
                     {
@@ -198,8 +190,40 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
+                ValidateCreateOrUpdateRequest(request);
+                EnsureValidObjectId(gradedBy, "Người chấm điểm");
+
+                var normalizedScoreValue = NormalizeScoreValue(request.ScoreValue);
+                var normalizedFeedback = NormalizeFeedback(request.Feedback);
+                var normalizedAutoErrors = NormalizeAutoGradingErrors(request.AutoGradingErrors);
+
                 await EnsureStudentCanBeGradedAsync(request.StudentId);
                 var assignment = await _assignments.Find(a => a.Id == request.AssignmentId).FirstOrDefaultAsync();
+                if (assignment == null)
+                {
+                    throw new InvalidOperationException($"Không tìm thấy bài tập: {request.AssignmentId}");
+                }
+
+                if (!string.Equals(assignment.ClassId, request.ClassId, StringComparison.Ordinal))
+                {
+                    throw new InvalidOperationException("Bài tập không thuộc lớp đang lưu điểm.");
+                }
+
+                if (normalizedScoreValue.HasValue && normalizedScoreValue.Value > assignment.MaxScore)
+                {
+                    throw new InvalidOperationException(
+                        $"Điểm không hợp lệ. Điểm tối đa của bài '{assignment.Name}' là {assignment.MaxScore:0.##}.");
+                }
+
+                var normalizedRequest = new CreateScoreRequest
+                {
+                    StudentId = request.StudentId,
+                    AssignmentId = request.AssignmentId,
+                    ClassId = request.ClassId,
+                    ScoreValue = normalizedScoreValue,
+                    Feedback = normalizedFeedback,
+                    AutoGradingErrors = normalizedAutoErrors
+                };
 
                 var existingScore = await GetScoreAsync(request.StudentId, request.AssignmentId);
 
@@ -207,26 +231,31 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     // Update existing score
                     var update = Builders<Score>.Update
-                        .Set(s => s.ScoreValue, request.ScoreValue)
-                        .Set(s => s.Feedback, request.Feedback)
-                        .Set(s => s.AutoGradingErrors, request.AutoGradingErrors ?? new List<string>())
+                        .Set(s => s.ScoreValue, normalizedScoreValue)
+                        .Set(s => s.Feedback, normalizedFeedback)
+                        .Set(s => s.AutoGradingErrors, normalizedAutoErrors)
                         .Set(s => s.GradedAt, DateTime.UtcNow)
                         .Set(s => s.GradedBy, gradedBy)
                         .Set(s => s.UpdatedAt, DateTime.UtcNow)
-                        .Set(s => s.UpdatedBy, gradedBy);
+                        .Set(s => s.UpdatedBy, gradedBy)
+                        // Làm sạch dữ liệu metadata cũ để tránh lỗi deserialize ở các bản ghi legacy.
+                        .Set(s => s.CreatedBy, gradedBy);
 
                     await _scores.UpdateOneAsync(s => s.Id == existingScore.Id, update);
 
-                    existingScore.ScoreValue = request.ScoreValue;
-                    existingScore.Feedback = request.Feedback;
-                    existingScore.AutoGradingErrors = request.AutoGradingErrors ?? new List<string>();
+                    existingScore.ScoreValue = normalizedScoreValue;
+                    existingScore.Feedback = normalizedFeedback;
+                    existingScore.AutoGradingErrors = normalizedAutoErrors;
                     existingScore.GradedAt = DateTime.UtcNow;
                     existingScore.GradedBy = gradedBy;
+                    existingScore.UpdatedAt = DateTime.UtcNow;
+                    existingScore.UpdatedBy = gradedBy;
+                    existingScore.CreatedBy = gradedBy;
 
                     _logger.LogInformation("✅ Score updated for student {StudentId} by {GradedBy}",
                         request.StudentId, gradedBy);
 
-                    await SaveGradingAttemptFromSavedScoreAsync(request, assignment, gradedBy);
+                    await SaveGradingAttemptFromSavedScoreAsync(normalizedRequest, assignment, gradedBy);
 
                     return existingScore;
                 }
@@ -238,9 +267,9 @@ namespace MOS.ExcelGrading.Core.Services
                         StudentId = request.StudentId,
                         AssignmentId = request.AssignmentId,
                         ClassId = request.ClassId,
-                        ScoreValue = request.ScoreValue,
-                        Feedback = request.Feedback,
-                        AutoGradingErrors = request.AutoGradingErrors ?? new List<string>(),
+                        ScoreValue = normalizedScoreValue,
+                        Feedback = normalizedFeedback,
+                        AutoGradingErrors = normalizedAutoErrors,
                         GradedAt = DateTime.UtcNow,
                         GradedBy = gradedBy,
                         CreatedBy = gradedBy,
@@ -252,10 +281,24 @@ namespace MOS.ExcelGrading.Core.Services
                     _logger.LogInformation("✅ Score created for student {StudentId} by {GradedBy}",
                         request.StudentId, gradedBy);
 
-                    await SaveGradingAttemptFromSavedScoreAsync(request, assignment, gradedBy);
+                    await SaveGradingAttemptFromSavedScoreAsync(normalizedRequest, assignment, gradedBy);
 
                     return score;
                 }
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (FormatException ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Invalid score payload format");
+                throw new InvalidOperationException("Dữ liệu lưu điểm không hợp lệ.");
+            }
+            catch (BsonSerializationException ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Invalid bson payload when saving score");
+                throw new InvalidOperationException("Dữ liệu lưu điểm không hợp lệ.");
             }
             catch (Exception ex)
             {
@@ -287,13 +330,21 @@ namespace MOS.ExcelGrading.Core.Services
 
             try
             {
-                foreach (var item in request.Scores)
+                ValidateBulkRequest(request);
+
+                var dedupedItems = request.Scores
+                    .Where(item => item != null)
+                    .GroupBy(item => item.StudentId.Trim(), StringComparer.Ordinal)
+                    .Select(group => group.Last())
+                    .ToList();
+
+                foreach (var item in dedupedItems)
                 {
                     var scoreRequest = new CreateScoreRequest
                     {
-                        StudentId = item.StudentId,
-                        AssignmentId = request.AssignmentId,
-                        ClassId = request.ClassId,
+                        StudentId = item.StudentId.Trim(),
+                        AssignmentId = request.AssignmentId.Trim(),
+                        ClassId = request.ClassId.Trim(),
                         ScoreValue = item.ScoreValue,
                         Feedback = item.Feedback,
                         AutoGradingErrors = item.AutoGradingErrors
@@ -307,6 +358,20 @@ namespace MOS.ExcelGrading.Core.Services
                     results.Count, gradedBy);
 
                 return results;
+            }
+            catch (InvalidOperationException)
+            {
+                throw;
+            }
+            catch (FormatException ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Invalid bulk score payload format");
+                throw new InvalidOperationException("Dữ liệu lưu điểm hàng loạt không hợp lệ.");
+            }
+            catch (BsonSerializationException ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Invalid bson payload when bulk saving scores");
+                throw new InvalidOperationException("Dữ liệu lưu điểm hàng loạt không hợp lệ.");
             }
             catch (Exception ex)
             {
@@ -353,12 +418,7 @@ namespace MOS.ExcelGrading.Core.Services
                     var student = students.FirstOrDefault(st => st.Id == score.StudentId);
                     var assignment = assignments.FirstOrDefault(a => a.Id == score.AssignmentId);
 
-                    string? graderName = null;
-                    if (!string.IsNullOrEmpty(score.GradedBy))
-                    {
-                        var grader = await _users.Find(u => u.Id == score.GradedBy).FirstOrDefaultAsync();
-                        graderName = grader?.FullName ?? grader?.Username;
-                    }
+                    var graderName = await ResolveGraderNameAsync(score.GradedBy);
 
                     result.Add(new ScoreResponse
                     {
@@ -386,6 +446,123 @@ namespace MOS.ExcelGrading.Core.Services
                 _logger.LogError(ex, "❌ Error getting all scores for class {ClassId}", classId);
                 throw;
             }
+        }
+
+        private void ValidateBulkRequest(BulkScoreRequest request)
+        {
+            if (request == null)
+            {
+                throw new InvalidOperationException("Thiếu dữ liệu lưu điểm hàng loạt.");
+            }
+
+            EnsureValidObjectId(request.AssignmentId, "Mã bài tập");
+            EnsureValidObjectId(request.ClassId, "Mã lớp");
+
+            if (request.Scores == null || request.Scores.Count == 0)
+            {
+                throw new InvalidOperationException("Danh sách điểm trống, không có dữ liệu để lưu.");
+            }
+
+            foreach (var item in request.Scores)
+            {
+                if (item == null)
+                {
+                    throw new InvalidOperationException("Có bản ghi điểm không hợp lệ trong danh sách.");
+                }
+
+                EnsureValidObjectId(item.StudentId, "Mã học sinh");
+                _ = NormalizeScoreValue(item.ScoreValue);
+            }
+        }
+
+        private void ValidateCreateOrUpdateRequest(CreateScoreRequest request)
+        {
+            if (request == null)
+            {
+                throw new InvalidOperationException("Thiếu dữ liệu lưu điểm.");
+            }
+
+            EnsureValidObjectId(request.StudentId, "Mã học sinh");
+            EnsureValidObjectId(request.AssignmentId, "Mã bài tập");
+            EnsureValidObjectId(request.ClassId, "Mã lớp");
+            _ = NormalizeScoreValue(request.ScoreValue);
+        }
+
+        private static void EnsureValidObjectId(string? value, string fieldLabel)
+        {
+            if (string.IsNullOrWhiteSpace(value) || !ObjectId.TryParse(value.Trim(), out _))
+            {
+                throw new InvalidOperationException($"{fieldLabel} không hợp lệ.");
+            }
+        }
+
+        private static double? NormalizeScoreValue(double? rawValue)
+        {
+            if (!rawValue.HasValue)
+            {
+                return null;
+            }
+
+            var value = rawValue.Value;
+            if (!double.IsFinite(value))
+            {
+                throw new InvalidOperationException("Điểm không hợp lệ.");
+            }
+
+            if (value < 0)
+            {
+                throw new InvalidOperationException("Điểm không được nhỏ hơn 0.");
+            }
+
+            if (value > 1000)
+            {
+                throw new InvalidOperationException("Điểm không được vượt quá 1000.");
+            }
+
+            return Math.Round(value, 2, MidpointRounding.AwayFromZero);
+        }
+
+        private static string? NormalizeFeedback(string? feedback)
+        {
+            if (string.IsNullOrWhiteSpace(feedback))
+            {
+                return null;
+            }
+
+            var trimmed = feedback.Trim();
+            return trimmed.Length <= 500 ? trimmed : trimmed[..500];
+        }
+
+        private static List<string> NormalizeAutoGradingErrors(List<string>? autoGradingErrors)
+        {
+            if (autoGradingErrors == null || autoGradingErrors.Count == 0)
+            {
+                return new List<string>();
+            }
+
+            return autoGradingErrors
+                .Where(error => !string.IsNullOrWhiteSpace(error))
+                .Select(error => error.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Take(100)
+                .ToList();
+        }
+
+        private async Task<string?> ResolveGraderNameAsync(string? graderId)
+        {
+            if (string.IsNullOrWhiteSpace(graderId))
+            {
+                return null;
+            }
+
+            var normalizedGraderId = graderId.Trim();
+            if (!ObjectId.TryParse(normalizedGraderId, out _))
+            {
+                return null;
+            }
+
+            var grader = await _users.Find(u => u.Id == normalizedGraderId).FirstOrDefaultAsync();
+            return grader?.FullName ?? grader?.Username;
         }
 
         private async Task SaveGradingAttemptFromSavedScoreAsync(

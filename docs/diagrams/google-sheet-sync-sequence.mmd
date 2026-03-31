@@ -1,0 +1,36 @@
+sequenceDiagram
+    autonumber
+    participant FE as Frontend (TeacherSchedule)
+    participant API as ScheduleController (API)
+    participant ATT as AttendanceService
+    participant GSS as GoogleSheetAttendanceSyncService
+    participant CLS as ClassService
+    participant GS as Google Sheets API
+
+    Note over FE: User bấm "Đồng bộ GG Sheet"
+
+    FE->>FE: Kiểm tra hasUnsavedAttendanceChanges
+    alt Còn thay đổi chưa lưu
+        FE-->>FE: Hiện lỗi, dừng sync
+    else Dữ liệu đã lưu
+        FE->>API: POST /api/schedule/{id}/attendance/sync-google-sheet
+        API->>API: Auth + kiểm tra quyền truy cập schedule
+        API->>ATT: GetScheduleAttendanceAsync(schedule, ownerId, isAdmin)
+        ATT-->>API: ScheduleAttendanceResponse (students + status + reports)
+        API->>GSS: SyncScheduleAttendanceAsync(response, ownerId, throwOnError=true)
+
+        GSS->>CLS: GetClassByIdAsync(classId)
+        CLS-->>GSS: Class config (attendanceSpreadsheetId, attendanceWorksheetName)
+        GSS->>GSS: Resolve spreadsheetId + worksheetName
+        GSS->>GS: Read I5:ZZ7 (tìm cột theo ngày/slot)
+        GS-->>GSS: Header rows
+        GSS->>GS: Read B8:C... (danh sách học sinh trên sheet)
+        GS-->>GSS: Student rows
+        GSS->>GSS: Map tên học sinh (split + fallback full name)
+        GSS->>GS: BatchUpdate H(row), Col(row), Col5/6/7
+        GS-->>GSS: OK
+
+        GSS-->>API: GoogleSheetSyncResult (tab, cột, matched/unmatched)
+        API-->>FE: 200 + message + sync metadata
+        FE-->>FE: Hiện toast thành công + thông tin tab/cột
+    end

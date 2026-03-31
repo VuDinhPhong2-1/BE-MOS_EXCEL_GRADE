@@ -15,3 +15,13 @@ _buildcheck_vi/
 
 # Logs
 *.log
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Local caches/build artifacts
+.npm-cache/
+.npm-cache-2/
+artifacts/

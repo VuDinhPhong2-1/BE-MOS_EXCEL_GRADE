@@ -207,8 +207,9 @@ namespace MOS.ExcelGrading.API.Controllers
 
         /// <summary>
         /// Tạo class mới
-        /// Teacher chỉ tạo được class trong school mà mình là owner
-    /// </summary>
+        /// Teacher/Admin được tạo class ở mọi school
+        /// </summary>
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         [HttpPost]
         public async Task<IActionResult> CreateClass([FromBody] CreateClassRequest request)
         {
@@ -224,12 +225,6 @@ namespace MOS.ExcelGrading.API.Controllers
                 var school = await _schoolService.GetSchoolByIdAsync(request.SchoolId);
                 if (school == null)
                     return NotFound(new { message = "Không tìm thấy trường" });
-
-                // Kiểm tra quyền: Teacher chỉ tạo class trong school mà mình là owner
-                if (userRole != UserRoles.Admin && school.OwnerId != userId)
-                {
-                    return Forbid();
-                }
 
                 // Kiểm tra tên lớp đã tồn tại trong school hiện tại chưa
                 if (await _classService.ClassExistsAsync(request.SchoolId, request.Name))

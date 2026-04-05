@@ -25,3 +25,4 @@ _buildcheck_vi/
 .npm-cache/
 .npm-cache-2/
 artifacts/
+MOS.ExcelGrading.API/.data-protection-keys/

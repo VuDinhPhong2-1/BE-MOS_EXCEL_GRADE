@@ -2,6 +2,7 @@
 using MOS.ExcelGrading.Core.Services;
 using MOS.ExcelGrading.Core.Models;
 using MOS.ExcelGrading.API.Middlewares;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
@@ -9,6 +10,14 @@ using System.Text;
 using MongoDB.Driver;
 
 var builder = WebApplication.CreateBuilder(args);
+var appMode = NormalizeAppMode(builder.Configuration["AppMode"], builder.Environment);
+
+// Keep local logging on console/debug to avoid EventLog permission failures on Windows.
+builder.Logging.ClearProviders();
+builder.Logging.AddConfiguration(builder.Configuration.GetSection("Logging"));
+builder.Logging.AddConsole();
+builder.Logging.AddDebug();
+builder.Logging.AddEventSourceLogger();
 
 // ========== CẤU HÌNH MONGODB ==========
 builder.Services.Configure<MongoDbSettings>(
@@ -17,6 +26,14 @@ builder.Services.Configure<GoogleSheetsSettings>(
     builder.Configuration.GetSection("GoogleSheets"));
 builder.Services.Configure<RedisSettings>(
     builder.Configuration.GetSection("Redis"));
+
+if (appMode == "local")
+{
+    var dataProtectionKeyPath = Path.Combine(builder.Environment.ContentRootPath, ".data-protection-keys");
+    builder.Services.AddDataProtection()
+        .SetApplicationName("MOS.ExcelGrading.Local")
+        .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionKeyPath));
+}
 
 var redisSettings = builder.Configuration.GetSection("Redis").Get<RedisSettings>() ?? new RedisSettings();
 var useRedisCache = redisSettings.Enabled && !string.IsNullOrWhiteSpace(redisSettings.ConnectionString);
@@ -64,6 +81,7 @@ builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<IAssignmentService, AssignmentService>();
 builder.Services.AddScoped<IScoreService, ScoreService>();
+builder.Services.AddScoped<IGradingTestBugNoteService, GradingTestBugNoteService>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IGoogleSheetAttendanceSyncService, GoogleSheetAttendanceSyncService>();
@@ -101,7 +119,6 @@ builder.Services.Configure<FormOptions>(options =>
 });
 
 // ========== CẤU HÌNH CORS ==========
-var appMode = NormalizeAppMode(builder.Configuration["AppMode"], builder.Environment);
 var corsProfile = appMode;
 
 var allowedOrigins = builder.Configuration

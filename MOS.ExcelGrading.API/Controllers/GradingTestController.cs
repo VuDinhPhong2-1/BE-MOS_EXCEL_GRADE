@@ -1,7 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
+using System.Security.Claims;
 using System.Text.RegularExpressions;
 
 namespace MOS.ExcelGrading.API.Controllers
@@ -18,13 +20,16 @@ namespace MOS.ExcelGrading.API.Controllers
         private const int MaxSupportedProject = 16;
 
         private readonly IGradingService _gradingService;
+        private readonly IGradingTestBugNoteService _gradingTestBugNoteService;
         private readonly ILogger<GradingTestController> _logger;
 
         public GradingTestController(
             IGradingService gradingService,
+            IGradingTestBugNoteService gradingTestBugNoteService,
             ILogger<GradingTestController> logger)
         {
             _gradingService = gradingService;
+            _gradingTestBugNoteService = gradingTestBugNoteService;
             _logger = logger;
         }
 
@@ -41,6 +46,86 @@ namespace MOS.ExcelGrading.API.Controllers
                 .ToList();
 
             return Ok(projects);
+        }
+
+        [HttpGet("bug-notes")]
+        public async Task<IActionResult> GetBugNotes([FromQuery] string? projectCode = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userId))
+                {
+                    return Unauthorized();
+                }
+
+                var notes = await _gradingTestBugNoteService.GetByUserAsync(userId, projectCode);
+                return Ok(notes);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error loading grading test bug notes");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
+            }
+        }
+
+        [HttpPost("bug-notes")]
+        public async Task<IActionResult> CreateBugNote([FromBody] CreateGradingTestBugNoteRequest request)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userId))
+                {
+                    return Unauthorized();
+                }
+
+                var createdNote = await _gradingTestBugNoteService.CreateAsync(request, userId);
+                return Ok(createdNote);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error creating grading test bug note");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
+            }
+        }
+
+        [HttpDelete("bug-notes/{id}")]
+        public async Task<IActionResult> DeleteBugNote(string id)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userId))
+                {
+                    return Unauthorized();
+                }
+
+                var deleted = await _gradingTestBugNoteService.DeleteAsync(id, userId);
+                if (!deleted)
+                {
+                    return NotFound(new { message = "Không tìm thấy bug note." });
+                }
+
+                return NoContent();
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting grading test bug note {Id}", id);
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
+            }
         }
 
         [HttpPost("excel/{projectCode}")]

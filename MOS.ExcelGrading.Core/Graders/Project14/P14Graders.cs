@@ -16,13 +16,21 @@ namespace MOS.ExcelGrading.Core.Graders.Project14
 
         public static string NormalizeFormula(string? formula)
         {
-            return (formula ?? string.Empty)
+            var normalized = (formula ?? string.Empty)
                 .Trim()
                 .Replace("=", string.Empty, StringComparison.Ordinal)
                 .Replace("$", string.Empty, StringComparison.Ordinal)
                 .Replace(" ", string.Empty, StringComparison.Ordinal)
                 .Replace("_xlfn.", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace(";", ",", StringComparison.Ordinal)
+                .Replace("@", string.Empty, StringComparison.Ordinal)
                 .ToUpperInvariant();
+
+            // Excel may store table formulas in equivalent forms:
+            // Table1[[#This Row],[Col]] or Table1[Col].
+            return normalized
+                .Replace("[[#THISROW],[", "[", StringComparison.Ordinal)
+                .Replace("]]", "]", StringComparison.Ordinal);
         }
 
         public static string NormalizePrintArea(string? value)

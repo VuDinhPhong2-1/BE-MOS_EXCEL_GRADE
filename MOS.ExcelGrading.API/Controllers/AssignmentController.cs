@@ -14,13 +14,16 @@ namespace MOS.ExcelGrading.API.Controllers
     public class AssignmentController : ControllerBase
     {
         private readonly IAssignmentService _assignmentService;
+        private readonly IAssignmentFileService _assignmentFileService;
         private readonly ILogger<AssignmentController> _logger;
 
         public AssignmentController(
             IAssignmentService assignmentService,
+            IAssignmentFileService assignmentFileService,
             ILogger<AssignmentController> logger)
         {
             _assignmentService = assignmentService;
+            _assignmentFileService = assignmentFileService;
             _logger = logger;
         }
         /// <summary>
@@ -137,6 +140,192 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         /// <summary>
+        /// Upload file bài tập (template/answer) cho assignment
+        /// </summary>
+        [HttpPost("{assignmentId}/files")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        public async Task<IActionResult> UploadAssignmentFile(
+            string assignmentId,
+            [FromForm] IFormFile file,
+            [FromForm] string subject,
+            [FromForm] string kind)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                if (userId == null)
+                {
+                    return Unauthorized();
+                }
+
+                if (!HasPermission(Permissions.EditProjects) && !HasPermission(Permissions.CreateProjects))
+                {
+                    return Forbid();
+                }
+
+                var uploaded = await _assignmentFileService.UploadAssignmentFileAsync(
+                    assignmentId,
+                    file,
+                    subject,
+                    kind,
+                    userId);
+
+                return Ok(uploaded);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error while uploading assignment file");
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Not found while uploading assignment file for assignment {AssignmentId}", assignmentId);
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error uploading assignment file for assignment {AssignmentId}", assignmentId);
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
+            }
+        }
+
+        /// <summary>
+        /// Lấy danh sách file đã upload của assignment
+        /// </summary>
+        [HttpGet("{assignmentId}/files")]
+        public async Task<IActionResult> GetAssignmentFiles(
+            string assignmentId,
+            [FromQuery] bool includeInactive = false)
+        {
+            try
+            {
+                if (!HasPermission(Permissions.ViewProjects))
+                {
+                    return Forbid();
+                }
+
+                var files = await _assignmentFileService.GetAssignmentFilesAsync(assignmentId, includeInactive);
+                return Ok(files);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error while getting assignment files");
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting assignment files for assignment {AssignmentId}", assignmentId);
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
+            }
+        }
+
+        /// <summary>
+        /// Lấy metadata chi tiết của file bài tập
+        /// </summary>
+        [HttpGet("files/{fileId}")]
+        public async Task<IActionResult> GetAssignmentFileById(string fileId)
+        {
+            try
+            {
+                if (!HasPermission(Permissions.ViewProjects))
+                {
+                    return Forbid();
+                }
+
+                var file = await _assignmentFileService.GetAssignmentFileByIdAsync(fileId);
+                if (file == null)
+                {
+                    return NotFound(new { message = "Không tìm thấy file bài tập" });
+                }
+
+                return Ok(file);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error while getting assignment file {FileId}", fileId);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting assignment file {FileId}", fileId);
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
+            }
+        }
+
+        /// <summary>
+        /// Download file bài tập theo fileId
+        /// </summary>
+        [HttpGet("files/{fileId}/download")]
+        public async Task<IActionResult> DownloadAssignmentFile(string fileId)
+        {
+            try
+            {
+                if (!HasPermission(Permissions.ViewProjects))
+                {
+                    return Forbid();
+                }
+
+                var fileResult = await _assignmentFileService.OpenAssignmentFileDownloadAsync(fileId);
+                return File(fileResult.Stream, fileResult.ContentType, fileResult.FileName);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error while downloading assignment file {FileId}", fileId);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning(ex, "Not found while downloading assignment file {FileId}", fileId);
+                return NotFound(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error downloading assignment file {FileId}", fileId);
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
+            }
+        }
+
+        /// <summary>
+        /// Xóa mềm file bài tập
+        /// </summary>
+        [HttpDelete("files/{fileId}")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        public async Task<IActionResult> DeleteAssignmentFile(string fileId)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                if (userId == null)
+                {
+                    return Unauthorized();
+                }
+
+                if (!HasPermission(Permissions.DeleteProjects) && !HasPermission(Permissions.EditProjects))
+                {
+                    return Forbid();
+                }
+
+                var deleted = await _assignmentFileService.SoftDeleteAssignmentFileAsync(fileId, userId);
+                if (!deleted)
+                {
+                    return NotFound(new { message = "Không tìm thấy file bài tập" });
+                }
+
+                return NoContent();
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error while deleting assignment file {FileId}", fileId);
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error deleting assignment file {FileId}", fileId);
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
+            }
+        }
+
+        /// <summary>
         /// Tạo bài tập mới
         /// </summary>
         [HttpPost]
@@ -229,6 +418,9 @@ namespace MOS.ExcelGrading.API.Controllers
 
         private bool HasPermission(string permission) =>
             User.Claims.Any(c => c.Type == "permission" && c.Value == permission);
+
+        private string? GetCurrentUserId() =>
+            User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     }
 }
 

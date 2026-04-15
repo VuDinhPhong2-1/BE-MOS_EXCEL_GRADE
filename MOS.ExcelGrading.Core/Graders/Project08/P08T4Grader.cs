@@ -81,7 +81,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                     var hasIf = formula.Contains("IF(", StringComparison.Ordinal);
                     var hasThreshold = formula.Contains(">10000", StringComparison.Ordinal);
                     var hasTrueFalse = formula.Contains(",500,100", StringComparison.Ordinal) ||
-                                       formula.Contains(",500;100", StringComparison.Ordinal);
+                                       formula.Contains(",\"500\",\"100\"", StringComparison.Ordinal);
 
                     if (hasIf && hasThreshold && hasTrueFalse && hasBooksRef)
                     {

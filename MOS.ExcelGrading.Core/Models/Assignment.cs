@@ -45,6 +45,20 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("gradingType")]
         public string GradingType { get; set; } = "manual"; // "auto" | "manual"
 
+        /// <summary>
+        /// File template hiện hành của bài tập (nếu có)
+        /// </summary>
+        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonElement("currentTemplateFileId")]
+        public string? CurrentTemplateFileId { get; set; }
+
+        /// <summary>
+        /// File đáp án hiện hành của bài tập (nếu có)
+        /// </summary>
+        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonElement("currentAnswerFileId")]
+        public string? CurrentAnswerFileId { get; set; }
+
         [BsonElement("isActive")]
         public bool IsActive { get; set; } = true;
 

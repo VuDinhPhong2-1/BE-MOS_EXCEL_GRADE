@@ -351,15 +351,16 @@ namespace MOS.ExcelGrading.Core.Graders.Project10
                     result.Errors.Add($"Series chart chua dung. X='{series?.XSeries}', Y='{series?.Series}'.");
                 }
 
-                if (P10GraderHelpers.IsChartBoundsMatch(chart, "H3:O17"))
+                if (P10GraderHelpers.IsChartWithinBounds(chart, "G1:Q21"))
                 {
                     score += 1m;
-                    result.Details.Add("Vi tri chart hop le o ben phai bang (H3:O17).");
+                    result.Details.Add("Vi tri chart hop le o ben phai bang.");
                 }
                 else
                 {
                     result.Errors.Add($"Vi tri chart chua dung. Hien tai: {P10GraderHelpers.GetChartBounds(chart)}.");
                 }
+
 
                 result.Score = Math.Min(MaxScore, score);
             }

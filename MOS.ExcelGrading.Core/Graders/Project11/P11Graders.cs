@@ -46,20 +46,20 @@ namespace MOS.ExcelGrading.Core.Graders.Project11
                     result.Errors.Add($"Thieu merge ranges: {string.Join(", ", missing)}.");
                 }
 
-                var centeredCount = expectedRanges.Count(range =>
-                {
-                    var topLeft = range.Split(':')[0];
-                    return P11GraderHelpers.IsMergedCellCentered(ws, topLeft);
-                });
-                if (centeredCount == expectedRanges.Count)
-                {
-                    score += 1m;
-                    result.Details.Add("Cac o merge duoc can giua ngang/doc dung yeu cau.");
-                }
-                else
-                {
-                    result.Errors.Add($"Can giua merge chua dung ({centeredCount}/{expectedRanges.Count}).");
-                }
+                // var centeredCount = expectedRanges.Count(range =>
+                // {
+                //     var topLeft = range.Split(':')[0];
+                //     return P11GraderHelpers.IsMergedCellCentered(ws, topLeft);
+                // });
+                // if (centeredCount == expectedRanges.Count)
+                // {
+                //     score += 1m;
+                //     result.Details.Add("Cac o merge duoc can giua ngang/doc dung yeu cau.");
+                // }
+                // else
+                // {
+                //     result.Errors.Add($"Can giua merge chua dung ({centeredCount}/{expectedRanges.Count}).");
+                // }
 
                 var hasOnlyExpectedMerges = ws.MergedCells.Count == expectedRanges.Count;
                 if (hasOnlyExpectedMerges)

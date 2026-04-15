@@ -18,6 +18,8 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 .Replace("$", string.Empty, StringComparison.Ordinal)
                 .Replace(" ", string.Empty, StringComparison.Ordinal)
                 .Replace("_xlfn.", string.Empty, StringComparison.OrdinalIgnoreCase)
+                .Replace(";", ",", StringComparison.Ordinal)
+                .Replace("@", string.Empty, StringComparison.Ordinal)
                 .ToUpperInvariant()
                 .Trim();
         }

@@ -81,6 +81,33 @@ namespace MOS.ExcelGrading.Core.Graders.Project10
                 StringComparison.OrdinalIgnoreCase);
         }
 
+        public static bool IsChartWithinBounds(ExcelChart chart, string boundsRange)
+        {
+            try
+            {
+                var boundsAddr = new ExcelAddressBase(boundsRange);
+
+                var chartFrom = chart.From;
+                var chartTo = chart.To;
+
+                // EPPlus dùng 0-based, ExcelAddressBase dùng 1-based → cần +1
+                int chartStartRow = chartFrom.Row + 1;
+                int chartStartCol = chartFrom.Column + 1;
+                int chartEndRow = chartTo.Row + 1;
+                int chartEndCol = chartTo.Column + 1;
+
+                return chartStartRow >= boundsAddr.Start.Row
+                    && chartStartCol >= boundsAddr.Start.Column
+                    && chartEndRow <= boundsAddr.End.Row
+                    && chartEndCol <= boundsAddr.End.Column;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+
         public static bool IsSeriesRangeMatch(ExcelChart chart, string expectedXRange, string expectedYRange)
         {
             var series = chart.Series.FirstOrDefault();

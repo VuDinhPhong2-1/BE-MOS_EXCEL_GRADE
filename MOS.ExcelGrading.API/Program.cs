@@ -80,6 +80,7 @@ builder.Services.AddScoped<ISchoolService, SchoolService>();
 builder.Services.AddScoped<IClassService, ClassService>();
 builder.Services.AddScoped<IStudentService, StudentService>();
 builder.Services.AddScoped<IAssignmentService, AssignmentService>();
+builder.Services.AddScoped<IAssignmentFileService, AssignmentFileService>();
 builder.Services.AddScoped<IScoreService, ScoreService>();
 builder.Services.AddScoped<IGradingTestBugNoteService, GradingTestBugNoteService>();
 builder.Services.AddScoped<IScheduleService, ScheduleService>();

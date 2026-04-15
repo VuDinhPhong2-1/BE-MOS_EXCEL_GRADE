@@ -33,10 +33,9 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 decimal score = 0m;
 
                 var filterAddress = ws.AutoFilter?.Address?.Address ?? string.Empty;
-                if (string.Equals(
-                        P09GraderHelpers.NormalizeRange(filterAddress),
-                        "A17:K29",
-                        StringComparison.OrdinalIgnoreCase))
+                var normalizedFilterAddress = P09GraderHelpers.NormalizeRange(filterAddress);
+                if (string.Equals(normalizedFilterAddress, "A17:K29", StringComparison.OrdinalIgnoreCase)
+    || string.Equals(normalizedFilterAddress, "K17:K29", StringComparison.OrdinalIgnoreCase))
                 {
                     score += 1m;
                     result.Details.Add("AutoFilter dung vung A17:K29.");
@@ -55,44 +54,105 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                     return result;
                 }
 
-                var filterColumnNode = autoFilterNode.SelectSingleNode("x:filterColumn[@colId='10']", ns);
-                if (filterColumnNode != null)
+                var autoFilterAddress = ws.AutoFilter?.Address;
+                if (autoFilterAddress == null)
+                {
+                    result.Errors.Add("Khong doc duoc dia chi AutoFilter de xac dinh cot Total.");
+                    result.Score = score;
+                    return result;
+                }
+
+                var totalColumnIds = GetTotalColumnIds(ws, autoFilterAddress);
+                if (totalColumnIds.Count == 0)
+                {
+                    result.Errors.Add("Khong tim thay cot 'Total' trong hang tieu de AutoFilter.");
+                    result.Score = score;
+                    return result;
+                }
+
+                var filterColumnNodes = autoFilterNode.SelectNodes("x:filterColumn", ns);
+                if (filterColumnNodes == null || filterColumnNodes.Count == 0)
+                {
+                    result.Errors.Add("Khong tim thay filterColumn trong autoFilter.");
+                    result.Score = score;
+                    return result;
+                }
+
+                var totalFilterColumns = new List<XmlNode>();
+                foreach (XmlNode filterColumn in filterColumnNodes)
+                {
+                    var colIdText = filterColumn.Attributes?["colId"]?.Value ?? string.Empty;
+                    if (!int.TryParse(colIdText, out var colId))
+                    {
+                        continue;
+                    }
+
+                    if (totalColumnIds.Contains(colId))
+                    {
+                        totalFilterColumns.Add(filterColumn);
+                    }
+                }
+
+                if (totalFilterColumns.Count > 0)
                 {
                     score += 1m;
-                    result.Details.Add("Filter dat dung cot Total (colId=10).");
+                    result.Details.Add("Filter dat dung tren it nhat mot cot Total.");
                 }
                 else
                 {
-                    result.Errors.Add("Khong tim thay filterColumn voi colId=10.");
+                    result.Errors.Add("Khong tim thay filterColumn tren cac cot Total.");
                 }
 
-                var customFiltersNode = filterColumnNode?.SelectSingleNode("x:customFilters", ns);
-                var andAttr = customFiltersNode?.Attributes?["and"]?.Value ?? string.Empty;
-                var hasAnd = string.Equals(andAttr, "1", StringComparison.OrdinalIgnoreCase)
-                             || string.Equals(andAttr, "true", StringComparison.OrdinalIgnoreCase);
+                var hasMatchedConditions = false;
+                var hasAndInAnyTotalColumn = false;
+                var hasLowerBoundInAnyTotalColumn = false;
+                var hasUpperBoundInAnyTotalColumn = false;
 
-                if (!hasAnd)
+                foreach (var totalFilterColumn in totalFilterColumns)
                 {
-                    result.Errors.Add("customFilters chua dat dieu kien AND.");
+                    var customFiltersNode = totalFilterColumn.SelectSingleNode("x:customFilters", ns);
+                    var andAttr = customFiltersNode?.Attributes?["and"]?.Value ?? string.Empty;
+                    var hasAnd = string.Equals(andAttr, "1", StringComparison.OrdinalIgnoreCase)
+                                 || string.Equals(andAttr, "true", StringComparison.OrdinalIgnoreCase);
+                    var hasLowerBound = HasCustomFilter(customFiltersNode, ns, "greaterThanOrEqual", 34000m);
+                    var hasUpperBound = HasCustomFilter(customFiltersNode, ns, "lessThanOrEqual", 45000m);
+
+                    hasAndInAnyTotalColumn = hasAndInAnyTotalColumn || hasAnd;
+                    hasLowerBoundInAnyTotalColumn = hasLowerBoundInAnyTotalColumn || hasLowerBound;
+                    hasUpperBoundInAnyTotalColumn = hasUpperBoundInAnyTotalColumn || hasUpperBound;
+
+                    if (hasAnd && hasLowerBound && hasUpperBound)
+                    {
+                        hasMatchedConditions = true;
+                        break;
+                    }
                 }
 
-                var hasLowerBound = HasCustomFilter(customFiltersNode, ns, "greaterThanOrEqual", 34000m);
-                var hasUpperBound = HasCustomFilter(customFiltersNode, ns, "lessThanOrEqual", 45000m);
-                if (hasAnd && hasLowerBound && hasUpperBound)
+                if (hasMatchedConditions)
                 {
                     score += 2m;
                     result.Details.Add("Dieu kien filter dung: >= 34000 va <= 45000.");
                 }
                 else
                 {
-                    if (!hasLowerBound)
+                    if (!hasAndInAnyTotalColumn)
+                    {
+                        result.Errors.Add("customFilters chua dat dieu kien AND.");
+                    }
+
+                    if (!hasLowerBoundInAnyTotalColumn)
                     {
                         result.Errors.Add("Thieu dieu kien lower bound: >= 34000.");
                     }
 
-                    if (!hasUpperBound)
+                    if (!hasUpperBoundInAnyTotalColumn)
                     {
                         result.Errors.Add("Thieu dieu kien upper bound: <= 45000.");
+                    }
+
+                    if (hasAndInAnyTotalColumn && hasLowerBoundInAnyTotalColumn && hasUpperBoundInAnyTotalColumn)
+                    {
+                        result.Errors.Add("Cac dieu kien filter chua nam cung mot cot Total.");
                     }
                 }
 
@@ -140,6 +200,27 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
             }
 
             return false;
+        }
+
+        private static List<int> GetTotalColumnIds(ExcelWorksheet ws, ExcelAddressBase autoFilterAddress)
+        {
+            var result = new List<int>();
+            var headerRow = autoFilterAddress.Start.Row;
+            var startColumn = autoFilterAddress.Start.Column;
+            var endColumn = autoFilterAddress.End.Column;
+
+            for (var column = startColumn; column <= endColumn; column++)
+            {
+                var headerText = ws.Cells[headerRow, column].Text?.Trim() ?? string.Empty;
+                if (!string.Equals(headerText, "Total", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                result.Add(column - startColumn);
+            }
+
+            return result;
         }
     }
 }

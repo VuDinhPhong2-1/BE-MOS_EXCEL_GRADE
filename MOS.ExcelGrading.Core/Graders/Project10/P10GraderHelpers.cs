@@ -52,7 +52,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project10
 
         public static string NormalizeText(string? value)
         {
-            return (value ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            // Excel text can contain non-breaking spaces or inconsistent whitespace.
+            var normalized = value.Replace('\u00A0', ' ').Trim();
+            return string.Join(" ", normalized.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
         }
 
         public static ExcelTable? FindTableByAddress(ExcelWorksheet sheet, string expectedAddress)

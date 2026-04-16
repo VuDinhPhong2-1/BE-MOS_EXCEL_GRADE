@@ -79,13 +79,13 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                     && toCol == expectedToCol)
                 {
                     score += 3m;
-                    result.Details.Add("Vi tri chart dung vung J2:P17.");
+                    result.Details.Add("Vi tri chart dung vung J2:P15.");
                 }
                 else
                 {
                     var currentBounds =
                         $"{P09GraderHelpers.CellAddress(fromRow, fromCol)}:{P09GraderHelpers.CellAddress(toRow, toCol)}";
-                    result.Errors.Add($"Vi tri chart chua dung. Hien tai: {currentBounds}, mong doi: J2:P17.");
+                    result.Errors.Add($"Vi tri chart chua dung. Hien tai: {currentBounds}, mong doi: J2:P15.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);

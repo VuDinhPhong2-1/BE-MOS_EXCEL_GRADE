@@ -50,15 +50,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                     result.Errors.Add("Truc doc chua co tieu de");
                 }
 
-                if (string.Equals(yTitle, "Hours", StringComparison.Ordinal))
+                var yTitleNormalized = yTitle.Trim();
+
+                if (string.Equals(yTitleNormalized, "Hours", StringComparison.OrdinalIgnoreCase))
                 {
                     result.Score += 1.5m;
                     result.Details.Add("Tieu de truc doc dung 'Hours'");
                 }
                 else
                 {
-                    result.Errors.Add($"Tieu de truc doc chua dung chinh ta. Hien tai: '{yTitle}', mong doi dung chinh xac 'Hours'.");
+                    result.Errors.Add($"Tieu de truc doc chua dung chinh ta. Hien tai: '{yTitleNormalized}', mong doi 'Hours'.");
                 }
+
 
                 result.Score = Math.Min(MaxScore, result.Score);
             }

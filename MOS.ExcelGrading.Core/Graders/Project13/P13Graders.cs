@@ -106,6 +106,49 @@ namespace MOS.ExcelGrading.Core.Graders.Project13
             return ids;
         }
 
+        public static HashSet<int> GetDetectedRowBreakIds(ExcelWorksheet worksheet)
+        {
+            var ids = new HashSet<int>();
+
+            // Prefer EPPlus row metadata when available.
+            var scanEndRow = Math.Max(worksheet.Dimension?.End.Row ?? 0, 300);
+            for (var row = 1; row <= scanEndRow; row++)
+            {
+                if (worksheet.Row(row).PageBreak)
+                {
+                    ids.Add(row);
+                }
+            }
+
+            if (ids.Count > 0)
+            {
+                return ids;
+            }
+
+            // XML fallback: read manual break nodes; if unavailable, read all row break nodes.
+            var ns = CreateWorksheetNamespaceManager(worksheet.WorksheetXml);
+            var rowBreaksNode = worksheet.WorksheetXml.SelectSingleNode("//x:rowBreaks", ns);
+            var manualBreakNodes = rowBreaksNode?.SelectNodes("x:brk[@man='1']", ns);
+            var allBreakNodes = rowBreaksNode?.SelectNodes("x:brk", ns);
+            var breakNodes = manualBreakNodes?.Count > 0 ? manualBreakNodes : allBreakNodes;
+
+            if (breakNodes == null)
+            {
+                return ids;
+            }
+
+            foreach (XmlNode node in breakNodes)
+            {
+                var idText = node.Attributes?["id"]?.Value ?? string.Empty;
+                if (int.TryParse(idText, out var id))
+                {
+                    ids.Add(id);
+                }
+            }
+
+            return ids;
+        }
+
         public static string FormatIdList(IEnumerable<int> ids)
         {
             return string.Join(", ", ids.OrderBy(x => x));
@@ -454,20 +497,22 @@ namespace MOS.ExcelGrading.Core.Graders.Project13
                     result.Errors.Add("Sheet chua o che do Page Layout.");
                 }
 
-                var actualBreakIds = P13GraderHelpers.GetManualRowBreakIds(ws);
-                var expectedBreakIds = new HashSet<int> { 35 };
-                var hasExpectedBreak = actualBreakIds.SetEquals(expectedBreakIds);
+                var actualBreakIds = P13GraderHelpers.GetDetectedRowBreakIds(ws);
+                const int expectedAnchorRow = 35;
+                const int tolerance = 1;
+                var hasExpectedBreak = actualBreakIds.Any(actual => Math.Abs(actual - expectedAnchorRow) <= tolerance);
+                var hasOnlyAcceptedBreaks = actualBreakIds.All(actual => Math.Abs(actual - expectedAnchorRow) <= tolerance);
 
-                if (hasExpectedBreak)
+                if (hasExpectedBreak && hasOnlyAcceptedBreaks)
                 {
                     score += 2m;
                     result.Details.Add(
-                        $"Da chen page break thu cong dung vi tri (id={P13GraderHelpers.FormatIdList(expectedBreakIds)}).");
+                        $"Da chen page break dung vi tri quanh dong {expectedAnchorRow} (actual id={P13GraderHelpers.FormatIdList(actualBreakIds)}).");
                 }
                 else
                 {
                     result.Errors.Add(
-                        $"Page break thu cong chua dung. Expected id={P13GraderHelpers.FormatIdList(expectedBreakIds)}, actual id={P13GraderHelpers.FormatIdList(actualBreakIds)}.");
+                        $"Page break chua dung. Mong doi co break quanh dong {expectedAnchorRow} (chap nhan id {expectedAnchorRow - tolerance}..{expectedAnchorRow + tolerance}) va khong co break khac. Actual id={P13GraderHelpers.FormatIdList(actualBreakIds)}.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);

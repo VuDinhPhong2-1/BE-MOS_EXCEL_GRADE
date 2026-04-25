@@ -70,7 +70,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
 
                 var expectedFromRow = 2;
                 var expectedFromCol = 10; // J
-                var expectedToRow = 17;
+                var expectedToRow = 15;
                 var expectedToCol = 16; // P
 
                 if (fromRow == expectedFromRow

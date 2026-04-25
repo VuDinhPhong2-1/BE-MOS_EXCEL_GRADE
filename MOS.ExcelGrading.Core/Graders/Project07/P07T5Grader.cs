@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
     public class P07T5Grader : ITaskGrader
     {
         public string TaskId => "P07-T5";
-        public string TaskName => "Total Cookie Sales B3 dung SUM(Table2[Chocolate Mint Chip])";
+        public string TaskName => "Total Cookie Sales B3 dùng SUM(Table2[Chocolate Mint Chip])";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 var ws = P07GraderHelpers.GetSheet(studentSheet, "Total Cookie Sales");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Total Cookie Sales'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Total Cookie Sales'.");
                     return result;
                 }
 
@@ -36,11 +36,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (!string.IsNullOrWhiteSpace(formulaRaw))
                 {
                     score += 1m;
-                    result.Details.Add("O B3 da co cong thuc.");
+                    result.Details.Add("Ô B3 đã có công thức.");
                 }
                 else
                 {
-                    result.Errors.Add("O B3 chua co cong thuc.");
+                    result.Errors.Add("Ô B3 chưa có công thức.");
                     result.Score = score;
                     return result;
                 }
@@ -48,11 +48,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (formula.StartsWith("SUM(", StringComparison.Ordinal))
                 {
                     score += 1m;
-                    result.Details.Add("Cong thuc B3 da dung ham SUM.");
+                    result.Details.Add("Công thức B3 đã dùng hàm SUM.");
                 }
                 else
                 {
-                    result.Errors.Add($"Cong thuc B3 chua dung SUM. Hien tai: '{formulaRaw}'.");
+                    result.Errors.Add($"Công thức B3 chưa dùng SUM. Hiện tại: '{formulaRaw}'.");
                 }
 
                 var usesStructuredRef =
@@ -61,11 +61,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (usesStructuredRef)
                 {
                     score += 1m;
-                    result.Details.Add("B3 da dung structured reference toi cot Chocolate Mint Chip.");
+                    result.Details.Add("B3 đã dùng structured reference tới cột Chocolate Mint Chip.");
                 }
                 else
                 {
-                    result.Errors.Add("B3 chua dung structured reference den Table2[Chocolate Mint Chip].");
+                    result.Errors.Add("B3 chưa dùng structured reference đến Table2[Chocolate Mint Chip].");
                 }
 
                 // Mot so file luu khong con object table nhung van giu structured-reference formula.
@@ -73,18 +73,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (decimal.TryParse(cell.Text, out _) || P07GraderHelpers.ToDecimal(cell.Value, cell.Text) > 0)
                 {
                     score += 1m;
-                    result.Details.Add("Gia tri B3 hop le sau khi tinh SUM.");
+                    result.Details.Add("Giá trị B3 hợp lệ sau khi tính SUM.");
                 }
                 else
                 {
-                    result.Errors.Add("Gia tri B3 chua hop le sau khi tinh tong.");
+                    result.Errors.Add("Giá trị B3 chưa hợp lệ sau khi tính tổng.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

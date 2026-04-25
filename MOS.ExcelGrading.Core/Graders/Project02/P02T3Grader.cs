@@ -8,7 +8,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
     public class P02T3Grader : ITaskGrader
     {
         public string TaskId => "P02-T3";
-        public string TaskName => "Them Total Row va tong theo thang trong bang New Policy";
+        public string TaskName => "Thêm Total Row và tổng theo tháng trong bảng New Policy";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -25,14 +25,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 var ws = studentSheet.Workbook.Worksheets["New Policy"];
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'New Policy'");
+                    result.Errors.Add("Không tìm thấy sheet 'New Policy'");
                     return result;
                 }
 
                 var table = ws.Tables.FirstOrDefault();
                 if (table == null)
                 {
-                    result.Errors.Add("Khong tim thay bang du lieu tren New Policy");
+                    result.Errors.Add("Không tìm thấy bảng dữ liệu trên sheet 'New Policy'");
                     return result;
                 }
 
@@ -40,11 +40,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 if (table.ShowTotal)
                 {
                     score += 1m;
-                    result.Details.Add("Da bat Total Row");
+                    result.Details.Add("Đã bật Total Row");
                 }
                 else
                 {
-                    result.Errors.Add("Chua bat Total Row cho bang");
+                    result.Errors.Add("Chưa bật Total Row cho bảng");
                 }
 
                 var monthCols = new[] { "January", "February", "March", "April", "May", "June" };
@@ -67,11 +67,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 if (monthSumCols == monthCols.Length)
                 {
                     score += 2m;
-                    result.Details.Add("Tong theo 6 thang da cau hinh bang ham SUM");
+                    result.Details.Add("Tổng theo 6 tháng đã cấu hình bằng hàm SUM");
                 }
                 else
                 {
-                    result.Errors.Add($"Tong theo thang chua day du ({monthSumCols}/6 cot thang)");
+                    result.Errors.Add($"Tổng theo tháng chưa đầy đủ ({monthSumCols}/6 cột tháng)");
                 }
 
                 var totalCol = table.Columns.FirstOrDefault(c =>
@@ -79,11 +79,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 if (totalCol != null && totalCol.TotalsRowFunction == RowFunctions.Sum)
                 {
                     score += 1m;
-                    result.Details.Add("Cot Total da tong cong bang SUM");
+                    result.Details.Add("Cột Total đã tổng cộng bằng SUM");
                 }
                 else
                 {
-                    result.Errors.Add("Cot Total chua cau hinh tong cong dung");
+                    result.Errors.Add("Cột Total chưa cấu hình tổng cộng đúng");
                 }
 
                 result.Score = Math.Min(MaxScore, score);

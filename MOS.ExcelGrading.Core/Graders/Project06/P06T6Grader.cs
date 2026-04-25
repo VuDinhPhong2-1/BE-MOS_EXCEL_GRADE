@@ -26,7 +26,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 var qtr2 = P06GraderHelpers.GetSheet(studentSheet, "Qtr 2");
                 if (qtr2 == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Qtr 2'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Qtr 2'.");
                     return result;
                 }
 
@@ -37,11 +37,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 if (chartSheet != null)
                 {
                     score += 1m;
-                    result.Details.Add("Da tao chart sheet 'Qtr 2 Chart'.");
+                    result.Details.Add("Đã tạo chart sheet 'Qtr 2 Chart'.");
                 }
                 else
                 {
-                    result.Errors.Add("Khong tim thay chart sheet 'Qtr 2 Chart' (can dung dung ten).");
+                    result.Errors.Add("Không tìm thấy chart sheet 'Qtr 2 Chart' (cần dùng đúng tên).");
                     result.Score = score;
                     return result;
                 }
@@ -50,26 +50,26 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 if (movedChart != null && movedChart.ChartType == eChartType.Pie)
                 {
                     score += 1m;
-                    result.Details.Add("Chart trong chart sheet co dang Pie.");
+                    result.Details.Add("Chart trong chart sheet có dạng Pie.");
                 }
                 else if (movedChart != null)
                 {
-                    result.Errors.Add($"Chart trong chart sheet khong phai Pie (hien tai: {movedChart.ChartType}).");
+                    result.Errors.Add($"Chart trong chart sheet không phải Pie (hiện tại: {movedChart.ChartType}).");
                 }
                 else
                 {
-                    result.Errors.Add("Chart sheet chua co chart.");
+                    result.Errors.Add("Chart sheet chưa có chart.");
                 }
 
                 var qtr2StillHasChart = qtr2.Drawings.OfType<ExcelChart>().Any();
                 if (!qtr2StillHasChart)
                 {
                     score += 1m;
-                    result.Details.Add("Sheet 'Qtr 2' khong con chart sau khi move.");
+                    result.Details.Add("Sheet 'Qtr 2' không còn chart sau khi move.");
                 }
                 else
                 {
-                    result.Errors.Add("Sheet 'Qtr 2' van con chart, chua move dung.");
+                    result.Errors.Add("Sheet 'Qtr 2' vẫn còn chart, chưa move đúng.");
                 }
 
                 if (movedChart != null && movedChart.Series.Count > 0)
@@ -80,23 +80,23 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                     if (fromQtr2)
                     {
                         score += 1m;
-                        result.Details.Add("Chart da move van tham chieu du lieu tu sheet Qtr 2.");
+                        result.Details.Add("Chart đã move vẫn tham chiếu dữ liệu từ sheet Qtr 2.");
                     }
                     else
                     {
-                        result.Errors.Add("Chart trong chart sheet khong tham chieu du lieu Qtr 2.");
+                        result.Errors.Add("Chart trong chart sheet không tham chiếu dữ liệu Qtr 2.");
                     }
                 }
                 else
                 {
-                    result.Errors.Add("Khong du du lieu series de xac nhan chart move.");
+                    result.Errors.Add("Không đủ dữ liệu series để xác nhận chart move.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

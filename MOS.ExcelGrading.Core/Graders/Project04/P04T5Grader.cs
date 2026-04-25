@@ -8,7 +8,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
     public class P04T5Grader : ITaskGrader
     {
         public string TaskId => "P04-T5";
-        public string TaskName => "Move chart sang chart sheet moi ten Graduation Chart";
+        public string TaskName => "Move chart sang chart sheet mới tên Graduation Chart";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -26,7 +26,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 var graduationSheet = P04GraderHelpers.GetSheet(studentSheet, "Graduation");
                 if (graduationSheet == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet Graduation");
+                    result.Errors.Add("Không tìm thấy sheet Graduation");
                     return result;
                 }
 
@@ -41,17 +41,17 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 if (chartSheet != null)
                 {
                     result.Score += 2m;
-                    result.Details.Add($"Tim thay chart sheet '{chartSheet.Name}'");
+                    result.Details.Add($"Tìm thấy chart sheet '{chartSheet.Name}'");
                 }
                 else
                 {
                     if (chartSheetIgnoreCase != null)
                     {
-                        result.Errors.Add($"Ten chart sheet sai: '{chartSheetIgnoreCase.Name}'. Phai dung chinh xac 'Graduation Chart' (phan biet hoa/thuong)");
+                        result.Errors.Add($"Tên chart sheet sai: '{chartSheetIgnoreCase.Name}'. Phải dùng chính xác 'Graduation Chart' (phân biệt hoa/thường)");
                     }
                     else
                     {
-                        result.Errors.Add("Khong tim thay chart sheet moi ten Graduation Chart");
+                        result.Errors.Add("Không tìm thấy chart sheet mới tên Graduation Chart");
                     }
                     return result;
                 }
@@ -60,22 +60,22 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 if (chartOnChartSheet)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Chart da duoc chuyen sang chart sheet moi");
+                    result.Details.Add("Chart đã được chuyển sang chart sheet mới");
                 }
                 else
                 {
-                    result.Errors.Add("Chart sheet moi chua co chart");
+                    result.Errors.Add("Chart sheet mới chưa có chart");
                 }
 
                 var graduationStillHasChart = graduationSheet.Drawings.OfType<ExcelChart>().Any();
                 if (!graduationStillHasChart)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Sheet Graduation khong con chart sau khi move");
+                    result.Details.Add("Sheet Graduation không còn chart sau khi move");
                 }
                 else
                 {
-                    result.Errors.Add("Sheet Graduation van con chart, chua move dung");
+                    result.Errors.Add("Sheet Graduation vẫn còn chart, chưa move đúng");
                 }
 
                 result.Score = Math.Min(MaxScore, result.Score);

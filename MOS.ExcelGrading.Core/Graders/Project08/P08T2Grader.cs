@@ -8,7 +8,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
     public class P08T2Grader : ITaskGrader
     {
         public string TaskId => "P08-T2";
-        public string TaskName => "Sale History bat che do Show Formulas";
+        public string TaskName => "Sale History bật chế độ Show Formulas";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -25,7 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 var ws = P08GraderHelpers.GetSheet(studentSheet, "Sale History");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Sale History'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Sale History'.");
                     return result;
                 }
 
@@ -35,7 +35,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 var viewNode = ws.WorksheetXml.SelectSingleNode("//x:sheetViews/x:sheetView", ns);
                 if (viewNode == null)
                 {
-                    result.Errors.Add("Khong doc duoc sheetView de kiem tra Show Formulas.");
+                    result.Errors.Add("Không đọc được sheetView để kiểm tra Show Formulas.");
                     result.Score = score;
                     return result;
                 }
@@ -47,18 +47,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 if (enabled)
                 {
                     score += 2m;
-                    result.Details.Add("Sheet Sale History da bat Show Formulas.");
+                    result.Details.Add("Sheet Sale History đã bật Show Formulas.");
                 }
                 else
                 {
-                    result.Errors.Add("Sheet Sale History chua bat Show Formulas.");
+                    result.Errors.Add("Sheet Sale History chưa bật Show Formulas.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

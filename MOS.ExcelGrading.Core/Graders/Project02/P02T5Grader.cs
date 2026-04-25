@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
     public class P02T5Grader : ITaskGrader
     {
         public string TaskId => "P02-T5";
-        public string TaskName => "Tao email tu First name voi @humongousinsurance.com";
+        public string TaskName => "Tạo email từ First name với @humongousinsurance.com";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -31,7 +31,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 var table = contact.Tables.FirstOrDefault();
                 if (table == null)
                 {
-                    result.Errors.Add("Khong tim thay bang du lieu tren Contact");
+                    result.Errors.Add("Không tìm thấy bảng dữ liệu trên sheet 'Contact'");
                     return result;
                 }
 
@@ -42,7 +42,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
 
                 if (emailCol == null || firstNameCol == null)
                 {
-                    result.Errors.Add("Thieu cot 'Email address' hoac 'First name' tren Contact");
+                    result.Errors.Add("Thiếu cột 'Email address' hoặc 'First name' trên sheet 'Contact'");
                     return result;
                 }
 
@@ -53,7 +53,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 var totalRows = Math.Max(0, endRow - startRow + 1);
                 if (totalRows == 0)
                 {
-                    result.Errors.Add("Khong co dong du lieu de cham");
+                    result.Errors.Add("Không có dòng dữ liệu để chấm");
                     return result;
                 }
 
@@ -106,17 +106,17 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
 
                 decimal score = 0;
                 score += ComputeComponentScore(formulaRows, totalRows, 1m, result,
-                    "Cot Email da co cong thuc cho tat ca dong",
-                    $"Thieu cong thuc cot Email ({formulaRows}/{totalRows})");
+                    "Cột Email đã có công thức cho tất cả dòng",
+                    $"Thiếu công thức cột Email ({formulaRows}/{totalRows})");
                 score += ComputeComponentScore(concatRows, totalRows, 1m, result,
-                    "Cong thuc co phep ghep chuoi",
-                    $"Cong thuc ghep chuoi chua day du ({concatRows}/{totalRows})");
+                    "Công thức có phép ghép chuỗi",
+                    $"Công thức ghép chuỗi chưa đầy đủ ({concatRows}/{totalRows})");
                 score += ComputeComponentScore(strictDomainRows, totalRows, 1m, result,
-                    "Cong thuc da chen dung domain @humongousinsurance.com",
-                    $"Domain email chua dung chuan (có thể đã bị sai chính tả) ({strictDomainRows}/{totalRows})");
+                    "Công thức đã chèn đúng domain @humongousinsurance.com",
+                    $"Domain email chưa đúng chuẩn (có thể đã bị sai chính tả) ({strictDomainRows}/{totalRows})");
                 score += ComputeComponentScore(firstNameRefRows, totalRows, 1m, result,
-                    "Cong thuc tham chieu First name",
-                    $"Tham chieu First name chua dung/du ({firstNameRefRows}/{totalRows})");
+                    "Công thức tham chiếu First name",
+                    $"Tham chiếu First name chưa đúng/đủ ({firstNameRefRows}/{totalRows})");
 
                 result.Score = Math.Min(MaxScore, score);
             }

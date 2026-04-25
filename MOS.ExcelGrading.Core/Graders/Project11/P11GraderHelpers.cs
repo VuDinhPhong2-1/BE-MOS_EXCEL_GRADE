@@ -1,4 +1,4 @@
-using System.Xml;
+﻿using System.Xml;
 using OfficeOpenXml;
 using OfficeOpenXml.Table;
 using OfficeOpenXml.Style;
@@ -111,3 +111,4 @@ namespace MOS.ExcelGrading.Core.Graders.Project11
 }
 
 // minor-sync: non-functional graders update
+

@@ -1,4 +1,4 @@
-using System.Xml;
+﻿using System.Xml;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 using OfficeOpenXml;
@@ -8,7 +8,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
     public class P09T5Grader : ITaskGrader
     {
         public string TaskId => "P09-T5";
-        public string TaskName => "Subtotal by shirt color, page breaks, Grand Total";
+        public string TaskName => "Subtotal theo Shirt Color, ngat trang va Grand Total";
         public decimal MaxScore => 8;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -25,7 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 var ws = P09GraderHelpers.GetSheet(studentSheet.Workbook, "Shirt Orders");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Shirt Orders'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Shirt Orders'.");
                     return result;
                 }
 
@@ -52,11 +52,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                     if (hasSubtotalStructure)
                     {
                         score += 1.5m;
-                        result.Details.Add("Khong co outlineLevelRow ro rang nhung da co cau truc subtotal hop le.");
+                        result.Details.Add("Không có outlineLevelRow ro rang nhung da co cau truc subtotal hop le.");
                     }
                     else
                     {
-                        result.Errors.Add($"outlineLevelRow/cau truc subtotal chua dung. Hien tai outlineLevelRow='{outlineLevelText}'.");
+                        result.Errors.Add($"outlineLevelRow/cau truc subtotal chưa đúng. Hiện tại outlineLevelRow='{outlineLevelText}'.");
                     }
                 }
 
@@ -95,12 +95,12 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 if (detectedManualBreakCount is 3 or 4)
                 {
                     score += 1m;
-                    result.Details.Add("So luong manual row break hop le (3 hoac 4).");
+                    result.Details.Add("Số lượng manual row break hop le (3 hoac 4).");
                 }
                 else
                 {
                     result.Errors.Add(
-                        $"So luong manual row break chua dung. detected={detectedManualBreakCount}, mong doi 3 hoac 4.");
+                        $"Số lượng manual row break chưa đúng. detected={detectedManualBreakCount}, mong đợi 3 hoac 4.");
                 }
 
                 var actualBreakIds = detectedBreakIds;
@@ -126,7 +126,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 else
                 {
                     result.Errors.Add(
-                        $"Row break id chua dung. Hien tai: {string.Join(", ", actualBreakIds.OrderBy(x => x))}. Mong doi quanh cac moc 46, 103, 156 (va tuy chon 201).");
+                        $"Row break id chưa đúng. Hiện tại: {string.Join(", ", actualBreakIds.OrderBy(x => x))}. Mong doi quanh cac moc 46, 103, 156 (va tuy chon 201).");
                 }
 
                 var expectedFormulas = new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
@@ -155,7 +155,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                     else
                     {
                         result.Errors.Add(
-                            $"{pair.Key} sai cong thuc. Hien tai: '{ws.Cells[pair.Key].Formula}'.");
+                            $"{pair.Key} sai cong thuc. Hiện tại: '{ws.Cells[pair.Key].Formula}'.");
                     }
                 }
 
@@ -163,7 +163,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;
@@ -172,3 +172,6 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
 }
 
 // minor-sync: non-functional graders update
+
+
+

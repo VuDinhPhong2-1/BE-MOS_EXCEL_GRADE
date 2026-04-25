@@ -25,14 +25,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 var sheet = P06GraderHelpers.GetSheet(studentSheet, "Comparison");
                 if (sheet == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Comparison'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Comparison'.");
                     return result;
                 }
 
                 var chart = sheet.Drawings.OfType<ExcelChart>().FirstOrDefault();
                 if (chart == null)
                 {
-                    result.Errors.Add("Khong tim thay chart tren sheet Comparison.");
+                    result.Errors.Add("Không tìm thấy chart trên sheet Comparison.");
                     return result;
                 }
 
@@ -41,11 +41,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 if (chart.Series.Count == expectedSeriesCount)
                 {
                     score += 1m;
-                    result.Details.Add("So series chart = 3 (dung sau khi Switch Row/Column).");
+                    result.Details.Add("Số series chart = 3 (đúng sau khi Switch Row/Column).");
                 }
                 else
                 {
-                    result.Errors.Add($"So series chart chua dung. Hien tai: {chart.Series.Count}, mong doi: 3.");
+                    result.Errors.Add($"Số series chart chưa đúng. Hiện tại: {chart.Series.Count}, mong đợi: 3.");
                 }
 
                 var xRangeOkCount = 0;
@@ -84,18 +84,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
 
                 if (xRangeOkCount != chart.Series.Count)
                 {
-                    result.Errors.Add($"XSeries chua dung sau khi Switch Row/Column ({xRangeOkCount}/{chart.Series.Count}).");
+                    result.Errors.Add($"XSeries chưa đúng sau khi Switch Row/Column ({xRangeOkCount}/{chart.Series.Count}).");
                 }
                 if (yRangeOkCount != chart.Series.Count || headerOkCount != chart.Series.Count)
                 {
-                    result.Errors.Add($"YSeries/Header chua dung sau khi Switch Row/Column (Y={yRangeOkCount}/{chart.Series.Count}, Header={headerOkCount}/{chart.Series.Count}).");
+                    result.Errors.Add($"YSeries/Header chưa đúng sau khi Switch Row/Column (Y={yRangeOkCount}/{chart.Series.Count}, Header={headerOkCount}/{chart.Series.Count}).");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

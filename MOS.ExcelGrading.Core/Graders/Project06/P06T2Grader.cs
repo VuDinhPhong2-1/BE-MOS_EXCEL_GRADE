@@ -24,14 +24,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 var ws = P06GraderHelpers.GetSheet(studentSheet, "Region 1");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Region 1'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Region 1'.");
                     return result;
                 }
 
                 var table = ws.Tables.FirstOrDefault();
                 if (table == null)
                 {
-                    result.Errors.Add("Khong tim thay bang du lieu tren Region 1.");
+                    result.Errors.Add("Không tìm thấy bảng dữ liệu trên sheet 'Region 1'.");
                     return result;
                 }
 
@@ -41,7 +41,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                     string.Equals((c.Name ?? string.Empty).Trim(), "Total sales", StringComparison.OrdinalIgnoreCase));
                 if (productCol == null || totalSalesCol == null)
                 {
-                    result.Errors.Add("Thieu cot Product hoac Total sales trong table Region 1.");
+                    result.Errors.Add("Thiếu cột Product hoặc Total sales trong bảng 'Region 1'.");
                     return result;
                 }
 
@@ -67,7 +67,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
 
                 if (rows.Count == 0)
                 {
-                    result.Errors.Add("Khong co dong du lieu de cham sort.");
+                    result.Errors.Add("Không có dòng dữ liệu để kiểm tra sort.");
                     result.Score = score;
                     return result;
                 }
@@ -81,7 +81,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 if (exactOrderMatch)
                 {
                     score += 3m;
-                    result.Details.Add("Du lieu da duoc sort dung Product A-Z va Total sales giam dan.");
+                    result.Details.Add("Dữ liệu đã được sort đúng Product A-Z và Total sales giảm dần.");
                 }
                 else
                 {
@@ -102,11 +102,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                         var actual = rows[mismatchIndex];
                         var exp = expected[mismatchIndex];
                         result.Errors.Add(
-                            $"Thu tu sort sai tai vi tri {mismatchIndex + 1}: hien tai '{actual.Product}' ({actual.Sales}), mong doi '{exp.Product}' ({exp.Sales}).");
+                            $"Thứ tự sort sai tại vị trí {mismatchIndex + 1}: hiện tại '{actual.Product}' ({actual.Sales}), mong đợi '{exp.Product}' ({exp.Sales}).");
                     }
                     else
                     {
-                        result.Errors.Add("Thu tu sort chua dung theo yeu cau multi-level.");
+                        result.Errors.Add("Thứ tự sort chưa đúng theo yêu cầu multi-level.");
                     }
                 }
 
@@ -114,7 +114,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

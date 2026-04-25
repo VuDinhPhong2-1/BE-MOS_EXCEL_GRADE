@@ -1,4 +1,4 @@
-using MOS.ExcelGrading.Core.Interfaces;
+﻿using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 using OfficeOpenXml;
 using OfficeOpenXml.Drawing.Chart;
@@ -8,7 +8,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
     public class P09T6Grader : ITaskGrader
     {
         public string TaskId => "P09-T6";
-        public string TaskName => "Create 3D Pie Chart in Farmers & Market sheet";
+        public string TaskName => "Tao bieu do Pie 3D trong sheet Farmers & Market";
         public decimal MaxScore => 8;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -29,7 +29,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
 
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Farmers & Market'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Farmers & Market'.");
                     return result;
                 }
 
@@ -40,12 +40,12 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
 
                 if (pieCharts.Count == 0)
                 {
-                    result.Errors.Add("Khong tim thay chart Pie 3D tren sheet Farmers & Market.");
+                    result.Errors.Add("Không tìm thấy chart Pie 3D tren sheet Farmers & Market.");
                     return result;
                 }
 
                 score += 2m;
-                result.Details.Add($"Tim thay {pieCharts.Count} chart Pie 3D.");
+                result.Details.Add($"Tìm thấy {pieCharts.Count} chart Pie 3D.");
 
                 var targetChart = pieCharts
                     .FirstOrDefault(chart => IsTargetDataRange(chart))
@@ -54,13 +54,13 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 if (IsTargetDataRange(targetChart))
                 {
                     score += 3m;
-                    result.Details.Add("Vung du lieu dung: Category B13:B18 va Value F13:F18.");
+                    result.Details.Add("Vung dữ liệu dung: Category B13:B18 va Value F13:F18.");
                 }
                 else
                 {
                     var firstSeries = targetChart.Series.FirstOrDefault();
                     result.Errors.Add(
-                        $"Vung du lieu chua dung. X='{firstSeries?.XSeries}', Y='{firstSeries?.Series}'.");
+                        $"Vung dữ liệu chưa đúng. X='{firstSeries?.XSeries}', Y='{firstSeries?.Series}'.");
                 }
 
                 var fromRow = targetChart.From.Row + 1;
@@ -85,14 +85,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 {
                     var currentBounds =
                         $"{P09GraderHelpers.CellAddress(fromRow, fromCol)}:{P09GraderHelpers.CellAddress(toRow, toCol)}";
-                    result.Errors.Add($"Vi tri chart chua dung. Hien tai: {currentBounds}, mong doi: J2:P15.");
+                    result.Errors.Add($"Vi tri chart chưa đúng. Hiện tại: {currentBounds}, mong đợi: J2:P15.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;
@@ -115,3 +115,6 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
 }
 
 // minor-sync: non-functional graders update
+
+
+

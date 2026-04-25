@@ -8,7 +8,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
     public class P08T1Grader : ITaskGrader
     {
         public string TaskId => "P08-T1";
-        public string TaskName => "Summary A2 tao hyperlink den www.nodpublishers.com voi ScreenTip";
+        public string TaskName => "Summary A2 tạo hyperlink đến www.nodpublishers.com với ScreenTip";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -25,7 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 var ws = P08GraderHelpers.GetSheet(studentSheet, "Summary");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Summary'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Summary'.");
                     return result;
                 }
 
@@ -34,11 +34,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 if (hyperlink != null)
                 {
                     score += 1m;
-                    result.Details.Add("O A2 da co hyperlink.");
+                    result.Details.Add("Ô A2 đã có hyperlink.");
                 }
                 else
                 {
-                    result.Errors.Add("O A2 chua co hyperlink.");
+                    result.Errors.Add("Ô A2 chưa có hyperlink.");
                     result.Score = score;
                     return result;
                 }
@@ -48,11 +48,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 if (normalized == "http://www.nodpublishers.com")
                 {
                     score += 2m;
-                    result.Details.Add("Hyperlink A2 dung URL yeu cau.");
+                    result.Details.Add("Hyperlink A2 đúng URL yêu cầu.");
                 }
                 else
                 {
-                    result.Errors.Add($"URL hyperlink A2 chua dung. Hien tai: '{linkText}'.");
+                    result.Errors.Add($"URL hyperlink A2 chưa đúng. Hiện tại: '{linkText}'.");
                 }
 
                 var ns = new XmlNamespaceManager(ws.WorksheetXml.NameTable);
@@ -66,18 +66,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 if (tipOrDisplayOk)
                 {
                     score += 1m;
-                    result.Details.Add("Thong tin hien thi hyperlink A2 dung yeu cau.");
+                    result.Details.Add("Thông tin hiển thị hyperlink A2 đúng yêu cầu.");
                 }
                 else
                 {
-                    result.Errors.Add($"ScreenTip/Display text chua dung. Tooltip='{tooltip}', Text='{displayText}'.");
+                    result.Errors.Add($"ScreenTip/Display text chưa đúng. Tooltip='{tooltip}', Text='{displayText}'.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
     public class P09T3Grader : ITaskGrader
     {
         public string TaskId => "P09-T3";
-        public string TaskName => "Display legend on right, allow overflow";
+        public string TaskName => "Hien thi Legend ben phai, cho phep tran";
         public decimal MaxScore => 3;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -194,3 +194,6 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
 }
 
 // minor-sync: non-functional graders update
+
+
+

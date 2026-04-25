@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
     public class P05T4Grader : ITaskGrader
     {
         public string TaskId => "P05-T4";
-        public string TaskName => "Dat sheet 'Annual Purchases' vao giua 'Works' va 'Titles'";
+        public string TaskName => "Đặt sheet 'Annual Purchases' vào giữa 'Works' và 'Titles'";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -33,11 +33,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 if (worksIndex >= 0 && annualIndex >= 0 && titlesIndex >= 0)
                 {
                     score += 1m;
-                    result.Details.Add("Da ton tai day du 3 sheet Works, Annual Purchases, Titles.");
+                    result.Details.Add("Đã tồn tại đầy đủ 3 sheet Works, Annual Purchases, Titles.");
                 }
                 else
                 {
-                    result.Errors.Add("Thieu mot trong cac sheet bat buoc: Works / Annual Purchases / Titles.");
+                    result.Errors.Add("Thiếu một trong các sheet bắt buộc: Works / Annual Purchases / Titles.");
                     result.Score = score;
                     return result;
                 }
@@ -45,38 +45,38 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 if (worksIndex < annualIndex && annualIndex < titlesIndex)
                 {
                     score += 1m;
-                    result.Details.Add("Thu tu tong quat dung: Works -> Annual Purchases -> Titles.");
+                    result.Details.Add("Thứ tự tổng quát đúng: Works -> Annual Purchases -> Titles.");
                 }
                 else
                 {
-                    result.Errors.Add("Thu tu tong quat sheet chua dung.");
+                    result.Errors.Add("Thứ tự tổng quát sheet chưa đúng.");
                 }
 
                 if (annualIndex == worksIndex + 1)
                 {
                     score += 1m;
-                    result.Details.Add("Annual Purchases dung ngay sau Works.");
+                    result.Details.Add("Annual Purchases đứng ngay sau Works.");
                 }
                 else
                 {
-                    result.Errors.Add("Annual Purchases chua nam ngay sau Works.");
+                    result.Errors.Add("Annual Purchases chưa nằm ngay sau Works.");
                 }
 
                 if (titlesIndex == annualIndex + 1)
                 {
                     score += 1m;
-                    result.Details.Add("Titles dung ngay sau Annual Purchases.");
+                    result.Details.Add("Titles đứng ngay sau Annual Purchases.");
                 }
                 else
                 {
-                    result.Errors.Add("Titles chua nam ngay sau Annual Purchases.");
+                    result.Errors.Add("Titles chưa nằm ngay sau Annual Purchases.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

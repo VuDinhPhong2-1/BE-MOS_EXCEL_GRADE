@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
     public class P05T6Grader : ITaskGrader
     {
         public string TaskId => "P05-T6";
-        public string TaskName => "Mo cua so thu hai va hien thi Side by Side dang tren-duoi";
+        public string TaskName => "Mở cửa sổ thứ hai và hiển thị Side by Side dạng trên-dưới";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 var views = P05GraderHelpers.GetWorkbookViewNodes(studentSheet);
                 if (views == null || views.Count == 0)
                 {
-                    result.Errors.Add("Khong doc duoc thong tin workbookView.");
+                    result.Errors.Add("Không đọc được thông tin workbookView.");
                     return result;
                 }
 
@@ -32,11 +32,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 if (views.Count >= 2)
                 {
                     score += 2m;
-                    result.Details.Add($"Workbook co {views.Count} cua so view.");
+                    result.Details.Add($"Workbook có {views.Count} cửa sổ view.");
                 }
                 else
                 {
-                    result.Errors.Add("Workbook chi co 1 cua so view (chua mo cua so thu hai).");
+                    result.Errors.Add("Workbook chỉ có 1 cửa sổ view (chưa mở cửa sổ thứ hai).");
                     result.Score = score;
                     return result;
                 }
@@ -54,11 +54,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 if (sameLeft && sameWidth)
                 {
                     score += 1m;
-                    result.Details.Add("Hai cua so co cung vi tri ngang va do rong tuong duong.");
+                    result.Details.Add("Hai cửa sổ có cùng vị trí ngang và độ rộng tương đương.");
                 }
                 else
                 {
-                    result.Errors.Add("Hai cua so chua canh theo chieu tren-duoi (xWindow/windowWidth chua dong nhat).");
+                    result.Errors.Add("Hai cửa sổ chưa canh theo chiều trên-dưới (xWindow/windowWidth chưa đồng nhất).");
                 }
 
                 var hasY1 = P05GraderHelpers.TryParseDoubleAttribute(first, "yWindow", out var y1);
@@ -66,11 +66,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 if (hasY1 && hasY2 && Math.Abs(y1 - y2) > 50 && y2 > y1)
                 {
                     score += 1m;
-                    result.Details.Add("Cua so thu hai nam ben duoi cua so thu nhat (top-bottom side by side).");
+                    result.Details.Add("Cửa sổ thứ hai nằm bên dưới cửa sổ thứ nhất (top-bottom side by side).");
                 }
                 else
                 {
-                    result.Errors.Add("Khong thay dau hieu sap xep tren-duoi cho 2 cua so workbook.");
+                    result.Errors.Add("Không thấy dấu hiệu sắp xếp trên-dưới cho 2 cửa sổ workbook.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);

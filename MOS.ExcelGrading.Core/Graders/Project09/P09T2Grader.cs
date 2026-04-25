@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
     public class P09T2Grader : ITaskGrader
     {
         public string TaskId => "P09-T2";
-        public string TaskName => "Unmerge A1, apply Title style, 24pt, bold";
+        public string TaskName => "Huy tron o A1, ap dung kieu Title, co chu 24, Bold";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -81,3 +81,6 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
 }
 
 // minor-sync: non-functional graders update
+
+
+

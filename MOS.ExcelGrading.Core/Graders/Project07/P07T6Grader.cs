@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
     public class P07T6Grader : ITaskGrader
     {
         public string TaskId => "P07-T6";
-        public string TaskName => "Transpose Q1 Sales A4:E9 sang Seedling Sales bat dau A4";
+        public string TaskName => "Transpose Q1 Sales A4:E9 sang Seedling Sales bắt đầu A4";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -25,7 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 var target = P07GraderHelpers.GetSheet(studentSheet, "Seedling Sales");
                 if (source == null || target == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Q1 Sales' hoac 'Seedling Sales'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Q1 Sales' hoặc 'Seedling Sales'.");
                     return result;
                 }
 
@@ -64,16 +64,16 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 var score = Math.Round(MaxScore * matched / total, 2);
                 if (matched == total)
                 {
-                    result.Details.Add("Da transpose dung toan bo du lieu tu Q1 Sales sang Seedling Sales.");
+                    result.Details.Add("Đã transpose đúng toàn bộ dữ liệu từ Q1 Sales sang Seedling Sales.");
                 }
                 else
                 {
-                    result.Errors.Add($"Transpose chua dung ({matched}/{total} o khop).");
+                    result.Errors.Add($"Transpose chưa đúng ({matched}/{total} ô khớp).");
                     if (firstMismatch.HasValue)
                     {
                         var mm = firstMismatch.Value;
                         result.Errors.Add(
-                            $"Lech tai Q1 Sales({mm.SrcRow},{mm.SrcCol}) -> Seedling Sales({mm.DestRow},{mm.DestCol}), mong doi '{mm.Expected}', hien tai '{mm.Actual}'.");
+                            $"Lệch tại Q1 Sales({mm.SrcRow},{mm.SrcCol}) -> Seedling Sales({mm.DestRow},{mm.DestCol}), mong đợi '{mm.Expected}', hiện tai '{mm.Actual}'.");
                     }
                 }
 
@@ -81,7 +81,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

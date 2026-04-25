@@ -24,39 +24,39 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 var ws = P04GraderHelpers.GetSheet(studentSheet, "Substitutes");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet Substitutes");
+                    result.Errors.Add("Không tìm thấy sheet Substitutes");
                     return result;
                 }
 
                 var table = ws.Tables.FirstOrDefault();
                 if (table == null)
                 {
-                    result.Errors.Add("Khong tim thay table tren sheet Substitutes");
+                    result.Errors.Add("Không tìm thấy table trên sheet Substitutes");
                     return result;
                 }
 
                 result.Score += 1m;
-                result.Details.Add($"Tim thay table '{table.Name}'");
+                result.Details.Add($"Tìm thấy table '{table.Name}'");
 
                 var addrOk = P04GraderHelpers.NormalizeAddress(table.Address.Address) == "A4:D10";
                 if (addrOk && table.Address.Rows == 7)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Table dung vung A4:D10");
+                    result.Details.Add("Table đúng vùng A4:D10");
                 }
                 else
                 {
-                    result.Errors.Add($"Table sai vung. Hien tai: {table.Address.Address}");
+                    result.Errors.Add($"Table sai vùng. Hiện tại: {table.Address.Address}");
                 }
 
                 if (table.TableStyle == OfficeOpenXml.Table.TableStyles.Medium1)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Da ap dung table style Medium 1");
+                    result.Details.Add("Đã áp dụng table style Medium 1");
                 }
                 else
                 {
-                    result.Errors.Add($"Table style chua dung Medium 1 (hien tai: {table.TableStyle})");
+                    result.Errors.Add($"Table style chưa đúng Medium 1 (hiện tại: {table.TableStyle})");
                 }
 
                 var expectedHeaders = new[] { "Name", "First name", "Object", "Preferred contact" };
@@ -73,11 +73,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 if (headerOk && sampleOk)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Header va du lieu mau dung voi file Substitutes");
+                    result.Details.Add("Header và dữ liệu mẫu đúng với file Substitutes");
                 }
                 else
                 {
-                    result.Errors.Add("Header hoac du lieu mau tren Substitutes chua dung");
+                    result.Errors.Add("Header hoặc dữ liệu mẫu trên Substitutes chưa đúng");
                 }
 
                 result.Score = Math.Min(MaxScore, result.Score);

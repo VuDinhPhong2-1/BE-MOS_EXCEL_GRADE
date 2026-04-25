@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
     public class P03T3Grader : ITaskGrader
     {
         public string TaskId => "P03-T3";
-        public string TaskName => "Them Header ben phai 'Sequential' va de o che do Normal";
+        public string TaskName => "Thêm Header bên phải 'Sequential' và để ở chế độ Normal";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 var ws = P03GraderHelpers.GetIngredientsSheet(studentSheet);
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet Ingredients");
+                    result.Errors.Add("Không tìm thấy sheet Ingredients");
                     return result;
                 }
 
@@ -33,22 +33,22 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 if (string.Equals(rightText, "Sequential", StringComparison.Ordinal))
                 {
                     result.Score += 3m;
-                    result.Details.Add("Header ben phai dung noi dung 'Sequential'");
+                    result.Details.Add("Header bên phải đúng nội dung 'Sequential'");
                 }
                 else
                 {
-                    result.Errors.Add($"Header ben phai chua dung. Hien tai: '{rightText}'");
+                    result.Errors.Add($"Header bên phải chưa đúng. Hiện tại: '{rightText}'");
                 }
 
                 var isNormalView = !ws.View.PageLayoutView && !ws.View.PageBreakView;
                 if (isNormalView)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Sheet dang o che do Normal");
+                    result.Details.Add("Sheet đang ở chế độ Normal");
                 }
                 else
                 {
-                    result.Errors.Add("Sheet chua o che do Normal");
+                    result.Errors.Add("Sheet chưa ở chế độ Normal");
                 }
 
                 result.Score = Math.Min(MaxScore, result.Score);

@@ -1,4 +1,4 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Xml;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
     public class P09T4Grader : ITaskGrader
     {
         public string TaskId => "P09-T4";
-        public string TaskName => "Filter Total column: 34,000 to 45,000";
+        public string TaskName => "Loc cot Total: tu 34,000 den 45,000";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -26,7 +26,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 var ws = P09GraderHelpers.GetSheet(studentSheet.Workbook, "Data");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Data'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Data'.");
                     return result;
                 }
 
@@ -42,14 +42,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 }
                 else
                 {
-                    result.Errors.Add($"AutoFilter chua dung. Hien tai: '{filterAddress}'.");
+                    result.Errors.Add($"AutoFilter chưa đúng. Hiện tại: '{filterAddress}'.");
                 }
 
                 var ns = P09GraderHelpers.CreateWorksheetNamespaceManager(ws.WorksheetXml);
                 var autoFilterNode = ws.WorksheetXml.SelectSingleNode("//x:autoFilter", ns);
                 if (autoFilterNode == null)
                 {
-                    result.Errors.Add("Khong tim thay node autoFilter trong XML.");
+                    result.Errors.Add("Không tìm thấy node autoFilter trong XML.");
                     result.Score = score;
                     return result;
                 }
@@ -57,7 +57,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 var autoFilterAddress = ws.AutoFilter?.Address;
                 if (autoFilterAddress == null)
                 {
-                    result.Errors.Add("Khong doc duoc dia chi AutoFilter de xac dinh cot Total.");
+                    result.Errors.Add("Không đọc được dia chi AutoFilter de xac dinh cột Total.");
                     result.Score = score;
                     return result;
                 }
@@ -65,7 +65,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 var totalColumnIds = GetTotalColumnIds(ws, autoFilterAddress);
                 if (totalColumnIds.Count == 0)
                 {
-                    result.Errors.Add("Khong tim thay cot 'Total' trong hang tieu de AutoFilter.");
+                    result.Errors.Add("Không tìm thấy cột 'Total' trong hàng tieu de AutoFilter.");
                     result.Score = score;
                     return result;
                 }
@@ -73,7 +73,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 var filterColumnNodes = autoFilterNode.SelectNodes("x:filterColumn", ns);
                 if (filterColumnNodes == null || filterColumnNodes.Count == 0)
                 {
-                    result.Errors.Add("Khong tim thay filterColumn trong autoFilter.");
+                    result.Errors.Add("Không tìm thấy filterColumn trong autoFilter.");
                     result.Score = score;
                     return result;
                 }
@@ -96,11 +96,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 if (totalFilterColumns.Count > 0)
                 {
                     score += 1m;
-                    result.Details.Add("Filter dat dung tren it nhat mot cot Total.");
+                    result.Details.Add("Filter dat dung tren it nhat mot cột Total.");
                 }
                 else
                 {
-                    result.Errors.Add("Khong tim thay filterColumn tren cac cot Total.");
+                    result.Errors.Add("Không tìm thấy filterColumn tren cac cột Total.");
                 }
 
                 var hasMatchedConditions = false;
@@ -137,22 +137,22 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
                 {
                     if (!hasAndInAnyTotalColumn)
                     {
-                        result.Errors.Add("customFilters chua dat dieu kien AND.");
+                        result.Errors.Add("customFilters chua dat điều kiện AND.");
                     }
 
                     if (!hasLowerBoundInAnyTotalColumn)
                     {
-                        result.Errors.Add("Thieu dieu kien lower bound: >= 34000.");
+                        result.Errors.Add("Thieu điều kiện lower bound: >= 34000.");
                     }
 
                     if (!hasUpperBoundInAnyTotalColumn)
                     {
-                        result.Errors.Add("Thieu dieu kien upper bound: <= 45000.");
+                        result.Errors.Add("Thieu điều kiện upper bound: <= 45000.");
                     }
 
                     if (hasAndInAnyTotalColumn && hasLowerBoundInAnyTotalColumn && hasUpperBoundInAnyTotalColumn)
                     {
-                        result.Errors.Add("Cac dieu kien filter chua nam cung mot cot Total.");
+                        result.Errors.Add("Cac điều kiện filter chua nam cung mot cột Total.");
                     }
                 }
 
@@ -160,7 +160,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;
@@ -226,3 +226,6 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
 }
 
 // minor-sync: non-functional graders update
+
+
+

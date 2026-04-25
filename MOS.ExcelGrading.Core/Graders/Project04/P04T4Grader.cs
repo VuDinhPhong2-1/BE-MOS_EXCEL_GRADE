@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
     public class P04T4Grader : ITaskGrader
     {
         public string TaskId => "P04-T4";
-        public string TaskName => "Convert table tren Classes thanh range (giu dinh dang)";
+        public string TaskName => "Convert table trên Classes thành range (giữ định dạng)";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,18 +24,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 var ws = P04GraderHelpers.GetSheet(studentSheet, "Classes");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet Classes");
+                    result.Errors.Add("Không tìm thấy sheet Classes");
                     return result;
                 }
 
                 if (ws.Tables.Count == 0)
                 {
                     result.Score += 2m;
-                    result.Details.Add("Da convert table thanh range (khong con table object)");
+                    result.Details.Add("Đã convert table thành range (không còn table object)");
                 }
                 else
                 {
-                    result.Errors.Add($"Van con {ws.Tables.Count} table tren sheet Classes");
+                    result.Errors.Add($"Vẫn còn {ws.Tables.Count} table trên sheet Classes");
                 }
 
                 var expectedHeaders = new[] { "Title", "Section", "Days", "Hours", "Location", "Instructor" };
@@ -53,11 +53,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 if (headersOk)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Header A4:F4 van day du sau khi convert");
+                    result.Details.Add("Header A4:F4 vẫn đầy đủ sau khi convert");
                 }
                 else
                 {
-                    result.Errors.Add("Header A4:F4 chua dung sau khi convert");
+                    result.Errors.Add("Header A4:F4 chưa đúng sau khi convert");
                 }
 
                 var headerStyleOk = ws.Cells[4, 1].StyleID > 0
@@ -69,11 +69,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 if (headerStyleOk && dataStyleOk)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Dinh dang co ban duoc giu lai sau khi convert");
+                    result.Details.Add("Định dạng cơ bản được giữ lại sau khi convert");
                 }
                 else
                 {
-                    result.Errors.Add("Dinh dang co ban co dau hieu bi mat sau khi convert");
+                    result.Errors.Add("Định dạng cơ bản có dấu hiệu bị mất sau khi convert");
                 }
 
                 result.Score = Math.Min(MaxScore, result.Score);

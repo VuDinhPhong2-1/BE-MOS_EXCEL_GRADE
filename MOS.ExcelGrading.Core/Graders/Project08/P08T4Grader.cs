@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 var ws = P08GraderHelpers.GetSheet(studentSheet, "Authors");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Authors'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Authors'.");
                     return result;
                 }
 
@@ -33,7 +33,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                     t.Columns.Any(c => string.Equals((c.Name ?? string.Empty).Trim(), "Premium", StringComparison.OrdinalIgnoreCase)));
                 if (table == null)
                 {
-                    result.Errors.Add("Khong tim thay table co cot 'Books sold' va 'Premium'.");
+                    result.Errors.Add("Không tìm thấy table có cột 'Books sold' và 'Premium'.");
                     return result;
                 }
 
@@ -47,7 +47,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 var rowCount = Math.Max(0, endRow - startRow + 1);
                 if (rowCount == 0)
                 {
-                    result.Errors.Add("Khong co du lieu de cham.");
+                    result.Errors.Add("Không có dữ liệu để chấm.");
                     return result;
                 }
 
@@ -70,7 +70,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                     }
                     else
                     {
-                        result.Errors.Add($"Hang {row}: Premium chua co cong thuc.");
+                        result.Errors.Add($"Hang {row}: Premium chưa có công thức.");
                         continue;
                     }
 
@@ -89,7 +89,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                     }
                     else
                     {
-                        result.Errors.Add($"Hang {row}: Cong thuc Premium chua dung logic IF >10000,500,100.");
+                        result.Errors.Add($"Hang {row}: Công thức Premium chưa đúng logic IF >10000,500,100.");
                     }
 
                     var sold = P08GraderHelpers.ToDecimal(ws.Cells[row, booksColIndex].Value, ws.Cells[row, booksColIndex].Text);
@@ -108,18 +108,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
 
                 if (logicRows != rowCount)
                 {
-                    result.Errors.Add($"So dong cong thuc Premium dung chuan chua dat ({logicRows}/{rowCount}).");
+                    result.Errors.Add($"Số dòng công thức Premium đúng chuẩn chưa đạt ({logicRows}/{rowCount}).");
                 }
                 if (valueRows != rowCount)
                 {
-                    result.Errors.Add($"Gia tri Premium tinh dung chua dat ({valueRows}/{rowCount}).");
+                    result.Errors.Add($"Giá trị Premium tính đúng chưa đạt ({valueRows}/{rowCount}).");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

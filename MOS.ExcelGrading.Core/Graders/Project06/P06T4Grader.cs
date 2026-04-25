@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
     public class P06T4Grader : ITaskGrader
     {
         public string TaskId => "P06-T4";
-        public string TaskName => "Summary B15 dung ham MAX cho cot Total sales";
+        public string TaskName => "Summary B15 dùng hàm MAX cho cột Total sales";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 var ws = P06GraderHelpers.GetSheet(studentSheet, "Summary");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Summary'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Summary'.");
                     return result;
                 }
 
@@ -36,11 +36,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 if (!string.IsNullOrWhiteSpace(formulaRaw))
                 {
                     score += 1m;
-                    result.Details.Add("O B15 da co cong thuc.");
+                    result.Details.Add("Ô B15 đã có công thức.");
                 }
                 else
                 {
-                    result.Errors.Add("O B15 chua co cong thuc.");
+                    result.Errors.Add("Ô B15 chưa có công thức.");
                     result.Score = score;
                     return result;
                 }
@@ -48,11 +48,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 if (formula.Contains("MAX(", StringComparison.Ordinal))
                 {
                     score += 1m;
-                    result.Details.Add("B15 da su dung ham MAX.");
+                    result.Details.Add("B15 đã sử dụng hàm MAX.");
                 }
                 else
                 {
-                    result.Errors.Add($"Cong thuc B15 chua dung MAX. Hien tai: '{formulaRaw}'.");
+                    result.Errors.Add($"Công thức B15 chưa dùng MAX. Hiện tại: '{formulaRaw}'.");
                 }
 
                 var hasTotalSalesRef =
@@ -62,11 +62,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 if (hasTotalSalesRef)
                 {
                     score += 1m;
-                    result.Details.Add("Cong thuc B15 tham chieu dung cot Total sales.");
+                    result.Details.Add("Công thức B15 tham chiếu đúng cột Total sales.");
                 }
                 else
                 {
-                    result.Errors.Add("Cong thuc B15 chua tham chieu ro rang den cot Total sales.");
+                    result.Errors.Add("Công thức B15 chưa tham chiếu rõ ràng đến cột Total sales.");
                 }
 
                 var table = ws.Tables.FirstOrDefault(t =>
@@ -87,23 +87,23 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                     if (Math.Abs(maxValue - b15Value) <= 0.01m)
                     {
                         score += 1m;
-                        result.Details.Add("Gia tri B15 khop gia tri lon nhat cua cot Total sales.");
+                        result.Details.Add("Giá trị B15 khớp giá trị lớn nhất của cột Total sales.");
                     }
                     else
                     {
-                        result.Errors.Add($"Gia tri B15 ({b15Value}) khong khop MAX Total sales ({maxValue}).");
+                        result.Errors.Add($"Giá trị B15 ({b15Value}) không khớp với MAX Total sales ({maxValue}).");
                     }
                 }
                 else
                 {
-                    result.Errors.Add("Khong tim thay table chua cot Total sales de doi chieu.");
+                    result.Errors.Add("Không tìm thấy table chứa cột Total sales để đối chiếu.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

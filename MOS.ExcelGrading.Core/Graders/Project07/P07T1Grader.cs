@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
     public class P07T1Grader : ITaskGrader
     {
         public string TaskId => "P07-T1";
-        public string TaskName => "Import Drinks.txt vao sheet Drinks bat dau A7 (Use first row as headers)";
+        public string TaskName => "Import Drinks.txt vao sheet Drinks bắt đầu A7 (Use first row as headers)";
         public decimal MaxScore => 4;
 
         private static readonly (int Row, string A, string B, string C, string D, string E)[] SampleRows =
@@ -33,7 +33,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 var ws = P07GraderHelpers.GetSheet(studentSheet, "Drinks");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Drinks'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Drinks'.");
                     return result;
                 }
 
@@ -47,11 +47,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (headerOk)
                 {
                     score += 1m;
-                    result.Details.Add("Header tai A7:E7 dung theo file import.");
+                    result.Details.Add("Header tại A7:E7 đúng theo file import.");
                 }
                 else
                 {
-                    result.Errors.Add("Header A7:E7 chua dung (chua import voi tuy chon Use first row as headers).");
+                    result.Errors.Add("Header A7:E7 chưa đúng (chưa import với tùy chọn Use first row as headers).");
                 }
 
                 var nonEmptyCount = Enumerable.Range(8, 79)
@@ -59,11 +59,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (nonEmptyCount == 79)
                 {
                     score += 1m;
-                    result.Details.Add("Da import du 79 dong du lieu (A8:A86).");
+                    result.Details.Add("Đã import đủ 79 dòng dữ liệu (A8:A86).");
                 }
                 else
                 {
-                    result.Errors.Add($"So dong du lieu import chua dung: {nonEmptyCount}/79.");
+                    result.Errors.Add($"Số dòng dữ liệu import chưa đúng: {nonEmptyCount}/79.");
                 }
 
                 var sampleMatch = 0;
@@ -84,18 +84,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 score += Math.Round(2m * sampleMatch / SampleRows.Length, 2);
                 if (sampleMatch != SampleRows.Length)
                 {
-                    result.Errors.Add($"Du lieu import khong khop mau doi chieu ({sampleMatch}/{SampleRows.Length} dong mau).");
+                    result.Errors.Add($"Dữ liệu import không khớp mẫu đối chiếu ({sampleMatch}/{SampleRows.Length} dòng mẫu).");
                 }
                 else
                 {
-                    result.Details.Add("Du lieu import khop cac dong mau quan trong.");
+                    result.Details.Add("Dữ liệu import khớp các dòng mẫu quan trọng.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

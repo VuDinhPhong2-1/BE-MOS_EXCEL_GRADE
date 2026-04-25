@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
     public class P02T4Grader : ITaskGrader
     {
         public string TaskId => "P02-T4";
-        public string TaskName => "Dem so thang khong co policy moi trong cot Inactive months";
+        public string TaskName => "Đếm số tháng không có policy mới trong cột Inactive months";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,14 +24,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 var ws = studentSheet.Workbook.Worksheets["New Policy"];
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'New Policy'");
+                    result.Errors.Add("Không tìm thấy sheet 'New Policy'");
                     return result;
                 }
 
                 var table = ws.Tables.FirstOrDefault();
                 if (table == null)
                 {
-                    result.Errors.Add("Khong tim thay bang du lieu New Policy");
+                    result.Errors.Add("Không tìm thấy bảng dữ liệu trên sheet 'New Policy'");
                     return result;
                 }
 
@@ -39,7 +39,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                     string.Equals(c.Name?.Trim(), "Inactive months", StringComparison.OrdinalIgnoreCase));
                 if (inactiveCol == null)
                 {
-                    result.Errors.Add("Khong tim thay cot 'Inactive months'");
+                    result.Errors.Add("Không tìm thấy cột 'Inactive months'");
                     return result;
                 }
 
@@ -50,7 +50,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
 
                 if (totalRows == 0)
                 {
-                    result.Errors.Add("Khong co dong du lieu de cham");
+                    result.Errors.Add("Không có dòng dữ liệu để chấm");
                     return result;
                 }
 
@@ -89,41 +89,41 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 if (hasFormulaRows == totalRows)
                 {
                     score += 1m;
-                    result.Details.Add("Cot Inactive months da co cong thuc cho tat ca dong");
+                    result.Details.Add("Cột Inactive months đã có công thức cho tất cả dòng");
                 }
                 else
                 {
-                    result.Errors.Add($"Thieu cong thuc tai cot Inactive months ({hasFormulaRows}/{totalRows})");
+                    result.Errors.Add($"Thiếu công thức tại cột Inactive months ({hasFormulaRows}/{totalRows})");
                 }
 
                 if (countFunctionRows == totalRows)
                 {
                     score += 1m;
-                    result.Details.Add("Cong thuc co su dung ham dem");
+                    result.Details.Add("Công thức có sử dụng hàm đếm");
                 }
                 else
                 {
-                    result.Errors.Add($"Ham dem chua dung/du ({countFunctionRows}/{totalRows})");
+                    result.Errors.Add($"Hàm đếm chưa dùng/đủ ({countFunctionRows}/{totalRows})");
                 }
 
                 if (janJunRefRows == totalRows)
                 {
                     score += 1m;
-                    result.Details.Add("Cong thuc tham chieu dung khoang January:June");
+                    result.Details.Add("Công thức tham chiếu đúng khoảng January:June");
                 }
                 else
                 {
-                    result.Errors.Add($"Tham chieu January:June chua dung/du ({janJunRefRows}/{totalRows})");
+                    result.Errors.Add($"Tham chiếu January:June chưa đúng/đủ ({janJunRefRows}/{totalRows})");
                 }
 
                 if (blankConditionRows == totalRows)
                 {
                     score += 1m;
-                    result.Details.Add("Cong thuc co dieu kien dem thang trong");
+                    result.Details.Add("Công thức có điều kiện đếm tháng trong");
                 }
                 else
                 {
-                    result.Errors.Add($"Dieu kien dem o trong chua day du ({blankConditionRows}/{totalRows})");
+                    result.Errors.Add($"Điều kiện đếm ô trống chưa đầy đủ ({blankConditionRows}/{totalRows})");
                 }
 
                 result.Score = Math.Min(MaxScore, score);

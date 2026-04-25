@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
     public class P04T2Grader : ITaskGrader
     {
         public string TaskId => "P04-T2";
-        public string TaskName => "Dat do rong cot B:G = 12 tren Number of course hours";
+        public string TaskName => "Đặt độ rộng cột B:G = 12 trên sheet Number of course hours";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 var ws = P04GraderHelpers.GetSheet(studentSheet, "Number of course hours");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet Number of course hours");
+                    result.Errors.Add("Không tìm thấy sheet Number of course hours");
                     return result;
                 }
 
@@ -38,18 +38,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                     }
                     else
                     {
-                        result.Errors.Add($"Cot {c} co do rong {width:0.###}, chua dat gia tri 12");
+                        result.Errors.Add($"Cột {c} có độ rộng {width:0.###}, chưa đặt giá trị 12");
                     }
                 }
 
                 result.Score = Math.Round(MaxScore * okCount / 6m, 2);
                 if (okCount == 6)
                 {
-                    result.Details.Add("Tat ca cot B:G da dat do rong 12");
+                    result.Details.Add("Tất cả cột B:G đã đặt độ rộng 12");
                 }
                 else
                 {
-                    result.Details.Add($"Cot dat dung: {okCount}/6");
+                    result.Details.Add($"Cột đặt đúng: {okCount}/6");
                 }
             }
             catch (Exception ex)

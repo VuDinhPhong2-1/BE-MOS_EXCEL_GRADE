@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
     public class P03T2Grader : ITaskGrader
     {
         public string TaskId => "P03-T2";
-        public string TaskName => "AutoFit tat ca cot A:N tren Ingredients";
+        public string TaskName => "AutoFit tất cả cột A:N trên sheet Ingredients";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 var ws = P03GraderHelpers.GetIngredientsSheet(studentSheet);
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet Ingredients");
+                    result.Errors.Add("Không tìm thấy sheet Ingredients");
                     return result;
                 }
 
@@ -52,23 +52,23 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 if (bestFitCount == totalCols)
                 {
                     result.Score += 3m;
-                    result.Details.Add("Tat ca cot A:N co BestFit=true");
+                    result.Details.Add("Tất cả cột A:N có BestFit=true");
                 }
                 else
                 {
                     var partial = Math.Round(3m * bestFitCount / totalCols, 2);
                     result.Score += partial;
-                    result.Errors.Add($"BestFit chua day du ({bestFitCount}/{totalCols})");
+                    result.Errors.Add($"BestFit chưa đầy đủ ({bestFitCount}/{totalCols})");
                 }
 
                 if (nonDefaultWidthCount == totalCols)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Tat ca cot A:N da thay doi do rong (khong con mac dinh 9)");
+                    result.Details.Add("Tất cả cột A:N đã thay đổi độ rộng (không còn mặc định 9)");
                 }
                 else
                 {
-                    result.Errors.Add($"So cot co do rong khac mac dinh: {nonDefaultWidthCount}/{totalCols}");
+                    result.Errors.Add($"Số cột có độ rộng khác mặc định: {nonDefaultWidthCount}/{totalCols}");
                 }
 
                 result.Score = Math.Min(MaxScore, result.Score);

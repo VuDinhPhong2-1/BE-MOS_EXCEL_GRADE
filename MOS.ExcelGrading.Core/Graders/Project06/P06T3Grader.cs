@@ -24,14 +24,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 var ws = P06GraderHelpers.GetSheet(studentSheet, "Forecasts");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Forecasts'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Forecasts'.");
                     return result;
                 }
 
                 var table = ws.Tables.FirstOrDefault();
                 if (table == null)
                 {
-                    result.Errors.Add("Khong tim thay table tren Forecasts.");
+                    result.Errors.Add("Không tìm thấy table trên sheet 'Forecasts'.");
                     return result;
                 }
 
@@ -42,7 +42,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
 
                 if (q1Col == null || q2Col == null)
                 {
-                    result.Errors.Add("Thieu cot Quarter 1 hoac Quarter 2 trong Forecasts.");
+                    result.Errors.Add("Thiếu cột Quarter 1 hoặc Quarter 2 trong sheet 'Forecasts'.");
                     return result;
                 }
 
@@ -54,7 +54,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
 
                 if (rowCount == 0)
                 {
-                    result.Errors.Add("Khong co dong du lieu de cham.");
+                    result.Errors.Add("Không có dòng dữ liệu để kiểm tra.");
                     return result;
                 }
 
@@ -69,7 +69,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                     var normalized = P06GraderHelpers.NormalizeFormula(formula);
                     if (string.IsNullOrWhiteSpace(normalized))
                     {
-                        result.Errors.Add($"Hang {row}: Quarter 2 chua co cong thuc.");
+                        result.Errors.Add($"Hàng {row}: Quarter 2 chưa có công thức.");
                         continue;
                     }
 
@@ -97,26 +97,26 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
 
                 if (formulaRows == rowCount)
                 {
-                    result.Details.Add("Tat ca dong Quarter 2 da co cong thuc.");
+                    result.Details.Add("Tất cả dòng Quarter 2 đều có công thức.");
                 }
                 if (namedRangeRows == rowCount)
                 {
-                    result.Details.Add("Tat ca cong thuc Quarter 2 da dung named range Q2_Increase.");
+                    result.Details.Add("Tất cả công thức Quarter 2 đều sử dụng named range Q2_Increase.");
                 }
                 else
                 {
-                    result.Errors.Add($"Cong thuc chua dung named range Q2_Increase o {rowCount - namedRangeRows} dong.");
+                    result.Errors.Add($"Công thức chưa dùng named range Q2_Increase ở {rowCount - namedRangeRows} dòng.");
                 }
                 if (q1RefRows != rowCount)
                 {
-                    result.Errors.Add($"Cong thuc chua tham chieu Quarter 1 o {rowCount - q1RefRows} dong.");
+                    result.Errors.Add($"Công thức chưa tham chiếu Quarter 1 ở {rowCount - q1RefRows} dòng.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

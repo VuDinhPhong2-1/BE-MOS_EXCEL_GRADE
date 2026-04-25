@@ -78,21 +78,21 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 if (leftAlignedRows == totalRows)
                 {
                     score += 1.5m;
-                    result.Details.Add($"Tat ca o Agent da canh trai ({leftAlignedRows}/{totalRows})");
+                    result.Details.Add($"Tất cả ô Agent đã canh trái ({leftAlignedRows}/{totalRows})");
                 }
                 else
                 {
-                    result.Errors.Add($"Canh trai chua day du ({leftAlignedRows}/{totalRows})");
+                    result.Errors.Add($"Canh trái chưa đầy đủ ({leftAlignedRows}/{totalRows})");
                 }
 
                 if (indentOneRows == totalRows)
                 {
                     score += 1.5m;
-                    result.Details.Add($"Tat ca o Agent co indent = 1 ({indentOneRows}/{totalRows})");
+                    result.Details.Add($"Tất cả ô Agent có indent = 1 ({indentOneRows}/{totalRows})");
                 }
                 else
                 {
-                    result.Errors.Add($"Indent level = 1 chua day du ({indentOneRows}/{totalRows})");
+                    result.Errors.Add($"Indent level = 1 chưa đầy đủ ({indentOneRows}/{totalRows})");
                 }
 
                 result.Score = Math.Min(MaxScore, score);

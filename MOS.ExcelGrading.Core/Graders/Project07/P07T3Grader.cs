@@ -26,14 +26,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 var ws = P07GraderHelpers.GetSheet(studentSheet, "Tea");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Tea'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Tea'.");
                     return result;
                 }
 
                 var chart = ws.Drawings.OfType<ExcelChart>().FirstOrDefault();
                 if (chart == null)
                 {
-                    result.Errors.Add("Khong tim thay chart tren sheet Tea.");
+                    result.Errors.Add("Không tìm thấy chart trên sheet 'Tea'.");
                     return result;
                 }
 
@@ -43,11 +43,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (string.Equals(yTitle, "Price", StringComparison.Ordinal))
                 {
                     score += 1m;
-                    result.Details.Add("Primary Vertical Axis Title da dat dung 'Price'.");
+                    result.Details.Add("Primary Vertical Axis Title đã đặt đúng 'Price'.");
                 }
                 else
                 {
-                    result.Errors.Add($"Primary Vertical Axis Title chua dung. Hien tai: '{yTitle}'.");
+                    result.Errors.Add($"Primary Vertical Axis Title chưa đúng. Hiện tại: '{yTitle}'.");
                 }
 
                 var xTitle = chart.XAxis?.Title?.Text ?? string.Empty;
@@ -58,11 +58,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (xTitleTechnicalClean.Length == 0)
                 {
                     score += 1m;
-                    result.Details.Add("Horizontal Axis Title da duoc xoa.");
+                    result.Details.Add("Horizontal Axis Title đã được xóa.");
                 }
                 else
                 {
-                    result.Errors.Add($"Horizontal Axis Title chua duoc xoa. Hien tai: '{xTitle}'.");
+                    result.Errors.Add($"Horizontal Axis Title chưa được xóa. Hiện tại: '{xTitle}'.");
                 }
 
                 var xml = chart.ChartXml;
@@ -72,18 +72,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (string.Equals(legendPos, "r", StringComparison.OrdinalIgnoreCase))
                 {
                     score += 1m;
-                    result.Details.Add("Chart legend o ben phai (dac trung Layout 9).");
+                    result.Details.Add("Chart legend ở bên phải (đặc trưng Layout 9).");
                 }
                 else
                 {
-                    result.Errors.Add("Legend chart chua o ben phai, bo cuc chua khop Layout 9.");
+                    result.Errors.Add("Legend chart chưa ở bên phải, bố cục chưa khớp Layout 9.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
     public class P05T2Grader : ITaskGrader
     {
         public string TaskId => "P05-T2";
-        public string TaskName => "Cot Difference tinh Selling Price - Cost, giu nguyen dinh dang";
+        public string TaskName => "Cột Difference tính Selling Price - Cost, giữ nguyên định dạng";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 var ws = P05GraderHelpers.GetSheet(studentSheet, "Annual Purchases");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Annual Purchases'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Annual Purchases'.");
                     return result;
                 }
 
@@ -55,7 +55,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                     }
                     else
                     {
-                        result.Errors.Add($"Hang {row}: o H{row} chua co cong thuc.");
+                        result.Errors.Add($"Hàng {row}: o H{row} chưa có công thức.");
                     }
 
                     var formulaOk =
@@ -68,7 +68,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                     else if (hasFormula)
                     {
                         result.Errors.Add(
-                            $"Hang {row}: cong thuc Difference phai la Selling Price - Cost (F{row}-G{row}). Hien tai: '{formula}'.");
+                            $"Hàng {row}: công thức Difference phải là Selling Price - Cost (F{row}-G{row}). Hiện tại: '{formula}'.");
                     }
 
                     var styleOk = diffCell.StyleID == ws.Cells[row, costCol].StyleID;
@@ -79,12 +79,12 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                     else
                     {
                         result.Errors.Add(
-                            $"Hang {row}: dinh dang cot Difference da thay doi (StyleID H{row}={diffCell.StyleID}, G{row}={ws.Cells[row, costCol].StyleID}).");
+                            $"Hàng {row}: định dạng cột Difference đã thay đổi (StyleID H{row}={diffCell.StyleID}, G{row}={ws.Cells[row, costCol].StyleID}).");
                     }
                 }
 
                 decimal score = 0;
-                score += 0.5m; // Tim dung cot va range can cham.
+                score += 0.5m; // Tìm đúng cột và range cần chấm.
 
                 score += Math.Round(1.5m * formulaCount / expectedRows, 2);
                 score += Math.Round(1.5m * exactFormulaCount / expectedRows, 2);
@@ -98,15 +98,15 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
 
                 if (formulaCount == expectedRows)
                 {
-                    result.Details.Add("Da dien cong thuc cho toan bo H5:H35.");
+                    result.Details.Add("Đã điền công thức cho toàn bộ H5:H35.");
                 }
                 if (exactFormulaCount == expectedRows)
                 {
-                    result.Details.Add("Cong thuc Difference dung dang Selling Price - Cost cho tat ca dong.");
+                    result.Details.Add("Công thức Difference đúng dạng Selling Price - Cost cho tất cả dòng.");
                 }
                 if (stylePreservedCount == expectedRows && headerStylePreserved)
                 {
-                    result.Details.Add("Dinh dang cot Difference duoc giu nguyen.");
+                    result.Details.Add("Định dạng cột Difference được giữ nguyên.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);

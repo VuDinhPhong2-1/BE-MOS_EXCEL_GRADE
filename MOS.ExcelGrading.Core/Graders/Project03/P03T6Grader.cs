@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
     public class P03T6Grader : ITaskGrader
     {
         public string TaskId => "P03-T6";
-        public string TaskName => "Them Quick Print vao Quick Access Toolbar";
+        public string TaskName => "Thêm Quick Print vào Quick Access Toolbar";
         public decimal MaxScore => 0;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -20,9 +20,9 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 Score = 0
             };
 
-            result.Details.Add("Task nay khong the auto-grade tu file .xlsx.");
-            result.Details.Add("Quick Access Toolbar la thiet lap UI cua ung dung Excel, khong luu trong workbook.");
-            result.Details.Add("Can cham thu cong khi can xac nhan Task 6.");
+            result.Details.Add("Task nay không thể auto-grade từ file .xlsx.");
+            result.Details.Add("Quick Access Toolbar là thiết lập UI của ứng dụng Excel, không lưu trong workbook.");
+            result.Details.Add("ần chấm thủ công khi cần xác nhận Task 6.");
 
             return result;
         }

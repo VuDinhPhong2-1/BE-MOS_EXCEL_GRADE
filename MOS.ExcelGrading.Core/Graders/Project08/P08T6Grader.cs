@@ -8,7 +8,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
     public class P08T6Grader : ITaskGrader
     {
         public string TaskId => "P08-T6";
-        public string TaskName => "Summary chart mo rong de them Current Year";
+        public string TaskName => "Summary chart mở rộng để thêm Current Year";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -25,14 +25,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 var ws = P08GraderHelpers.GetSheet(studentSheet, "Summary");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Summary'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Summary'.");
                     return result;
                 }
 
                 var chart = ws.Drawings.OfType<ExcelChart>().FirstOrDefault();
                 if (chart == null)
                 {
-                    result.Errors.Add("Khong tim thay chart tren Summary.");
+                    result.Errors.Add("Không tìm thấy chart trên sheet 'Summary'.");
                     return result;
                 }
 
@@ -44,7 +44,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 }
                 else
                 {
-                    result.Errors.Add("Chart chua mo rong series (can it nhat 2 series).");
+                    result.Errors.Add("Chart chưa mở rộng series (cần ít nhất 2 series).");
                 }
 
                 var hasCurrentYearSeries = false;
@@ -69,28 +69,28 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 if (hasCurrentYearSeries)
                 {
                     score += 1m;
-                    result.Details.Add("Da them series Current Year vao chart.");
+                    result.Details.Add("Đã thêm series Current Year vào chart.");
                 }
                 else
                 {
-                    result.Errors.Add("Khong tim thay series Current Year (C6:C12) trong chart.");
+                    result.Errors.Add("Không tìm thấy series Current Year (C6:C12) trong chart.");
                 }
 
                 if (hasPreviousYearSeries)
                 {
                     score += 1m;
-                    result.Details.Add("Series cu van duoc giu lai sau khi mo rong.");
+                    result.Details.Add("Series cũ vẫn được giữ lại sau khi mở rộng.");
                 }
                 else
                 {
-                    result.Errors.Add("Khong tim thay series nam truoc (B6:B12) trong chart.");
+                    result.Errors.Add("Không tìm thấy series năm trước (B6:B12) trong chart.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

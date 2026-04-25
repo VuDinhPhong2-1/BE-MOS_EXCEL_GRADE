@@ -25,14 +25,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 var ws = P07GraderHelpers.GetSheet(studentSheet, "Tea");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Tea'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Tea'.");
                     return result;
                 }
 
                 var table = ws.Tables.FirstOrDefault();
                 if (table == null)
                 {
-                    result.Errors.Add("Khong tim thay table tren sheet Tea.");
+                    result.Errors.Add("Không tìm thấy table trên sheet 'Tea'.");
                     return result;
                 }
 
@@ -41,29 +41,29 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (styleOk)
                 {
                     score += 2m;
-                    result.Details.Add("Table style dung Medium 9.");
+                    result.Details.Add("Table style đúng Medium 9.");
                 }
                 else
                 {
-                    result.Errors.Add($"Table style chua dung. Hien tai: {table.TableStyle}.");
+                    result.Errors.Add($"Table style chưa đúng. Hiện tại: {table.TableStyle}.");
                 }
 
                 var addressOk = P07GraderHelpers.NormalizeAddress(table.Address.Address) == "A7:D15";
                 if (addressOk)
                 {
                     score += 1m;
-                    result.Details.Add("Table address dung A7:D15.");
+                    result.Details.Add("Table address đúng A7:D15.");
                 }
                 else
                 {
-                    result.Errors.Add($"Table address khong dung. Hien tai: {table.Address.Address}.");
+                    result.Errors.Add($"Table address chưa đúng. Hiện tại: {table.Address.Address}.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

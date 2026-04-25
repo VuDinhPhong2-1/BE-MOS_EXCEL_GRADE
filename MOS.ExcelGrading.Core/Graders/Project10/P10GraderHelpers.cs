@@ -1,4 +1,4 @@
-using System.Xml;
+﻿using System.Xml;
 using OfficeOpenXml;
 using OfficeOpenXml.Drawing.Chart;
 using OfficeOpenXml.Table;
@@ -97,7 +97,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project10
                 var chartFrom = chart.From;
                 var chartTo = chart.To;
 
-                // EPPlus dùng 0-based, ExcelAddressBase dùng 1-based → cần +1
+                // EPPlus dÃ¹ng 0-based, ExcelAddressBase dÃ¹ng 1-based â†’ cáº§n +1
                 int chartStartRow = chartFrom.Row + 1;
                 int chartStartCol = chartFrom.Column + 1;
                 int chartEndRow = chartTo.Row + 1;
@@ -205,3 +205,4 @@ namespace MOS.ExcelGrading.Core.Graders.Project10
 }
 
 // minor-sync: non-functional graders update
+

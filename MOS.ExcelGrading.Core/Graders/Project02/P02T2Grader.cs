@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
     public class P02T2Grader : ITaskGrader
     {
         public string TaskId => "P02-T2";
-        public string TaskName => "Chen sparkline Win/Loss tai J5:J13";
+        public string TaskName => "Chèn sparkline Win/Loss tại J5:J13";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,13 +24,13 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 var ws = studentSheet.Workbook.Worksheets["New Policy"];
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'New Policy'");
+                    result.Errors.Add("Không tìm thấy sheet 'New Policy'");
                     return result;
                 }
 
                 if (ws.SparklineGroups.Count == 0)
                 {
-                    result.Errors.Add("Chua co sparkline group nao tren sheet New Policy");
+                    result.Errors.Add("Chưa có sparkline group nào trên sheet New Policy");
                     return result;
                 }
 
@@ -45,22 +45,22 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                     sparklineTypeText.Contains("WinLoss", StringComparison.OrdinalIgnoreCase))
                 {
                     score += 1m;
-                    result.Details.Add($"Loai sparkline hop le: {sparklineTypeText}");
+                    result.Details.Add($"Loại sparkline hợp lệ: {sparklineTypeText}");
                 }
                 else
                 {
-                    result.Errors.Add($"Loai sparkline chua dung Win/Loss (hien tai: {sparklineTypeText})");
+                    result.Errors.Add($"Loại sparkline chưa đúng Win/Loss (hiện tại: {sparklineTypeText})");
                 }
 
                 var locationRange = GetAddressLikeString(targetGroup, "LocationAddress", "LocationRange");
                 if (NormalizeAddress(locationRange) == "J5:J13")
                 {
                     score += 1m;
-                    result.Details.Add("Location range dung J5:J13");
+                    result.Details.Add("Location range đúng J5:J13");
                 }
                 else
                 {
-                    result.Errors.Add($"Location range chua dung (hien tai: {locationRange})");
+                    result.Errors.Add($"Location range chưa đúng (hiện tại: {locationRange})");
                 }
 
                 var expectedRows = Enumerable.Range(5, 9).ToList();
@@ -91,12 +91,12 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 if (validSparklineRows == expectedRows.Count && correctDataRangeRows == expectedRows.Count)
                 {
                     score += 1m;
-                    result.Details.Add("Tat ca 9 sparkline dung data range tu thang 1 den thang 6");
+                    result.Details.Add("Tất cả 9 sparkline đúng data range từ tháng 1 đến tháng 6");
                 }
                 else
                 {
                     result.Errors.Add(
-                        $"Sparkline row/data range chua day du (rows={validSparklineRows}/9, data={correctDataRangeRows}/9)");
+                        $"Sparkline row/data range chưa đầy đủ (rows={validSparklineRows}/9, data={correctDataRangeRows}/9)");
                 }
 
                 result.Score = Math.Min(MaxScore, score);

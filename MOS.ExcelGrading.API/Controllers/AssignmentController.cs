@@ -34,21 +34,22 @@ namespace MOS.ExcelGrading.API.Controllers
         {
             var implementedExcelProjects = new List<(int Number, string Description, double RawMaxScore)>
             {
-                (1, "Chấm điểm Dự án 01", 20),
-                (2, "Chấm điểm Dự án 02", 28),
-                (3, "Chấm điểm Dự án 03 (Task 1-5 tự động, Task 6 thủ công)", 20),
-                (4, "Chấm điểm Dự án 04", 28),
-                (5, "Chấm điểm Dự án 05", 24),
-                (6, "Chấm điểm Dự án 06", 24),
-                (7, "Chấm điểm Dự án 07", 24),
-                (8, "Chấm điểm Dự án 08", 24),
-                (9, "Chấm điểm Dự án 09", 32),
-                (10, "Chấm điểm Dự án 10", 24),
-                (12, "Chấm điểm Dự án 11", 24),
-                (13, "Chấm điểm Dự án 11", 24),
-                (14, "Chấm điểm Dự án 11", 24),
-                (15, "Chấm điểm Dự án 11", 24),
-                (16, "Chấm điểm Dự án 11", 24)
+                (1, "Chấm điểm Dự án 01", 125),
+                (2, "Chấm điểm Dự án 02", 125),
+                (3, "Chấm điểm Dự án 03 (Task 1-5 tự động, Task 6 thủ công)", 125),
+                (4, "Chấm điểm Dự án 04", 125),
+                (5, "Chấm điểm Dự án 05", 125),
+                (6, "Chấm điểm Dự án 06", 125),
+                (7, "Chấm điểm Dự án 07", 125),
+                (8, "Chấm điểm Dự án 08", 125),
+                (9, "Chấm điểm Dự án 09", 125),
+                (10, "Chấm điểm Dự án 10", 125),
+                (11, "Chấm điểm Dự án 11", 125),
+                (12, "Chấm điểm Dự án 12", 125),
+                (13, "Chấm điểm Dự án 13", 125),
+                (14, "Chấm điểm Dự án 14", 125),
+                (15, "Chấm điểm Dự án 15", 125),
+                (16, "Chấm điểm Dự án 16", 125)
             };
 
             var endpoints = implementedExcelProjects

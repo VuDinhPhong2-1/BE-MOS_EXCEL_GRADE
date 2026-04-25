@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
     public class P09T1Grader : ITaskGrader
     {
         public string TaskId => "P09-T1";
-        public string TaskName => "Apply pattern fill to chart (10% plot area, 50% chart area)";
+        public string TaskName => "Ap dung Pattern Fill vao bieu do (10% Area plot, 50% Area chart)";
         public decimal MaxScore => 5;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -176,3 +176,6 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
 }
 
 // minor-sync: non-functional graders update
+
+
+

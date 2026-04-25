@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
     public class P03T4Grader : ITaskGrader
     {
         public string TaskId => "P03-T4";
-        public string TaskName => "Tao hyperlink tai A6 den Description!A18";
+        public string TaskName => "Tạo hyperlink tại A6 đến Description!A18";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 var ws = P03GraderHelpers.GetIngredientsSheet(studentSheet);
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet Ingredients");
+                    result.Errors.Add("Không tìm thấy sheet Ingredients");
                     return result;
                 }
 
@@ -32,12 +32,12 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 var hyperlink = cell.Hyperlink;
                 if (hyperlink == null)
                 {
-                    result.Errors.Add("O A6 chua co hyperlink");
+                    result.Errors.Add("Ô A6 chưa có hyperlink");
                     return result;
                 }
 
                 result.Score += 1m;
-                result.Details.Add("A6 da co hyperlink");
+                result.Details.Add("A6 đã có hyperlink");
 
                 var targetOk = false;
                 if (hyperlink is ExcelHyperLink excelLink)
@@ -54,22 +54,22 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 if (targetOk)
                 {
                     result.Score += 2m;
-                    result.Details.Add("Dich den hyperlink dung Description!A18");
+                    result.Details.Add("Đích đến hyperlink đúng Description!A18");
                 }
                 else
                 {
-                    result.Errors.Add("Dich den hyperlink chua dung Description!A18");
+                    result.Errors.Add("Đích đến hyperlink chưa đúng Description!A18");
                 }
 
                 var displayOk = !string.IsNullOrWhiteSpace(cell.Text);
                 if (displayOk)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Noi dung hien thi tai A6 duoc giu lai");
+                    result.Details.Add("Nội dung hiển thị tại A6 được giữ lại");
                 }
                 else
                 {
-                    result.Errors.Add("Noi dung hien thi tai A6 bi trong");
+                    result.Errors.Add("Nội dung hiển thị tại A6 bị trống");
                 }
 
                 result.Score = Math.Min(MaxScore, result.Score);

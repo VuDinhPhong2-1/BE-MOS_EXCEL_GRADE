@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
     public class P05T5Grader : ITaskGrader
     {
         public string TaskId => "P05-T5";
-        public string TaskName => "Dat do xoay hinh anh tren Works ve 0 do";
+        public string TaskName => "Đặt độ xoay hình ảnh trên Works về 0 độ";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -27,18 +27,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 var ws = P05GraderHelpers.GetSheet(studentSheet, "Works");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Works'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Works'.");
                     return result;
                 }
 
                 var pictures = ws.Drawings.OfType<ExcelPicture>().ToList();
                 if (pictures.Count == 0)
                 {
-                    result.Errors.Add("Khong tim thay hinh anh tren sheet Works.");
+                    result.Errors.Add("Không tìm thấy hình ảnh trên sheet Works.");
                     return result;
                 }
 
-                decimal score = 1m; // Tim thay hinh anh can cham.
+                decimal score = 1m; // Tìm thấy hình ảnh cần chấm.
                 var okCount = 0;
 
                 foreach (var pic in pictures)
@@ -53,18 +53,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                         var shownValue = TryGetRotationDegrees(pic, out var actualDeg)
                             ? $"{actualDeg:0.##}"
                             : "khong-doc-duoc";
-                        result.Errors.Add($"Hinh '{pic.Name}' dang co rotation = {shownValue} do (can = 0 do).");
+                        result.Errors.Add($"Hình '{pic.Name}' đang có rotation = {shownValue} độ (căn = 0 độ).");
                     }
                 }
 
                 score += Math.Round(3m * okCount / pictures.Count, 2);
                 if (okCount == pictures.Count)
                 {
-                    result.Details.Add("Tat ca hinh anh tren Works da dat rotation = 0 do.");
+                    result.Details.Add("Tất cả hình ảnh trên Works đã đặt rotation = 0 độ.");
                 }
                 else
                 {
-                    result.Details.Add($"Hinh dung rotation 0 do: {okCount}/{pictures.Count}.");
+                    result.Details.Add($"Hình đúng rotation 0 độ: {okCount}/{pictures.Count}.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);

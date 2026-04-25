@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
     public class P05T3Grader : ITaskGrader
     {
         public string TaskId => "P05-T3";
-        public string TaskName => "F37 tinh trung binh Selling Price cho 'Fabrikam, Inc.'";
+        public string TaskName => "F37 tính trung bình Selling Price cho 'Fabrikam, Inc.'";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 var ws = P05GraderHelpers.GetSheet(studentSheet, "Annual Purchases");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Annual Purchases'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Annual Purchases'.");
                     return result;
                 }
 
@@ -36,11 +36,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 if (!string.IsNullOrWhiteSpace(formulaRaw))
                 {
                     score += 1m;
-                    result.Details.Add("O F37 da co cong thuc.");
+                    result.Details.Add("Ô F37 đã có công thức.");
                 }
                 else
                 {
-                    result.Errors.Add("O F37 chua co cong thuc.");
+                    result.Errors.Add("Ô F37 chưa có công thức.");
                     result.Score = score;
                     return result;
                 }
@@ -50,11 +50,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 if (usesAverage)
                 {
                     score += 1m;
-                    result.Details.Add("Cong thuc da dung ham AVERAGEIF/AVERAGEIFS.");
+                    result.Details.Add("Công thức đã dùng hàm AVERAGEIF/AVERAGEIFS.");
                 }
                 else
                 {
-                    result.Errors.Add($"Cong thuc F37 chua dung ham AVERAGEIF. Hien tai: '{formulaRaw}'.");
+                    result.Errors.Add($"Công thức F37 chưa dùng hàm AVERAGEIF. Hiện tại: '{formulaRaw}'.");
                 }
 
                 var hasPublisherRange = formula.Contains("D5:D35", StringComparison.Ordinal);
@@ -62,12 +62,12 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 if (hasPublisherRange && hasSellingRange)
                 {
                     score += 1m;
-                    result.Details.Add("Cong thuc tham chieu dung cac vung D5:D35 va F5:F35.");
+                    result.Details.Add("Công thức tham chiếu đúng các vùng D5:D35 và F5:F35.");
                 }
                 else
                 {
                     result.Errors.Add(
-                        $"Cong thuc F37 chua tham chieu dung range (can co D5:D35 va F5:F35). Formula: '{formulaRaw}'.");
+                        $"Công thức F37 chưa tham chiếu đúng range (cần có D5:D35 và F5:F35). Formula: '{formulaRaw}'.");
                 }
 
                 var hasPublisherCriteria = formula.Contains("\"FABRIKAM,INC.\"", StringComparison.Ordinal) ||
@@ -75,11 +75,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
                 if (hasPublisherCriteria)
                 {
                     score += 1m;
-                    result.Details.Add("Cong thuc co tieu chi 'Fabrikam, Inc.'.");
+                    result.Details.Add("Công thức có tiêu chí 'Fabrikam, Inc.'.");
                 }
                 else
                 {
-                    result.Errors.Add("Cong thuc F37 chua dung dung tieu chi publisher 'Fabrikam, Inc.'.");
+                    result.Errors.Add("Công thức F37 chưa dùng đúng tiêu chí publisher 'Fabrikam, Inc.'.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);

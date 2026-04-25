@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
     public class P08T5Grader : ITaskGrader
     {
         public string TaskId => "P08-T5";
-        public string TaskName => "Sales Postal Code dung UPPER cho 3 ky tu dau";
+        public string TaskName => "Sales Postal Code đúng UPPER cho 3 ký tự đầu";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -24,7 +24,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 var ws = P08GraderHelpers.GetSheet(studentSheet, "Sales");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Sales'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Sales'.");
                     return result;
                 }
 
@@ -32,7 +32,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                     t.Columns.Any(c => (c.Name ?? string.Empty).Contains("Postal", StringComparison.OrdinalIgnoreCase)));
                 if (table == null)
                 {
-                    result.Errors.Add("Khong tim thay table chua cot Postal Code.");
+                    result.Errors.Add("Không tìm thấy table chứa cột Postal Code.");
                     return result;
                 }
 
@@ -46,7 +46,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                 var rowCount = Math.Max(0, endRow - startRow + 1);
                 if (rowCount == 0)
                 {
-                    result.Errors.Add("Khong co du lieu de cham.");
+                    result.Errors.Add("Không có dữ liệu để chấm.");
                     return result;
                 }
 
@@ -71,7 +71,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                     }
                     else
                     {
-                        result.Errors.Add($"Hang {row}: Postal Code chua co cong thuc.");
+                        result.Errors.Add($"Hang {row}: Postal Code chưa có công thức.");
                     }
 
                     var addressRef = OfficeOpenXml.ExcelCellBase.GetAddress(row, addressColIndex);
@@ -106,18 +106,18 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
 
                 if (logicRows != rowCount)
                 {
-                    result.Errors.Add($"So dong cong thuc Postal Code dung chuan chua dat ({logicRows}/{rowCount}).");
+                    result.Errors.Add($"Số dòng công thức Postal Code đúng chuẩn chưa đạt ({logicRows}/{rowCount}).");
                 }
                 if (valueRows != rowCount)
                 {
-                    result.Errors.Add($"Gia tri Postal Code uppercase chua dat ({valueRows}/{rowCount}).");
+                    result.Errors.Add($"Giá trị Postal Code uppercase chưa đạt ({valueRows}/{rowCount}).");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

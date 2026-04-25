@@ -8,7 +8,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
     public class P04T7Grader : ITaskGrader
     {
         public string TaskId => "P04-T7";
-        public string TaskName => "Sort Classes theo Instructor A-Z, sau do Section giam dan";
+        public string TaskName => "Sort Classes theo Instructor A-Z, sau đó Section giảm dần";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -25,7 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 var ws = P04GraderHelpers.GetSheet(studentSheet, "Classes");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet Classes");
+                    result.Errors.Add("Không tìm thấy sheet Classes");
                     return result;
                 }
 
@@ -45,11 +45,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 if (rows.Count >= 20)
                 {
                     result.Score += 1m;
-                    result.Details.Add($"Doc du du lieu de sort ({rows.Count} dong)");
+                    result.Details.Add($"Đọc đủ dữ liệu để sort ({rows.Count} dòng)");
                 }
                 else
                 {
-                    result.Errors.Add($"Khong du dong de kiem tra sort ({rows.Count}/21)");
+                    result.Errors.Add($"Không đủ dòng để kiểm tra sort ({rows.Count}/21)");
                     return result;
                 }
 
@@ -76,21 +76,21 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
                 if (instructorSorted)
                 {
                     result.Score += 1.5m;
-                    result.Details.Add("Da sort Instructor tang dan (A-Z)");
+                    result.Details.Add("Đã sort Instructor tăng dần (A-Z)");
                 }
                 else
                 {
-                    result.Errors.Add("Thu tu Instructor chua tang dan A-Z");
+                    result.Errors.Add("Thứ tự Instructor chưa tăng dần A-Z");
                 }
 
                 if (sectionSortedInGroup)
                 {
                     result.Score += 1.5m;
-                    result.Details.Add("Trong tung Instructor, Section duoc sort giam dan");
+                    result.Details.Add("Trong từng Instructor, Section được sort giảm dần");
                 }
                 else
                 {
-                    result.Errors.Add("Section chua giam dan trong nhom Instructor");
+                    result.Errors.Add("Section chưa giảm dần trong nhóm Instructor");
                 }
 
                 result.Score = Math.Min(MaxScore, result.Score);

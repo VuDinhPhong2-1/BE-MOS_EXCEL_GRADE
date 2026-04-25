@@ -1,4 +1,4 @@
-using OfficeOpenXml;
+﻿using OfficeOpenXml;
 using MOS.ExcelGrading.Core.Graders.Project01;
 using MOS.ExcelGrading.Core.Graders.Project02;
 using MOS.ExcelGrading.Core.Graders.Project03;
@@ -38,6 +38,7 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly List<ITaskGrader> _project14Graders;
         private readonly List<ITaskGrader> _project15Graders;
         private readonly List<ITaskGrader> _project16Graders;
+        private const decimal StandardProjectMaxScore = 125m;
 
         public GradingService()
         {
@@ -224,8 +225,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -235,6 +235,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -259,8 +260,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -270,6 +270,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -294,8 +295,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -305,6 +305,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -329,8 +330,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -340,6 +340,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -364,8 +365,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -375,6 +375,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -399,8 +400,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -410,6 +410,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -434,8 +435,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -445,6 +445,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -469,8 +470,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -480,6 +480,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -504,8 +505,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -515,6 +515,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -539,8 +540,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -550,6 +550,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -574,8 +575,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -585,6 +585,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -609,8 +610,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -620,6 +620,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -644,8 +645,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -655,6 +655,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -679,8 +680,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -690,6 +690,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -714,8 +715,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -725,6 +725,7 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
@@ -749,8 +750,7 @@ namespace MOS.ExcelGrading.Core.Services
                     result.TaskResults.Add(taskResult);
                 }
 
-                result.TotalScore = result.TaskResults.Sum(t => t.Score);
-                result.MaxScore = result.TaskResults.Sum(t => t.MaxScore);
+                ApplyProjectScoringModel(result);
             }
             catch (Exception ex)
             {
@@ -760,9 +760,71 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = "Loi he thong",
                     Errors = new List<string> { $"Loi: {ex.Message}" }
                 });
+                ApplyProjectScoringModel(result);
             }
 
             return result;
         }
+
+        private static void ApplyProjectScoringModel(GradingResult result)
+        {
+            var gradableTasks = result.TaskResults
+                .Where(task => !string.Equals(task.TaskId, "ERROR", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (gradableTasks.Count == 0)
+            {
+                result.TotalScore = 0m;
+                result.MaxScore = StandardProjectMaxScore;
+                return;
+            }
+
+            var totalSourceMax = gradableTasks.Sum(task => task.MaxScore > 0m ? task.MaxScore : 1m);
+            if (totalSourceMax <= 0m)
+            {
+                totalSourceMax = gradableTasks.Count;
+            }
+
+            decimal allocatedMax = 0m;
+            for (var i = 0; i < gradableTasks.Count; i++)
+            {
+                var task = gradableTasks[i];
+                var sourceMax = task.MaxScore > 0m ? task.MaxScore : 1m;
+                var isLastTask = i == gradableTasks.Count - 1;
+
+                var scaledMax = isLastTask
+                    ? StandardProjectMaxScore - allocatedMax
+                    : Math.Round(StandardProjectMaxScore * sourceMax / totalSourceMax, 2, MidpointRounding.AwayFromZero);
+
+                if (scaledMax < 0m)
+                {
+                    scaledMax = 0m;
+                }
+
+                allocatedMax += scaledMax;
+
+                var completionRatio = task.MaxScore > 0m
+                    ? Math.Clamp(task.Score / task.MaxScore, 0m, 1m)
+                    : 0m;
+
+                var scaledScore = Math.Round(scaledMax * completionRatio, 2, MidpointRounding.AwayFromZero);
+                if (scaledScore > scaledMax)
+                {
+                    scaledScore = scaledMax;
+                }
+
+                task.MaxScore = scaledMax;
+                task.Score = scaledScore;
+            }
+
+            result.MaxScore = StandardProjectMaxScore;
+            result.TotalScore = Math.Round(gradableTasks.Sum(task => task.Score), 2, MidpointRounding.AwayFromZero);
+            if (result.TotalScore > result.MaxScore)
+            {
+                result.TotalScore = result.MaxScore;
+            }
+        }
     }
 }
+
+

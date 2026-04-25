@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
     public class P02T7Grader : ITaskGrader
     {
         public string TaskId => "P02-T7";
-        public string TaskName => "Ap dung chart style Colorful Palette 2";
+        public string TaskName => "Áp dụng chart style Colorful Palette 2";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -26,14 +26,14 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 var ws = studentSheet.Workbook.Worksheets["New Policy"];
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'New Policy'");
+                    result.Errors.Add("Không tìm thấy sheet 'New Policy'");
                     return result;
                 }
 
                 var chart = ws.Drawings.OfType<ExcelChart>().FirstOrDefault();
                 if (chart == null)
                 {
-                    result.Errors.Add("Khong tim thay bieu do tren New Policy");
+                    result.Errors.Add("Không tìm thấy biểu đồ trên sheet 'New Policy'");
                     return result;
                 }
 
@@ -58,13 +58,13 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 }
                 else
                 {
-                    result.Errors.Add($"Chart Color Style ID khong dung Palette 2. Hien tai: '{colorStyleIdRaw ?? "null"}' (mong doi: '11').");
+                    result.Errors.Add($"Chart Color Style ID không đúng Palette 2. Hiện tại: '{colorStyleIdRaw ?? "null"}' (mong doi: '11').");
                 }
 
                 var seriesNodes = xml.SelectNodes("//c:barChart/c:ser", ns);
                 if (seriesNodes == null || seriesNodes.Count == 0)
                 {
-                    result.Errors.Add("Khong doc duoc danh sach series de kiem tra palette");
+                    result.Errors.Add("Không đọc được danh sách series để kiểm tra palette");
                     result.Score = score;
                     return result;
                 }
@@ -118,17 +118,17 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
                 if (primaryMatch == 3)
                 {
                     score += 1m;
-                    result.Details.Add("3 series dau dung mau cua Colorful Palette 2 (accent1/accent3/accent5)");
+                    result.Details.Add("3 series đang dùng màu của Colorful Palette 2 (accent1/accent3/accent5)");
                 }
                 else
                 {
-                    result.Errors.Add($"3 series dau chua dung Palette 2 ({primaryMatch}/3)");
+                    result.Errors.Add($"3 series đang chưa dùng Palette 2 ({primaryMatch}/3)");
                 }
 
                 if (secondaryMatch == 3)
                 {
                     score += 1m;
-                    result.Details.Add("3 series tiep theo dung tone Palette 2 (lumMod=60000)");
+                    result.Details.Add("3 series tiếp theo dùng tone Palette 2 (lumMod=60000)");
                 }
                 else
                 {

@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
     public class P07T4Grader : ITaskGrader
     {
         public string TaskId => "P07-T4";
-        public string TaskName => "Total Cookie Sales A3:A8 dung Pattern Fill theo mau de bai";
+        public string TaskName => "Total Cookie Sales A3:A8 đúng Pattern Fill theo mẫu đề bài";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -26,7 +26,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 var ws = P07GraderHelpers.GetSheet(studentSheet, "Total Cookie Sales");
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet 'Total Cookie Sales'.");
+                    result.Errors.Add("Không tìm thấy sheet 'Total Cookie Sales'.");
                     return result;
                 }
 
@@ -57,7 +57,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                     var fillIdRaw = xfNode?.Attributes?["fillId"]?.Value;
                     if (!int.TryParse(fillIdRaw, out var fillId))
                     {
-                        result.Errors.Add($"A{row}: khong doc duoc fillId tu style.");
+                        result.Errors.Add($"A{row}: không đọc được fillId từ style.");
                         continue;
                     }
 
@@ -90,11 +90,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
                 if (sameStyle)
                 {
                     score += 1m;
-                    result.Details.Add("A3:A8 co style dong nhat.");
+                    result.Details.Add("A3:A8 có style đồng nhất.");
                 }
                 else
                 {
-                    result.Errors.Add("A3:A8 khong dong nhat style, co dau hieu to mau khong deu.");
+                    result.Errors.Add("A3:A8 không đồng nhất style, có dấu hiệu tô màu không đều.");
                 }
 
                 score += Math.Round(2m * patternOk / total, 2);
@@ -102,27 +102,27 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
 
                 if (patternOk == total)
                 {
-                    result.Details.Add("A3:A8 da dung pattern fill lightTrellis.");
+                    result.Details.Add("A3:A8 đã dùng pattern fill lightTrellis.");
                 }
                 else
                 {
-                    result.Errors.Add($"Pattern fill chua dung cho toan bo A3:A8 ({patternOk}/{total}).");
+                    result.Errors.Add($"Pattern fill chưa dùng cho toàn bộ A3:A8 ({patternOk}/{total}).");
                 }
 
                 if (colorOk != total)
                 {
-                    result.Errors.Add($"Mau fgColor chua khop theme/tint yeu cau ({colorOk}/{total}).");
+                    result.Errors.Add($"Mau fgColor chưa khớp theme/tint yêu cầu ({colorOk}/{total}).");
                 }
                 else
                 {
-                    result.Details.Add("Mau pattern fill da khop theme/tint mong doi.");
+                    result.Details.Add("Màu pattern fill đã khớp theme/tint mong đợi.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

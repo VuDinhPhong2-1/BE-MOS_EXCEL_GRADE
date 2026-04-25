@@ -7,7 +7,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
     public class P08T3Grader : ITaskGrader
     {
         public string TaskId => "P08-T3";
-        public string TaskName => "Xoa thong tin ca nhan trong Document Properties";
+        public string TaskName => "Xóa thông tin cá nhân trong Document Properties";
         public decimal MaxScore => 4;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
@@ -44,20 +44,20 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
                     }
                     else
                     {
-                        result.Errors.Add($"{check.Label} van con du lieu: '{check.Value}'.");
+                        result.Errors.Add($"{check.Label} vẫn còn dữ liệu: '{check.Value}'.");
                     }
                 }
 
                 if (emptyCount == checks.Length)
                 {
-                    result.Details.Add("Da xoa cac thuoc tinh thong tin ca nhan chinh.");
+                    result.Details.Add("Đã xóa các thuộc tính thông tin cá nhân chính.");
                 }
 
                 result.Score = Math.Round(MaxScore * emptyCount / checks.Length, 2);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Loi: {ex.Message}");
+                result.Errors.Add($"Lỗi: {ex.Message}");
             }
 
             return result;

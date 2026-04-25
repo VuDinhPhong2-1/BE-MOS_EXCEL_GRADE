@@ -25,7 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 var ws = P03GraderHelpers.GetIngredientsSheet(studentSheet);
                 if (ws == null)
                 {
-                    result.Errors.Add("Khong tim thay sheet Ingredients");
+                    result.Errors.Add("Không tìm thấy sheet Ingredients");
                     return result;
                 }
 
@@ -34,22 +34,22 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 if (isLandscape)
                 {
                     result.Score += 1m;
-                    result.Details.Add("Da dat huong in Landscape");
+                    result.Details.Add("Đã đặt hướng in Landscape");
                 }
                 else
                 {
-                    result.Errors.Add("Chua dat huong in Landscape");
+                    result.Errors.Add("Chưa đặt hướng in Landscape");
                 }
 
                 var fitToPage = ps.FitToPage;
                 if (fitToPage)
                 {
                     result.Score += 1.5m;
-                    result.Details.Add("Da bat FitToPage");
+                    result.Details.Add("Đã bật FitToPage");
                 }
                 else
                 {
-                    result.Errors.Add("Chua bat FitToPage");
+                    result.Errors.Add("Chưa bật FitToPage");
                 }
 
                 var fitToHeightZero = ps.FitToHeight == 0;
@@ -57,11 +57,11 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
                 if (fitToHeightZero && fitToWidthOneOrDefault)
                 {
                     result.Score += 1.5m;
-                    result.Details.Add("Cau hinh in 1 trang theo chieu ngang (fit columns)");
+                    result.Details.Add("Cấu hình in 1 trang theo chiều ngang (fit columns)");
                 }
                 else
                 {
-                    result.Errors.Add($"Thong so fit chua dung (FitToWidth={ps.FitToWidth}, FitToHeight={ps.FitToHeight})");
+                    result.Errors.Add($"Thông số fit chưa đúng (FitToWidth={ps.FitToWidth}, FitToHeight={ps.FitToHeight})");
                 }
 
                 result.Score = Math.Min(MaxScore, result.Score);

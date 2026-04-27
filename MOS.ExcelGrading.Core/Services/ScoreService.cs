@@ -6,6 +6,7 @@ using MongoDB.Driver;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
+using System.Text.RegularExpressions;
 
 namespace MOS.ExcelGrading.Core.Services
 {
@@ -17,6 +18,9 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly IMongoCollection<User> _users;
         private readonly IAnalyticsService _analyticsService;
         private readonly ILogger<ScoreService> _logger;
+        private static readonly Regex AutoErrorQuestionRegex = new(
+            @"^\s*cau\s*(?<question>\d+)\s*(?:-\s*(?<taskName>[^:]+))?\s*:\s*(?<message>.+)$",
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.Compiled);
 
         public ScoreService(
             IMongoDatabase database,
@@ -196,6 +200,7 @@ namespace MOS.ExcelGrading.Core.Services
                 var normalizedScoreValue = NormalizeScoreValue(request.ScoreValue);
                 var normalizedFeedback = NormalizeFeedback(request.Feedback);
                 var normalizedAutoErrors = NormalizeAutoGradingErrors(request.AutoGradingErrors);
+                var normalizedAutoTaskResults = NormalizeAutoGradingTaskResults(request.AutoGradingTaskResults);
 
                 await EnsureStudentCanBeGradedAsync(request.StudentId);
                 var assignment = await _assignments.Find(a => a.Id == request.AssignmentId).FirstOrDefaultAsync();
@@ -222,7 +227,8 @@ namespace MOS.ExcelGrading.Core.Services
                     ClassId = request.ClassId,
                     ScoreValue = normalizedScoreValue,
                     Feedback = normalizedFeedback,
-                    AutoGradingErrors = normalizedAutoErrors
+                    AutoGradingErrors = normalizedAutoErrors,
+                    AutoGradingTaskResults = normalizedAutoTaskResults
                 };
 
                 var existingScore = await GetScoreAsync(request.StudentId, request.AssignmentId);
@@ -347,7 +353,8 @@ namespace MOS.ExcelGrading.Core.Services
                         ClassId = request.ClassId.Trim(),
                         ScoreValue = item.ScoreValue,
                         Feedback = item.Feedback,
-                        AutoGradingErrors = item.AutoGradingErrors
+                        AutoGradingErrors = item.AutoGradingErrors,
+                        AutoGradingTaskResults = item.AutoGradingTaskResults
                     };
 
                     var score = await CreateOrUpdateScoreAsync(scoreRequest, gradedBy);
@@ -548,6 +555,145 @@ namespace MOS.ExcelGrading.Core.Services
                 .ToList();
         }
 
+        private static List<AutoGradingTaskResultRequest> NormalizeAutoGradingTaskResults(
+            List<AutoGradingTaskResultRequest>? autoGradingTaskResults)
+        {
+            if (autoGradingTaskResults == null || autoGradingTaskResults.Count == 0)
+            {
+                return new List<AutoGradingTaskResultRequest>();
+            }
+
+            var normalized = new List<AutoGradingTaskResultRequest>();
+            for (var index = 0; index < autoGradingTaskResults.Count; index++)
+            {
+                var item = autoGradingTaskResults[index];
+                if (item == null)
+                {
+                    continue;
+                }
+
+                var taskId = (item.TaskId ?? string.Empty).Trim();
+                var taskName = (item.TaskName ?? string.Empty).Trim();
+
+                if (string.IsNullOrWhiteSpace(taskId))
+                {
+                    taskId = $"TASK-{index + 1:00}";
+                }
+
+                if (string.IsNullOrWhiteSpace(taskName))
+                {
+                    taskName = taskId;
+                }
+
+                var normalizedMaxScore = double.IsFinite(item.MaxScore) && item.MaxScore > 0
+                    ? Math.Round(item.MaxScore, 4, MidpointRounding.AwayFromZero)
+                    : 1d;
+
+                var normalizedScore = double.IsFinite(item.Score)
+                    ? Math.Round(Math.Max(0d, item.Score), 4, MidpointRounding.AwayFromZero)
+                    : 0d;
+
+                if (item.IsPassed && normalizedScore < normalizedMaxScore * 0.5d)
+                {
+                    normalizedScore = normalizedMaxScore;
+                }
+                else if (!item.IsPassed && normalizedScore >= normalizedMaxScore * 0.5d)
+                {
+                    normalizedScore = 0d;
+                }
+
+                var normalizedErrors = NormalizeAutoGradingErrors(item.Errors);
+                var normalizedDetails = NormalizeAutoGradingErrors(item.Details);
+
+                normalized.Add(new AutoGradingTaskResultRequest
+                {
+                    TaskId = taskId,
+                    TaskName = taskName,
+                    Score = normalizedScore,
+                    MaxScore = normalizedMaxScore,
+                    IsPassed = item.IsPassed,
+                    Details = normalizedDetails,
+                    Errors = normalizedErrors
+                });
+            }
+
+            return normalized;
+        }
+
+        private List<TaskResult> BuildAnalyticsTaskResults(CreateScoreRequest request)
+        {
+            if (request.AutoGradingTaskResults != null && request.AutoGradingTaskResults.Count > 0)
+            {
+                return request.AutoGradingTaskResults
+                    .Select(task => new TaskResult
+                    {
+                        TaskId = task.TaskId,
+                        TaskName = task.TaskName,
+                        Score = (decimal)task.Score,
+                        MaxScore = (decimal)task.MaxScore,
+                        Details = task.Details ?? new List<string>(),
+                        Errors = task.Errors ?? new List<string>()
+                    })
+                    .ToList();
+            }
+
+            var normalizedAutoErrors = NormalizeAutoGradingErrors(request.AutoGradingErrors);
+            if (normalizedAutoErrors.Count == 0)
+            {
+                return new List<TaskResult>();
+            }
+
+            var taskOrder = new List<string>();
+            var taskNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            var taskErrors = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+            var taskErrorSets = new Dictionary<string, HashSet<string>>(StringComparer.OrdinalIgnoreCase);
+
+            for (var index = 0; index < normalizedAutoErrors.Count; index++)
+            {
+                var rawError = normalizedAutoErrors[index];
+                var taskId = $"ERROR-{index + 1:00}";
+                var taskName = taskId;
+                var errorMessage = rawError;
+
+                var matched = AutoErrorQuestionRegex.Match(rawError);
+                if (matched.Success)
+                {
+                    var question = matched.Groups["question"].Value;
+                    var extractedTaskName = matched.Groups["taskName"].Value.Trim();
+                    var extractedMessage = matched.Groups["message"].Value.Trim();
+
+                    taskId = $"Cau {question}";
+                    taskName = string.IsNullOrWhiteSpace(extractedTaskName) ? taskId : extractedTaskName;
+                    errorMessage = string.IsNullOrWhiteSpace(extractedMessage) ? rawError : extractedMessage;
+                }
+
+                if (!taskErrors.ContainsKey(taskId))
+                {
+                    taskOrder.Add(taskId);
+                    taskNames[taskId] = taskName;
+                    taskErrors[taskId] = new List<string>();
+                    taskErrorSets[taskId] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+                }
+
+                if (taskErrorSets[taskId].Add(errorMessage))
+                {
+                    taskErrors[taskId].Add(errorMessage);
+                }
+            }
+
+            return taskOrder
+                .Select(taskId => new TaskResult
+                {
+                    TaskId = taskId,
+                    TaskName = taskNames[taskId],
+                    Score = 0m,
+                    MaxScore = 1m,
+                    Details = new List<string>(),
+                    Errors = taskErrors[taskId]
+                })
+                .ToList();
+        }
+
         private async Task<string?> ResolveGraderNameAsync(string? graderId)
         {
             if (string.IsNullOrWhiteSpace(graderId))
@@ -590,10 +736,7 @@ namespace MOS.ExcelGrading.Core.Services
                 }
 
                 var scoreValue = request.ScoreValue ?? 0d;
-                var autoErrors = request.AutoGradingErrors?
-                    .Where(error => !string.IsNullOrWhiteSpace(error))
-                    .Select(error => error.Trim())
-                    .ToList() ?? new List<string>();
+                var taskResults = BuildAnalyticsTaskResults(request);
 
                 var gradingResult = new GradingResult
                 {
@@ -601,17 +744,7 @@ namespace MOS.ExcelGrading.Core.Services
                     ProjectName = assignment?.Name ?? "Saved Score",
                     TotalScore = (decimal)scoreValue,
                     MaxScore = (decimal)maxScoreValue,
-                    TaskResults = new List<TaskResult>
-                    {
-                        new()
-                        {
-                            TaskId = "SCORE-SAVE",
-                            TaskName = "Saved score snapshot",
-                            Score = (decimal)scoreValue,
-                            MaxScore = (decimal)maxScoreValue,
-                            Errors = autoErrors
-                        }
-                    }
+                    TaskResults = taskResults
                 };
 
                 await _analyticsService.SaveGradingAttemptAsync(

@@ -17,7 +17,12 @@ namespace MOS.ExcelGrading.API.Controllers
             @"^project(?<number>\d{1,2})$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-        private const int MaxSupportedProject = 16;
+        private const int MaxSupportedProject = 22;
+        private static readonly HashSet<int> SupportedProjects = Enumerable.Range(1, 16)
+            .Append(18)
+            .Append(20)
+            .Append(22)
+            .ToHashSet();
 
         private readonly IGradingService _gradingService;
         private readonly IGradingTestBugNoteService _gradingTestBugNoteService;
@@ -36,7 +41,8 @@ namespace MOS.ExcelGrading.API.Controllers
         [HttpGet("projects")]
         public IActionResult GetSupportedProjects()
         {
-            var projects = Enumerable.Range(1, MaxSupportedProject)
+            var projects = SupportedProjects
+                .OrderBy(projectNumber => projectNumber)
                 .Select(i => new
                 {
                     code = $"project{i:00}",
@@ -152,7 +158,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 {
                     return BadRequest(new
                     {
-                        error = $"Project không hợp lệ. Chỉ hỗ trợ project01 đến project{MaxSupportedProject:00}."
+                        error = $"Project không hợp lệ. Chỉ hỗ trợ project01 đến project{MaxSupportedProject:00}, trừ project17, project19 và project21."
                     });
                 }
 
@@ -187,6 +193,9 @@ namespace MOS.ExcelGrading.API.Controllers
                 14 => await _gradingService.GradeProject14Async(studentStream),
                 15 => await _gradingService.GradeProject15Async(studentStream),
                 16 => await _gradingService.GradeProject16Async(studentStream),
+                18 => await _gradingService.GradeProject18Async(studentStream),
+                20 => await _gradingService.GradeProject20Async(studentStream),
+                22 => await _gradingService.GradeProject22Async(studentStream),
                 _ => throw new ArgumentOutOfRangeException(nameof(projectNumber))
             };
         }
@@ -216,7 +225,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 return false;
             }
 
-            if (value < 1 || value > MaxSupportedProject)
+            if (!SupportedProjects.Contains(value))
             {
                 return false;
             }

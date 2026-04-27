@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project11
     {
         public string TaskId => "P11-T1";
         public string TaskName => "Games: Merge A12:B12 den A18:B18";
-        public decimal MaxScore => 4;
+        public decimal MaxScore => 3;
 
         public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
         {
@@ -38,28 +38,24 @@ namespace MOS.ExcelGrading.Core.Graders.Project11
                 if (matchedCount == expectedRanges.Count)
                 {
                     score += 2m;
-                    result.Details.Add("Da merge day du cac vung A12:B12 den A18:B18.");
+                    result.Details.Add("Đã merge đầy đủ các vùng A12:B12 den A18:B18.");
                 }
                 else
                 {
                     var missing = expectedRanges.Where(range => !P11GraderHelpers.HasMergeRange(ws, range));
-                    result.Errors.Add($"Thieu merge ranges: {string.Join(", ", missing)}.");
+                    result.Errors.Add($"Thiếu merge ranges: {string.Join(", ", missing)}.");
                 }
 
-                // var centeredCount = expectedRanges.Count(range =>
-                // {
-                //     var topLeft = range.Split(':')[0];
-                //     return P11GraderHelpers.IsMergedCellCentered(ws, topLeft);
-                // });
-                // if (centeredCount == expectedRanges.Count)
-                // {
-                //     score += 1m;
-                //     result.Details.Add("Cac o merge duoc can giua ngang/doc dung yêu cầu.");
-                // }
-                // else
-                // {
-                //     result.Errors.Add($"Can giua merge chưa đúng ({centeredCount}/{expectedRanges.Count}).");
-                // }
+                var centeredCount = expectedRanges.Count(range =>
+                {
+                    var topLeft = range.Split(':')[0];
+                    return P11GraderHelpers.IsMergedCellCentered(ws, topLeft);
+                });
+                if (centeredCount == expectedRanges.Count)
+                {
+                    score += 1m;
+                    result.Details.Add("Các ô merge đã căn giữa đúng.");
+                }
 
                 var hasOnlyExpectedMerges = ws.MergedCells.Count == expectedRanges.Count;
                 if (hasOnlyExpectedMerges)
@@ -83,6 +79,4 @@ namespace MOS.ExcelGrading.Core.Graders.Project11
         }
     }
 }
-
-
 

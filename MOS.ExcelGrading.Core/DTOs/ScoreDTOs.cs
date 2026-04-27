@@ -9,6 +9,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public double? ScoreValue { get; set; }
         public string? Feedback { get; set; }
         public List<string>? AutoGradingErrors { get; set; }
+        public List<AutoGradingTaskResultRequest>? AutoGradingTaskResults { get; set; }
     }
 
     public class UpdateScoreRequest
@@ -31,6 +32,18 @@ namespace MOS.ExcelGrading.Core.DTOs
         public double? ScoreValue { get; set; }
         public string? Feedback { get; set; }
         public List<string>? AutoGradingErrors { get; set; }
+        public List<AutoGradingTaskResultRequest>? AutoGradingTaskResults { get; set; }
+    }
+
+    public class AutoGradingTaskResultRequest
+    {
+        public string TaskId { get; set; } = string.Empty;
+        public string TaskName { get; set; } = string.Empty;
+        public double Score { get; set; }
+        public double MaxScore { get; set; }
+        public bool IsPassed { get; set; }
+        public List<string>? Details { get; set; }
+        public List<string>? Errors { get; set; }
     }
 
     public class ScoreResponse

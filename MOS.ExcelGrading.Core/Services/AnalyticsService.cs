@@ -104,9 +104,22 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             var attempts = await _gradingAttempts.Find(filter).ToListAsync();
+            var latestAttemptsByStudent = attempts
+                .Where(a => !string.IsNullOrWhiteSpace(a.StudentId))
+                .GroupBy(a => a.StudentId!, StringComparer.Ordinal)
+                .Select(g => g
+                    .OrderByDescending(a => a.GradedAt)
+                    .ThenByDescending(a => a.Id, StringComparer.Ordinal)
+                    .First())
+                .ToList();
+            if (latestAttemptsByStudent.Count == 0)
+            {
+                latestAttemptsByStudent = attempts;
+            }
 
-            var taskStats = attempts
+            var taskStats = latestAttemptsByStudent
                 .SelectMany(a => a.TaskResults)
+                .Where(t => !string.Equals(t.TaskId, "SCORE-SAVE", StringComparison.OrdinalIgnoreCase))
                 .GroupBy(t => new { t.TaskId, t.TaskName })
                 .Select(g =>
                 {

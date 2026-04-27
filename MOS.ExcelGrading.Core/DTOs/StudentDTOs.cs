@@ -1,5 +1,6 @@
-﻿// MOS.ExcelGrading.Core/DTOs/StudentDTOs.cs
+// MOS.ExcelGrading.Core/DTOs/StudentDTOs.cs
 using System.ComponentModel.DataAnnotations;
+using System.Text.Json.Serialization;
 
 namespace MOS.ExcelGrading.Core.DTOs
 {
@@ -19,6 +20,17 @@ namespace MOS.ExcelGrading.Core.DTOs
 
         [StringLength(500)]
         public string? Notes { get; set; }
+
+        [JsonPropertyName("takesExam")]
+        public bool TakesExam { get; set; } = false;
+
+        // Backward compatibility: still accept legacy field "thi".
+        [JsonPropertyName("thi")]
+        public bool Thi
+        {
+            get => TakesExam;
+            set => TakesExam = value;
+        }
 
         public string? TeacherId { get; set; }
         public string? ClassId { get; set; }
@@ -41,8 +53,18 @@ namespace MOS.ExcelGrading.Core.DTOs
         [StringLength(500)]
         public string? Notes { get; set; }
 
-        public string? TeacherId { get; set; }
+        [JsonPropertyName("takesExam")]
+        public bool? TakesExam { get; set; }
 
+        // Backward compatibility: still accept legacy field "thi".
+        [JsonPropertyName("thi")]
+        public bool? Thi
+        {
+            get => TakesExam;
+            set => TakesExam = value;
+        }
+
+        public string? TeacherId { get; set; }
         public string? TeacherName { get; set; }
         public string? ClassId { get; set; }
     }
@@ -56,11 +78,22 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string Status { get; set; } = string.Empty;
         public string? CompetencyLevel { get; set; }
         public string? Notes { get; set; }
+
+        [JsonPropertyName("takesExam")]
+        public bool TakesExam { get; set; }
+
+        // Backward compatibility: still expose legacy field "thi".
+        [JsonPropertyName("thi")]
+        public bool Thi
+        {
+            get => TakesExam;
+            set => TakesExam = value;
+        }
+
         public string? TeacherId { get; set; }
         public string? ClassId { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public bool IsActive { get; set; }
-
     }
 }

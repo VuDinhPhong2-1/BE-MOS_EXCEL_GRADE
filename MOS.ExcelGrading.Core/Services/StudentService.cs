@@ -76,6 +76,7 @@ namespace MOS.ExcelGrading.Core.Services
                     Status = request.Status ?? "Active",
                     CompetencyLevel = competencyLevel,
                     Notes = request.Notes?.Trim(),
+                    Thi = request.TakesExam,
                     TeacherId = userId, // Lấy ID của user tạo student
                     ClassId = request.ClassId,
                     CreatedAt = DateTime.UtcNow,
@@ -128,6 +129,9 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (request.Notes != null)
                     updateBuilder = updateBuilder.Set(s => s.Notes, request.Notes.Trim());
+
+                if (request.TakesExam.HasValue)
+                    updateBuilder = updateBuilder.Set(s => s.Thi, request.TakesExam.Value);
 
                 if (!string.IsNullOrEmpty(request.ClassId))
                     updateBuilder = updateBuilder.Set(s => s.ClassId, request.ClassId);
@@ -241,6 +245,7 @@ namespace MOS.ExcelGrading.Core.Services
                         Status = "Active",
                         CompetencyLevel = null,
                         Notes = null,
+                        Thi = false,
                         TeacherId = userId, // User đang import
                         ClassId = classId,
                             CreatedAt = DateTime.UtcNow,
@@ -305,6 +310,7 @@ namespace MOS.ExcelGrading.Core.Services
                         Status = "Active",
                         CompetencyLevel = null,
                         Notes = null,
+                        Thi = false,
                         TeacherId = userId, // User đang import
                         ClassId = request.ClassId,   // DÙNG ClassId ở ngoài body!
                         CreatedAt = DateTime.UtcNow,
@@ -368,6 +374,7 @@ namespace MOS.ExcelGrading.Core.Services
                 Status = student.Status,
                 CompetencyLevel = student.CompetencyLevel,
                 Notes = student.Notes,
+                TakesExam = student.Thi,
                 TeacherId = student.TeacherId,
                 ClassId = student.ClassId,
                 CreatedAt = student.CreatedAt,

@@ -27,6 +27,8 @@ namespace MOS.ExcelGrading.Core.Models
         [StringLength(500)]
         public string? Notes { get; set; }
 
+        public bool Thi { get; set; } = false;
+
         [BsonRepresentation(BsonType.ObjectId)]
         public string? TeacherId { get; set; } // Lấy ID của user tạo student này
 

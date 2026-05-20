@@ -198,13 +198,44 @@ namespace MOS.ExcelGrading.Core.Models
             @"^(?<subject>excel|word|ppt|powerpoint)/project(?<number>\d{1,2})$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        public const int MinProjectNumber = 1;
+        public const int MaxProjectNumber = 24;
+
         public static List<string> GetAllEndpoints() =>
-            Enumerable.Range(1, 24)
-                .Select(ToExcelProjectEndpoint)
+            GetAllEndpointsForSubjects(GradingApiSubjects.Excel, GradingApiSubjects.Word);
+
+        public static List<string> GetAllEndpointsForSubjects(params string[] subjects) =>
+            subjects
+                .Where(subject => !string.IsNullOrWhiteSpace(subject))
+                .Select(AssignmentFileSubjects.Normalize)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .SelectMany(subject => Enumerable.Range(MinProjectNumber, MaxProjectNumber)
+                    .Select(projectNumber => ToProjectEndpoint(subject, projectNumber)))
                 .ToList();
 
         public static string ToExcelProjectEndpoint(int projectNumber) =>
-            $"{GradingApiSubjects.Excel}/project{projectNumber:00}";
+            ToProjectEndpoint(GradingApiSubjects.Excel, projectNumber);
+
+        public static string ToWordProjectEndpoint(int projectNumber) =>
+            ToProjectEndpoint(GradingApiSubjects.Word, projectNumber);
+
+        public static string ToProjectEndpoint(string subject, int projectNumber)
+        {
+            var normalizedSubject = AssignmentFileSubjects.Normalize(subject);
+            if (normalizedSubject != GradingApiSubjects.Excel &&
+                normalizedSubject != GradingApiSubjects.Word &&
+                normalizedSubject != GradingApiSubjects.Ppt)
+            {
+                throw new ArgumentOutOfRangeException(nameof(subject), $"Subject khong hop le: {subject}");
+            }
+
+            if (projectNumber < MinProjectNumber || projectNumber > MaxProjectNumber)
+            {
+                throw new ArgumentOutOfRangeException(nameof(projectNumber), $"Project number phai trong khoang {MinProjectNumber}-{MaxProjectNumber}.");
+            }
+
+            return $"{normalizedSubject}/project{projectNumber:00}";
+        }
 
         public static string NormalizeEndpoint(string? endpoint)
         {

@@ -14,7 +14,7 @@ namespace MOS.ExcelGrading.API.Controllers
     public class GradingTestController : ControllerBase
     {
         private static readonly Regex ProjectCodeRegex = new(
-            @"^project(?<number>\d{1,2})$",
+            @"^project(?<number>\d{1,2})(?:-(excel|word))?$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private const int MaxSupportedProject = 22;
@@ -41,17 +41,31 @@ namespace MOS.ExcelGrading.API.Controllers
         [HttpGet("projects")]
         public IActionResult GetSupportedProjects()
         {
-            var projects = SupportedProjects
+            var excelProjects = SupportedProjects
                 .OrderBy(projectNumber => projectNumber)
                 .Select(i => new
                 {
-                    code = $"project{i:00}",
+                    code = $"project{i:00}-excel",
                     endpoint = GradingApiEndpoints.ToExcelProjectEndpoint(i),
-                    displayName = $"Project {i:00} - Excel"
+                    displayName = $"Project {i:00} - Excel",
+                    fileType = "excel"
                 })
                 .ToList();
 
-            return Ok(projects);
+            // Add Word projects (use /api/grading/word/ endpoint)
+            var wordProjects = SupportedProjects
+                .OrderBy(projectNumber => projectNumber)
+                .Select(i => new
+                {
+                    code = $"project{i:00}-word",
+                    endpoint = GradingApiEndpoints.ToWordProjectEndpoint(i),
+                    displayName = $"Project {i:00} - Word",
+                    fileType = "word"
+                })
+                .ToList();
+
+            var allProjects = excelProjects.Concat(wordProjects).ToList();
+            return Ok(allProjects);
         }
 
         [HttpGet("bug-notes")]
@@ -173,6 +187,53 @@ namespace MOS.ExcelGrading.API.Controllers
             }
         }
 
+        [HttpPost("word/{projectCode}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeWordProject(
+            string projectCode,
+            [FromForm] IFormFile studentFile)
+        {
+            try
+            {
+                if (studentFile == null)
+                {
+                    return BadRequest(new { error = "Can cung cap file: studentFile" });
+                }
+
+                if (!TryExtractSupportedWordProjectNumber(projectCode, out var projectNumber))
+                {
+                    return BadRequest(new
+                    {
+                        error = $"Project Word khong hop le. Chi ho tro project01 den project{MaxSupportedProject:00}, tru project17, project19 va project21."
+                    });
+                }
+
+                if (!IsAcceptedWordInputForProject(studentFile, projectNumber))
+                {
+                    if (projectNumber == 7)
+                    {
+                        return BadRequest(new
+                        {
+                            error = "Word Project 07 yeu cau .docx hoac file plain text ten Memo.txt."
+                        });
+                    }
+
+                    return BadRequest(new { error = "File phai co dinh dang .docx (Word OpenXML)." });
+                }
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeWordProjectAsync(projectNumber, studentStream, studentFile.FileName);
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading test word project {ProjectCode}", projectCode);
+                return StatusCode(500, new { error = "Loi he thong khi cham diem word test" });
+            }
+        }
+
         private async Task<GradingResult> GradeByProjectNumberAsync(int projectNumber, Stream studentStream)
         {
             return projectNumber switch
@@ -238,6 +299,62 @@ namespace MOS.ExcelGrading.API.Controllers
         {
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             return extension == ".xlsx" || extension == ".xlsm";
+        }
+
+        private static bool TryExtractSupportedWordProjectNumber(string projectCode, out int projectNumber)
+        {
+            projectNumber = 0;
+            var normalizedEndpoint = GradingApiEndpoints.NormalizeEndpoint($"{GradingApiSubjects.Word}/{projectCode}");
+            if (!normalizedEndpoint.StartsWith($"{GradingApiSubjects.Word}/project", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!GradingApiEndpoints.IsValidEndpoint(normalizedEndpoint))
+            {
+                return false;
+            }
+
+            if (!GradingApiEndpoints.TryExtractProjectNumber(normalizedEndpoint, out var parsedProjectNumber))
+            {
+                return false;
+            }
+
+            if (!SupportedProjects.Contains(parsedProjectNumber))
+            {
+                return false;
+            }
+
+            projectNumber = parsedProjectNumber;
+            return true;
+        }
+
+        private static bool IsAcceptedWordInputForProject(IFormFile file, int projectNumber)
+        {
+            if (projectNumber == 7 && IsMemoPlainTextFile(file))
+            {
+                return true;
+            }
+
+            return IsWordOpenXmlFile(file);
+        }
+
+        private static bool IsWordOpenXmlFile(IFormFile file)
+        {
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return extension == ".docx";
+        }
+
+        private static bool IsMemoPlainTextFile(IFormFile file)
+        {
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (extension != ".txt")
+            {
+                return false;
+            }
+
+            var baseName = Path.GetFileNameWithoutExtension(file.FileName) ?? string.Empty;
+            return string.Equals(baseName, "memo", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

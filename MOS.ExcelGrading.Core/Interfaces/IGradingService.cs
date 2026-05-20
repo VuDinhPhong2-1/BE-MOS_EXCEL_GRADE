@@ -23,5 +23,6 @@ namespace MOS.ExcelGrading.Core.Interfaces
         Task<GradingResult> GradeProject18Async(Stream studentFile);
         Task<GradingResult> GradeProject20Async(Stream studentFile);
         Task<GradingResult> GradeProject22Async(Stream studentFile);
+        Task<GradingResult> GradeWordProjectAsync(int projectNumber, Stream studentFile, string? sourceFileName = null);
     }
 }

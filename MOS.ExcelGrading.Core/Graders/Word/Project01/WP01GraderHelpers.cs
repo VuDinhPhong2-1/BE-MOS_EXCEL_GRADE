@@ -213,6 +213,16 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
             return normalized;
         }
 
+        public static void AddError(TaskResult result, string errorMessage, string fixAction)
+        {
+            result.Errors.Add(errorMessage);
+            if (!string.IsNullOrWhiteSpace(fixAction)
+                && !result.FixActions.Contains(fixAction, StringComparer.Ordinal))
+            {
+                result.FixActions.Add(fixAction);
+            }
+        }
+
         private static void RemoveVolatileAttributes(XElement element)
         {
             foreach (var descendant in element.DescendantsAndSelf())

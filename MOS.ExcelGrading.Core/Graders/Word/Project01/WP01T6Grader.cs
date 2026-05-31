@@ -24,7 +24,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var headingIndex = WP01GraderHelpers.FindParagraphIndexByExactText(bodyElements, "Dinosaurs in a few points");
                 if (headingIndex < 0)
                 {
-                    result.Errors.Add("Không tìm thấy tiêu đề \"Dinosaurs in a few points\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không tìm thấy tiêu đề \"Dinosaurs in a few points\".",
+                        "Khôi phục đúng tiêu đề \"Dinosaurs in a few points\" để hệ thống nhận diện ảnh cần áp dụng hiệu ứng.");
                     return result;
                 }
 
@@ -40,7 +43,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var drawingsInSection = sectionElements.SelectMany(element => element.Descendants(WP01GraderHelpers.W + "drawing")).ToList();
                 if (drawingsInSection.Count == 0)
                 {
-                    result.Errors.Add("Không tìm thấy hình ảnh nào trong phần \"Dinosaurs in a few points\" để kiểm tra hiệu ứng.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không tìm thấy hình ảnh nào trong phần \"Dinosaurs in a few points\" để kiểm tra hiệu ứng.",
+                        "Khôi phục ảnh hóa thạch khủng long trong phần \"Dinosaurs in a few points\" trước khi áp dụng Artistic Effects.");
                     return result;
                 }
 
@@ -53,7 +59,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
 
                 if (pencilSketchNodes.Count == 0)
                 {
-                    result.Errors.Add("Chưa phát hiện hiệu ứng nghệ thuật \"Pencil Sketch\" trong phần \"Dinosaurs in a few points\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Chưa phát hiện hiệu ứng nghệ thuật \"Pencil Sketch\" trong phần \"Dinosaurs in a few points\".",
+                        "Chọn ảnh hóa thạch khủng long, vào Picture Format > Artistic Effects và chọn Pencil Sketch.");
                     return result;
                 }
 
@@ -69,7 +78,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
 
                 if (string.IsNullOrWhiteSpace(imageEmbedId))
                 {
-                    result.Errors.Add("Hiệu ứng \"Pencil Sketch\" chưa gắn với ảnh hợp lệ (thiếu r:embed).");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Hiệu ứng \"Pencil Sketch\" chưa gắn với ảnh hợp lệ (thiếu r:embed).",
+                        "Xóa ảnh lỗi, chèn/khôi phục lại ảnh gốc rồi áp dụng lại hiệu ứng Pencil Sketch.");
                     return result;
                 }
 
@@ -81,12 +93,18 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add("Hiệu ứng \"Pencil Sketch\" không gắn với relationship ảnh hợp lệ.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Hiệu ứng \"Pencil Sketch\" không gắn với relationship ảnh hợp lệ.",
+                        "Áp dụng Pencil Sketch trực tiếp lên ảnh trong tài liệu, không thay thế bằng đối tượng khác.");
                 }
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 6: {ex.Message}.");
+                WP01GraderHelpers.AddError(
+                    result,
+                    $"Lỗi khi chấm Task 6: {ex.Message}.",
+                    "Lưu lại tệp .docx và kiểm tra ảnh trong phần \"Dinosaurs in a few points\" còn đọc được.");
             }
 
             return result;

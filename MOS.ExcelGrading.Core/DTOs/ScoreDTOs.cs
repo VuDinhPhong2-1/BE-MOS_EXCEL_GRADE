@@ -44,6 +44,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public bool IsPassed { get; set; }
         public List<string>? Details { get; set; }
         public List<string>? Errors { get; set; }
+        public List<string>? FixActions { get; set; }
     }
 
     public class ScoreResponse

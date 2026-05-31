@@ -25,7 +25,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var headingIndex = WP01GraderHelpers.FindParagraphIndexByExactText(bodyElements, "Children love dinosaurs");
                 if (headingIndex < 0)
                 {
-                    result.Errors.Add("Không tìm thấy tiêu đề \"Children love dinosaurs\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không tìm thấy tiêu đề \"Children love dinosaurs\".",
+                        "Khôi phục đúng tiêu đề \"Children love dinosaurs\" và không đổi nội dung/kiểu Heading của tiêu đề.");
                     return result;
                 }
 
@@ -35,7 +38,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var sectionParagraphs = WP01GraderHelpers.GetSectionParagraphs(bodyElements, headingIndex, stopAtHeading1: true);
                 if (sectionParagraphs.Count < 2)
                 {
-                    result.Errors.Add("Không đủ 2 đoạn văn để kiểm tra Format Painter trong phần yêu cầu.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không đủ 2 đoạn văn để kiểm tra Format Painter trong phần yêu cầu.",
+                        "Khôi phục hai đoạn văn bên dưới tiêu đề \"Children love dinosaurs\", sau đó dùng Format Painter từ đoạn 1 sang đoạn 2.");
                     return result;
                 }
 
@@ -46,7 +52,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var secondText = WP01GraderHelpers.GetParagraphText(secondParagraph);
                 if (string.IsNullOrWhiteSpace(firstText) || string.IsNullOrWhiteSpace(secondText))
                 {
-                    result.Errors.Add("Một trong hai đoạn cần kiểm tra đang rỗng nội dung, không thể xác minh định dạng.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Một trong hai đoạn cần kiểm tra đang rỗng nội dung, không thể xác minh định dạng.",
+                        "Khôi phục nội dung hai đoạn trong phần \"Children love dinosaurs\" rồi chỉ sao chép định dạng, không xóa văn bản.");
                     return result;
                 }
 
@@ -59,7 +68,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add("Định dạng đoạn (pPr) của đoạn thứ hai chưa khớp đoạn đầu tiên.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Bạn đã không áp dụng định dạng đoạn văn 2 đúng theo đoạn văn 1.",
+                        "Chọn đoạn văn đầu tiên, bấm Format Painter, rồi quét đúng đoạn văn thứ hai trong phần \"Children love dinosaurs\".");
                 }
 
                 var firstRPr = GetPrimaryRunPropertiesSignature(firstParagraph);
@@ -71,7 +83,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add("Định dạng ký tự chính (rPr) của đoạn thứ hai chưa khớp đoạn đầu tiên.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Bạn đã lấy nhầm định dạng đoạn văn khác hoặc chưa sao chép đủ định dạng ký tự.",
+                        "Dùng Format Painter từ đúng đoạn văn đầu tiên và áp dụng lại cho toàn bộ đoạn văn thứ hai.");
                 }
 
                 var hasForbiddenDirectFormat = secondParagraph.Descendants(WP01GraderHelpers.W + "ind").Any()
@@ -87,12 +102,18 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add("Đoạn thứ hai còn định dạng dư (thụt lề, đậm, nghiêng, màu, hoặc font) chưa đúng theo yêu cầu Format Painter.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Bạn đã áp dụng định dạng đoạn văn bị dư hoặc còn định dạng thủ công không đúng trên đoạn văn 2.",
+                        "Xóa định dạng thủ công ở đoạn 2 nếu cần, sau đó chỉ dùng Format Painter từ đoạn 1 sang đoạn 2.");
                 }
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 2: {ex.Message}.");
+                WP01GraderHelpers.AddError(
+                    result,
+                    $"Lỗi khi chấm Task 2: {ex.Message}.",
+                    "Lưu lại tệp .docx và kiểm tra phần \"Children love dinosaurs\" còn đủ hai đoạn văn trước khi chấm lại.");
             }
 
             return result;

@@ -25,7 +25,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var headingIndex = WP01GraderHelpers.FindParagraphIndexByExactText(bodyElements, "Favorite Dinosaurs");
                 if (headingIndex < 0)
                 {
-                    result.Errors.Add("Không tìm thấy tiêu đề \"Favorite Dinosaurs\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không tìm thấy tiêu đề \"Favorite Dinosaurs\".",
+                        "Khôi phục đúng tiêu đề \"Favorite Dinosaurs\" để hệ thống nhận diện vị trí chèn mô hình 3D.");
                     return result;
                 }
 
@@ -44,7 +47,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
 
                 if (modelNodes.Count == 0)
                 {
-                    result.Errors.Add("Không tìm thấy đối tượng 3D model trong phần \"Favorite Dinosaurs\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không tìm thấy đối tượng 3D model trong phần \"Favorite Dinosaurs\".",
+                        "Đặt con trỏ ở đoạn trống cuối phần \"Favorite Dinosaurs\", chọn Insert > 3D Models và chèn mô hình Triceratops.");
                     return result;
                 }
 
@@ -55,13 +61,19 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var modelRelationshipId = modelNode.Attribute(WP01GraderHelpers.R + "embed")?.Value ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(modelRelationshipId))
                 {
-                    result.Errors.Add("Đối tượng 3D model chưa có liên kết relationship (r:embed).");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Đối tượng 3D model chưa có liên kết relationship (r:embed).",
+                        "Xóa đối tượng lỗi và chèn lại bằng Insert > 3D Models để Word tạo liên kết mô hình hợp lệ.");
                     return result;
                 }
 
                 if (!studentDocument.TryGetDocumentRelationship(modelRelationshipId, out var relationship))
                 {
-                    result.Errors.Add($"Không tìm thấy relationship id \"{modelRelationshipId}\" cho 3D model.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        $"Không tìm thấy relationship id \"{modelRelationshipId}\" cho 3D model.",
+                        "Chèn lại mô hình 3D từ Word thay vì copy phần tử từ nguồn khác làm mất liên kết.");
                     return result;
                 }
 
@@ -72,7 +84,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add($"Relationship của 3D model chưa đúng loại. Type hiện tại: \"{relationship.Type}\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        $"Relationship của 3D model chưa đúng loại. Type hiện tại: \"{relationship.Type}\".",
+                        "Đảm bảo đối tượng được chèn là 3D Model Triceratops, không phải ảnh chụp hoặc hình minh họa thường.");
                 }
 
                 var modelEntry = WP01GraderHelpers.ResolveWordPartEntry(relationship.Target);
@@ -83,7 +98,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add($"Thiếu tệp mô hình 3D trong package. Không tìm thấy \"{modelEntry}\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        $"Thiếu tệp mô hình 3D trong package. Không tìm thấy \"{modelEntry}\".",
+                        "Chèn lại mô hình Triceratops và lưu file .docx để Word nhúng tệp model3d vào tài liệu.");
                 }
 
                 var isInline = modelNode.Ancestors(WP01GraderHelpers.WP + "inline").Any();
@@ -94,13 +112,19 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add("Mô hình 3D chưa ở chế độ In Line with Text (wp:inline).");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Mô hình 3D chưa ở chế độ In Line with Text (wp:inline).",
+                        "Chọn mô hình 3D, mở Layout Options/Wrap Text và chọn In Line with Text.");
                 }
 
                 var modelParagraph = modelNode.Ancestors(WP01GraderHelpers.W + "p").FirstOrDefault();
                 if (modelParagraph == null)
                 {
-                    result.Errors.Add("Không xác định được đoạn văn chứa mô hình 3D.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không xác định được đoạn văn chứa mô hình 3D.",
+                        "Di chuyển mô hình 3D vào đoạn văn trống trong phần \"Favorite Dinosaurs\" rồi lưu lại.");
                     return result;
                 }
 
@@ -112,12 +136,18 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add("Đoạn văn chứa mô hình 3D không trống hoàn toàn.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Đoạn văn chứa mô hình 3D không trống hoàn toàn.",
+                        "Cắt mô hình 3D và dán vào đoạn trống riêng, không để chung với chữ.");
                 }
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 5: {ex.Message}.");
+                WP01GraderHelpers.AddError(
+                    result,
+                    $"Lỗi khi chấm Task 5: {ex.Message}.",
+                    "Lưu lại tệp .docx và kiểm tra mô hình Triceratops còn nằm trong phần \"Favorite Dinosaurs\".");
             }
 
             return result;

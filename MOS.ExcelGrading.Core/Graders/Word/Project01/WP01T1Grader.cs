@@ -28,7 +28,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var normalizedCategory = WP01GraderHelpers.NormalizeText(categoryValue);
                 if (string.IsNullOrWhiteSpace(normalizedCategory))
                 {
-                    result.Errors.Add("Chưa thiết lập Categories trong thuộc tính tệp.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Bạn đã không nhập Categories trong thuộc tính tệp.",
+                        "Mở File > Info > Properties > Advanced Properties > Summary, nhập animals vào Categories rồi lưu tệp.");
                     return result;
                 }
 
@@ -42,12 +45,18 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add($"Categories chưa đúng. Giá trị hiện tại là \"{normalizedCategory}\", yêu cầu chính xác là \"animals\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        $"Bạn đã nhập sai chính tả hoặc dư ký tự. Categories hiện tại là \"{normalizedCategory}\".",
+                        "Sửa Categories thành đúng một từ animals, viết thường và không thêm khoảng trắng/ký tự khác.");
                 }
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 1: {ex.Message}.");
+                WP01GraderHelpers.AddError(
+                    result,
+                    $"Lỗi khi chấm Task 1: {ex.Message}.",
+                    "Đóng Word, mở lại tệp .docx và lưu lại trước khi chấm; nếu lỗi còn lặp lại, kiểm tra tệp có bị hỏng hay không.");
             }
 
             return result;

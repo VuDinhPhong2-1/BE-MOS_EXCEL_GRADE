@@ -24,7 +24,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var headingIndex = WP01GraderHelpers.FindParagraphIndexByExactText(bodyElements, "Geological eras");
                 if (headingIndex < 0)
                 {
-                    result.Errors.Add("Không tìm thấy tiêu đề \"Geological eras\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không tìm thấy tiêu đề \"Geological eras\".",
+                        "Khôi phục đúng tiêu đề \"Geological eras\" để hệ thống nhận diện bảng cần sắp xếp.");
                     return result;
                 }
 
@@ -34,7 +37,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var table = WP01GraderHelpers.GetFirstTableAfterHeading(bodyElements, headingIndex);
                 if (table == null)
                 {
-                    result.Errors.Add("Không tìm thấy bảng dữ liệu ngay sau phần \"Geological eras\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không tìm thấy bảng dữ liệu ngay sau phần \"Geological eras\".",
+                        "Khôi phục bảng trong phần \"Geological eras\" rồi thực hiện Sort trên chính bảng đó.");
                     return result;
                 }
 
@@ -44,14 +50,20 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var rows = table.Elements(WP01GraderHelpers.W + "tr").ToList();
                 if (rows.Count < 3)
                 {
-                    result.Errors.Add("Bảng dữ liệu không đủ số dòng để kiểm tra sắp xếp.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Bảng dữ liệu không đủ số dòng để kiểm tra sắp xếp.",
+                        "Không xóa dòng dữ liệu trong bảng; khôi phục bảng gốc rồi sắp xếp lại.");
                     return result;
                 }
 
                 var headerCells = rows[0].Elements(WP01GraderHelpers.W + "tc").ToList();
                 if (headerCells.Count < 2)
                 {
-                    result.Errors.Add("Bảng dữ liệu thiếu cột để kiểm tra.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Bảng dữ liệu thiếu cột để kiểm tra.",
+                        "Khôi phục hai cột Dinosaur và Geologic Period trước khi dùng Sort.");
                     return result;
                 }
 
@@ -65,7 +77,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add($"Tiêu đề cột bảng chưa đúng. Hiện tại là \"{dinosaurHeader}\" và \"{periodHeader}\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        $"Tiêu đề cột bảng chưa đúng. Hiện tại là \"{dinosaurHeader}\" và \"{periodHeader}\".",
+                        "Giữ nguyên tiêu đề cột là Dinosaur và Geologic Period; chỉ sắp xếp dữ liệu bên dưới hàng tiêu đề.");
                 }
 
                 var dataRows = new List<(string Dinosaur, string PeriodText, int PeriodOrder)>();
@@ -89,7 +104,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
 
                 if (dataRows.Count < 2)
                 {
-                    result.Errors.Add("Không đủ dữ liệu hàng để kiểm tra thứ tự sắp xếp.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không đủ dữ liệu hàng để kiểm tra thứ tự sắp xếp.",
+                        "Khôi phục các dòng dữ liệu trong bảng và không gộp/xóa ô trước khi sắp xếp.");
                     return result;
                 }
 
@@ -99,8 +117,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                     if (dataRows[i - 1].PeriodOrder > dataRows[i].PeriodOrder)
                     {
                         periodSortCorrect = false;
-                        result.Errors.Add(
-                            $"Thứ tự cột \"Geologic Period\" chưa tăng dần tại dòng dữ liệu {i + 1}: \"{dataRows[i - 1].PeriodText}\" đứng trước \"{dataRows[i].PeriodText}\".");
+                        WP01GraderHelpers.AddError(
+                            result,
+                            $"Thứ tự cột \"Geologic Period\" chưa tăng dần tại dòng dữ liệu {i + 1}: \"{dataRows[i - 1].PeriodText}\" đứng trước \"{dataRows[i].PeriodText}\".",
+                            "Chọn bảng > Layout > Sort, Sort by Geologic Period theo Ascending, Then by Dinosaur theo Ascending.");
                         break;
                     }
                 }
@@ -124,8 +144,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                     if (string.Compare(previousDinosaur, currentDinosaur, StringComparison.Ordinal) > 0)
                     {
                         secondarySortCorrect = false;
-                        result.Errors.Add(
-                            $"Sắp xếp phụ theo cột \"Dinosaur\" chưa tăng dần trong nhóm \"{dataRows[i].PeriodText}\": \"{dataRows[i - 1].Dinosaur}\" đứng trước \"{dataRows[i].Dinosaur}\".");
+                        WP01GraderHelpers.AddError(
+                            result,
+                            $"Sắp xếp phụ theo cột \"Dinosaur\" chưa tăng dần trong nhóm \"{dataRows[i].PeriodText}\": \"{dataRows[i - 1].Dinosaur}\" đứng trước \"{dataRows[i].Dinosaur}\".",
+                            "Mở Sort và thêm cấp Then by Dinosaur, Type Text, Ascending.");
                         break;
                     }
                 }
@@ -138,7 +160,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 3: {ex.Message}.");
+                WP01GraderHelpers.AddError(
+                    result,
+                    $"Lỗi khi chấm Task 3: {ex.Message}.",
+                    "Lưu lại tệp .docx và kiểm tra bảng trong phần \"Geological eras\" còn cấu trúc hàng/cột hợp lệ.");
             }
 
             return result;

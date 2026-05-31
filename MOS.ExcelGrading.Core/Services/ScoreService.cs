@@ -604,6 +604,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 var normalizedErrors = NormalizeAutoGradingErrors(item.Errors);
                 var normalizedDetails = NormalizeAutoGradingErrors(item.Details);
+                var normalizedFixActions = NormalizeAutoGradingErrors(item.FixActions);
 
                 normalized.Add(new AutoGradingTaskResultRequest
                 {
@@ -613,7 +614,8 @@ namespace MOS.ExcelGrading.Core.Services
                     MaxScore = normalizedMaxScore,
                     IsPassed = item.IsPassed,
                     Details = normalizedDetails,
-                    Errors = normalizedErrors
+                    Errors = normalizedErrors,
+                    FixActions = normalizedFixActions
                 });
             }
 
@@ -632,7 +634,8 @@ namespace MOS.ExcelGrading.Core.Services
                         Score = (decimal)task.Score,
                         MaxScore = (decimal)task.MaxScore,
                         Details = task.Details ?? new List<string>(),
-                        Errors = task.Errors ?? new List<string>()
+                        Errors = task.Errors ?? new List<string>(),
+                        FixActions = task.FixActions ?? new List<string>()
                     })
                     .ToList();
             }

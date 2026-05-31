@@ -24,7 +24,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var headingIndex = WP01GraderHelpers.FindParagraphIndexByExactText(bodyElements, "Other points to know about dinosaurs");
                 if (headingIndex < 0)
                 {
-                    result.Errors.Add("Không tìm thấy tiêu đề \"Other points to know about dinosaurs\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không tìm thấy tiêu đề \"Other points to know about dinosaurs\".",
+                        "Khôi phục đúng tiêu đề \"Other points to know about dinosaurs\" để hệ thống nhận diện danh sách.");
                     return result;
                 }
 
@@ -37,7 +40,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 var velociraptorParagraph = WP01GraderHelpers.FindParagraphContainingText(sectionParagraphs, "Velociraptor");
                 if (velociraptorParagraph == null)
                 {
-                    result.Errors.Add("Không tìm thấy mục danh sách \"Velociraptor\" trong phần yêu cầu.");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Không tìm thấy mục danh sách \"Velociraptor\" trong phần yêu cầu.",
+                        "Khôi phục mục danh sách \"Velociraptor\" và các dòng con Meaning/Size/Weight.");
                     return result;
                 }
 
@@ -77,7 +83,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                         if (!int.TryParse(childIlvlStr, out int childIlvl) || childIlvl != 3)
                         {
                             childrenCorrect = false;
-                            result.Errors.Add($"Dòng con thứ {i} bên dưới \"Velociraptor\" có ilvl = \"{childIlvlStr}\", yêu cầu phải là 3 (cấp 4).");
+                            WP01GraderHelpers.AddError(
+                                result,
+                                $"Dòng con thứ {i} bên dưới \"Velociraptor\" có ilvl = \"{childIlvlStr}\", yêu cầu phải là 3 (cấp 4).",
+                                "Sau khi đưa \"Velociraptor\" về cấp 3, giữ các dòng Meaning/Size/Weight bên dưới ở cấp 4.");
                         }
                     }
 
@@ -88,12 +97,18 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                     }
                     else
                     {
-                        result.Errors.Add("\"Velociraptor\" có ilvl = 2 nhưng một hoặc nhiều dòng con (Meaning/Size/Weight) chưa đúng cấp 4 (ilvl = 3).");
+                        WP01GraderHelpers.AddError(
+                            result,
+                            "\"Velociraptor\" có ilvl = 2 nhưng một hoặc nhiều dòng con (Meaning/Size/Weight) chưa đúng cấp 4 (ilvl = 3).",
+                            "Dùng Increase Indent/Change List Level để Meaning, Size và Weight nằm dưới \"Velociraptor\" một cấp.");
                     }
                 }
                 else
                 {
-                    result.Errors.Add($"Cấp độ danh sách của \"Velociraptor\" chưa đúng. Giá trị ilvl hiện tại là \"{ilvl}\", yêu cầu là \"2\".");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        $"Cấp độ danh sách của \"Velociraptor\" chưa đúng. Giá trị ilvl hiện tại là \"{ilvl}\", yêu cầu là \"2\".",
+                        "Chọn dòng \"Velociraptor\", vào Multilevel List/Change List Level và đặt thành cấp độ 3.");
                 }
 
                 if (!string.IsNullOrWhiteSpace(numId))
@@ -103,12 +118,18 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
                 }
                 else
                 {
-                    result.Errors.Add("Mục \"Velociraptor\" chưa có thông tin numbering (numId).");
+                    WP01GraderHelpers.AddError(
+                        result,
+                        "Mục \"Velociraptor\" chưa có thông tin numbering (numId).",
+                        "Áp dụng lại danh sách đa cấp cho mục \"Velociraptor\" thay vì gõ thụt lề thủ công.");
                 }
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 4: {ex.Message}.");
+                WP01GraderHelpers.AddError(
+                    result,
+                    $"Lỗi khi chấm Task 4: {ex.Message}.",
+                    "Lưu lại tệp .docx và kiểm tra danh sách đa cấp trong phần \"Other points to know about dinosaurs\".");
             }
 
             return result;

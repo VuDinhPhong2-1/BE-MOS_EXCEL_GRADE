@@ -366,11 +366,12 @@ namespace MOS.ExcelGrading.API.Controllers
                 if (studentFile == null)
                     return BadRequest(new { error = "Can cung cap file: studentFile" });
 
-                if (!IsExcelFile(studentFile))
-                    return BadRequest(new { error = "File phai co dinh dang .xlsx hoac .xlsm" });
+                if (!IsExcelFile(studentFile) &&
+                    !string.Equals(Path.GetExtension(studentFile.FileName), ".txt", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { error = "File phai co dinh dang .xlsx, .xlsm hoac .txt" });
 
                 using var studentStream = studentFile.OpenReadStream();
-                var result = await _gradingService.GradeProject07Async(studentStream);
+                var result = await _gradingService.GradeProject07Async(studentStream, studentFile.FileName);
 
                 await _analyticsService.SaveGradingAttemptAsync(
                     result,
@@ -1076,6 +1077,86 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         /// <summary>
+        /// Chấm điểm Word theo project động (word/projectXX).
+        /// Chỉ Teacher và Admin mới được phép sử dụng.
+        /// </summary>
+        [HttpPost("word/{projectCode}")]
+        [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
+        [RequestSizeLimit(524288000)]
+        [RequestFormLimits(MultipartBodyLengthLimit = 524288000)]
+        [DisableRequestSizeLimit]
+        public async Task<IActionResult> GradeWordProject(
+            string projectCode,
+            [FromForm] IFormFile studentFile,
+            [FromForm] string? classId = null,
+            [FromForm] string? assignmentId = null,
+            [FromForm] string? studentId = null)
+        {
+            try
+            {
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var username = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                if (!HasCreateGradesPermission(userId, username))
+                {
+                    return Forbid();
+                }
+
+                if (studentFile == null)
+                {
+                    return BadRequest(new { error = "Cần cung cấp file: studentFile" });
+                }
+
+                var normalizedEndpoint = GradingApiEndpoints.NormalizeEndpoint($"{GradingApiSubjects.Word}/{projectCode}");
+                if (!normalizedEndpoint.StartsWith($"{GradingApiSubjects.Word}/project", StringComparison.Ordinal))
+                {
+                    return BadRequest(new { error = $"Project Word không hợp lệ: {projectCode}" });
+                }
+
+                if (!GradingApiEndpoints.IsValidEndpoint(normalizedEndpoint))
+                {
+                    return BadRequest(new { error = $"Project Word không được hỗ trợ: {projectCode}" });
+                }
+
+                if (!GradingApiEndpoints.TryExtractProjectNumber(normalizedEndpoint, out var projectNumber))
+                {
+                    return BadRequest(new { error = $"Không thể nhận diện project Word: {projectCode}" });
+                }
+
+                if (!IsAcceptedWordInputForProject(studentFile, projectNumber))
+                {
+                    if (projectNumber == 7)
+                    {
+                        return BadRequest(new
+                        {
+                            error = "Word Project 07 yêu cầu .docx hoặc file plain text tên Memo.txt."
+                        });
+                    }
+
+                    return BadRequest(new { error = "File phải có định dạng .docx (Word OpenXML)." });
+                }
+
+                using var studentStream = studentFile.OpenReadStream();
+                var result = await _gradingService.GradeWordProjectAsync(projectNumber, studentStream, studentFile.FileName);
+
+                await _analyticsService.SaveGradingAttemptAsync(
+                    result,
+                    normalizedEndpoint,
+                    classId,
+                    assignmentId,
+                    studentId,
+                    userId);
+
+                return Ok(result);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error grading word project {ProjectCode}", projectCode);
+                return StatusCode(500, new { error = "Lỗi hệ thống khi chấm điểm Word" });
+            }
+        }
+
+        /// <summary>
         /// Health check - Không cần xác thực
         /// </summary>
         [HttpGet("health")]
@@ -1109,11 +1190,37 @@ namespace MOS.ExcelGrading.API.Controllers
 
         private bool IsExcelFile(IFormFile file)
         {
-            var extension = Path.GetExtension(file.FileName).ToLower();
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
             return extension == ".xlsx" || extension == ".xlsm";
+        }
+
+        private static bool IsAcceptedWordInputForProject(IFormFile file, int projectNumber)
+        {
+            if (projectNumber == 7 && IsMemoPlainTextFile(file))
+            {
+                return true;
+            }
+
+            return IsWordOpenXmlFile(file);
+        }
+
+        private static bool IsWordOpenXmlFile(IFormFile file)
+        {
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            return extension == ".docx";
+        }
+
+        private static bool IsMemoPlainTextFile(IFormFile file)
+        {
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (extension != ".txt")
+            {
+                return false;
+            }
+
+            var baseName = Path.GetFileNameWithoutExtension(file.FileName) ?? string.Empty;
+            return string.Equals(baseName, "memo", StringComparison.OrdinalIgnoreCase);
         }
     }
 }
-
-
 

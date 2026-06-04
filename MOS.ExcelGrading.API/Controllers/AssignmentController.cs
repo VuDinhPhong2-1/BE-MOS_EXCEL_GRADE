@@ -32,7 +32,7 @@ namespace MOS.ExcelGrading.API.Controllers
         [HttpGet("grading-endpoints")]
         public IActionResult GetGradingEndpoints()
         {
-            var implementedExcelProjects = new List<(int Number, string Description, double RawMaxScore)>
+            var implementedProjects = new List<(int Number, string Description, double RawMaxScore)>
             {
                 (1, "Chấm điểm Dự án 01", 125),
                 (2, "Chấm điểm Dự án 02", 125),
@@ -55,29 +55,50 @@ namespace MOS.ExcelGrading.API.Controllers
                 (22, "Chấm điểm Dự án 22", 125)
             };
 
-            var endpoints = implementedExcelProjects
-                .Select(item => BuildExcelEndpointInfo(item.Number, item.Description, item.RawMaxScore))
+            var excelEndpoints = implementedProjects
+                .Select(item => BuildSubjectEndpointInfo(
+                    GradingApiSubjects.Excel,
+                    item.Number,
+                    item.Description,
+                    item.RawMaxScore));
+
+            var wordEndpoints = Enumerable.Range(GradingApiEndpoints.MinProjectNumber, GradingApiEndpoints.MaxProjectNumber)
+                .Select(projectNumber => BuildSubjectEndpointInfo(
+                    GradingApiSubjects.Word,
+                    projectNumber,
+                    $"Skeleton chấm điểm Word Project {projectNumber:00}",
+                    125));
+
+            var endpoints = excelEndpoints
+                .Concat(wordEndpoints)
                 .OrderBy(item => item.DisplayName, StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), ignoreCase: true))
                 .ToList();
 
             return Ok(endpoints);
         }
 
-        private static GradingEndpointInfo BuildExcelEndpointInfo(int projectNumber, string baseDescription, double rawMaxScore)
+        private static GradingEndpointInfo BuildSubjectEndpointInfo(string subject, int projectNumber, string baseDescription, double rawMaxScore)
         {
-            var endpoint = GradingApiEndpoints.ToExcelProjectEndpoint(projectNumber);
+            var endpoint = GradingApiEndpoints.ToProjectEndpoint(subject, projectNumber);
             var practice = PracticeScoring.ResolveByProjectNumber(projectNumber);
             var practiceProjectScore = (double)PracticeScoring.CalculateProjectMaxScore(projectNumber);
+            var normalizedSubject = AssignmentFileSubjects.Normalize(subject);
+            var subjectDisplay = normalizedSubject switch
+            {
+                GradingApiSubjects.Word => "Word",
+                GradingApiSubjects.Ppt => "PowerPoint",
+                _ => "Excel"
+            };
 
             return new GradingEndpointInfo
             {
                 Endpoint = endpoint,
-                DisplayName = $"Project {projectNumber:00} - Excel",
+                DisplayName = $"Project {projectNumber:00} - {subjectDisplay}",
                 Description =
                     $"{baseDescription}. Quy đổi theo {practice.Name}: {practiceProjectScore:0.##}/{practice.TotalScore} điểm.",
                 MaxScore = practiceProjectScore,
                 RawMaxScore = rawMaxScore,
-                Subject = GradingApiSubjects.Excel,
+                Subject = normalizedSubject,
                 PracticeCode = practice.Code,
                 PracticeName = practice.Name,
                 PracticeTotalScore = practice.TotalScore,
@@ -427,4 +448,3 @@ namespace MOS.ExcelGrading.API.Controllers
             User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
     }
 }
-

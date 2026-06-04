@@ -23,5 +23,6 @@
         public bool IsPassed => Score >= MaxScore * 0.5m;
         public List<string> Details { get; set; } = new();
         public List<string> Errors { get; set; } = new();
+        public List<string> FixActions { get; set; } = new();
     }
 }

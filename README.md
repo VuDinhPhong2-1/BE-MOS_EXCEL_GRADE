@@ -1,116 +1,119 @@
-# MOS.ExcelGrading
+# MOS Project Backend
 
-## Run API on VS Code (HTTPS)
+ASP.NET Core Web API backend for MOS Project.
 
-### 1) What `dotnet restore` does
+## Stack
+
+- .NET 9
+- ASP.NET Core Web API
+- MongoDB + GridFS
+- JWT authentication
+- EPPlus for Excel grading
+- Google Sheets API integration
+- Optional Redis cache with in-memory fallback
+
+## Directory
+
+Run backend commands from:
 
 ```powershell
-dotnet restore
+cd BACKEND
 ```
 
-- Restores NuGet dependencies from all `.csproj` files.
-- Must run after clone, branch switch, or package changes.
-
-### 2) What `dotnet run --launch-profile https` does
+## Restore and build
 
 ```powershell
-dotnet run --project .\MOS.ExcelGrading.API\MOS.ExcelGrading.API.csproj --launch-profile https
-```
-
-- Runs the API project explicitly.
-- Uses the `https` profile from `launchSettings.json`.
-- Default listening URLs:
-  - `https://localhost:7223`
-  - `http://localhost:5293`
-
-## Quick start
-
-```powershell
-cd D:\All_Project\MOS.ExcelGrading
 dotnet restore
 dotnet build MOS.ExcelGrading.sln
-dotnet run --project .\MOS.ExcelGrading.API\MOS.ExcelGrading.API.csproj --launch-profile https
 ```
 
-## Required environment variables
+## Required configuration
 
-`appsettings.json` no longer stores DB credentials. Set MongoDB connection string from environment:
+`appsettings.json` should not contain real credentials. Prefer environment variables or local user secrets.
 
-```powershell
-$env:MongoDbSettings__ConnectionString="your-mongodb-connection-string"
-```
-
-Optional if you need to override defaults:
-
-```powershell
-$env:MongoDbSettings__DatabaseName="MOS"
-```
-
-Select backend mode (`local` or `deploy`):
+Required values:
 
 ```powershell
 $env:AppMode="local"
+$env:MongoDbSettings__ConnectionString="mongodb://localhost:27017"
+$env:MongoDbSettings__DatabaseName="MOS"
+$env:JwtSettings__SecretKey="<set-a-strong-secret>"
+$env:JwtSettings__Issuer="MOS.ExcelGrading"
+$env:JwtSettings__Audience="MOS.ExcelGrading.Users"
 ```
+
+Optional values:
+
+```powershell
+$env:GoogleAuth__ClientId="<google-web-client-id>"
+$env:GoogleSheets__Enabled="true"
+$env:GoogleSheets__ServiceAccountJson="<service-account-json>"
+$env:GoogleSheets__ServiceAccountJsonPath="<path-to-service-account-json>"
+$env:Redis__Enabled="false"
+$env:Redis__ConnectionString="<redis-connection-string>"
+```
+
+Do not commit real secrets, service account JSON, tokens, or production connection strings.
+
+## Run API locally
+
+```powershell
+dotnet run --project .\MOS.ExcelGrading.API\MOS.ExcelGrading.API.csproj --launch-profile https
+```
+
+Default local URLs:
+
+- `https://localhost:7223`
+- `http://localhost:5293`
 
 ## Health check
 
-- `https://localhost:7223/api/grading/health`
-
-## Analytics APIs (Class insights)
-
-After grading, backend now stores task-level snapshots for analytics.  
-Grading endpoints now use only one upload file:
-
-- `POST /api/grading/project01` (`multipart/form-data`)
-- `POST /api/grading/project02` (`multipart/form-data`)
-- `POST /api/grading/project03` (`multipart/form-data`) - Task 1-5 auto, Task 6 manual note
-- `POST /api/grading/project04` (`multipart/form-data`)
-- `POST /api/grading/project05` (`multipart/form-data`)
-- `POST /api/grading/project06` (`multipart/form-data`)
-- `POST /api/grading/project07` (`multipart/form-data`)
-- `POST /api/grading/project08` (`multipart/form-data`)
-- `POST /api/grading/project09` (`multipart/form-data`)
-
-Required form field:
-
-- `studentFile` (`.xlsx` or `.xlsm`)
-
-Optional form fields:
-
-- `classId`
-- `assignmentId`
-- `studentId`
-
-New analytics endpoints:
-
-- `GET /api/analytics/class/{classId}/overview`
-- `GET /api/analytics/class/{classId}/weak-tasks?projectEndpoint=project09&top=10`
-- `GET /api/analytics/class/{classId}/project-performance`
-
-## Frontend config example (Vite)
-
-```env
-VITE_API_TARGET=local
-VITE_API_LOCAL_URL=https://localhost:7223
-VITE_API_DEPLOY_URL=https://be-mos-excel-grade.onrender.com
+```powershell
+curl.exe https://localhost:7223/api/grading/health
 ```
+
+## API documentation
+
+Keep this README backend-focused and avoid duplicating full endpoint inventories here.
+
+Canonical API docs:
+
+- `../API_CONTRACT.md` - stable request/response contracts and compatibility rules
+- `../API_ENDPOINTS_DETAILED.md` - controller endpoint inventory
+- `../API_QUICK_REFERENCE.md` - ready-to-run examples
+
+Important grading route compatibility:
+
+- Excel canonical routes: `/api/grading/excel/project01..16,18,20,22`
+- Excel legacy aliases: `/api/grading/projectXX`
+- Word dynamic route: `/api/grading/word/{projectCode}`
 
 ## Common issues
 
-1. `Failed to fetch`
-- Frontend calls `https://localhost:7223` but API was started with `http` profile.
-- Start API with `--launch-profile https`.
+### `Failed to fetch` from frontend
 
-2. HTTPS certificate issue
+- Start the API with the `https` launch profile.
+- Confirm frontend env points to `https://localhost:7223`.
+- Trust the local development HTTPS certificate if needed.
 
 ```powershell
 dotnet dev-certs https --trust
 ```
 
-3. Missing SDK
+### Missing .NET SDK
 
 ```powershell
 dotnet --info
 ```
 
-This project targets `net9.0`, so .NET SDK 9 is required.
+This backend targets `net9.0`, so .NET SDK 9 is required.
+
+### Empty analytics
+
+Analytics depends on persisted grading attempts. Direct grading and score-save flows can differ; see `../BUGS_AND_PATCHES.md` before changing persistence behavior.
+
+## Verification
+
+```powershell
+dotnet build MOS.ExcelGrading.sln
+```

@@ -1,5 +1,10 @@
 ﻿using OfficeOpenXml;
 using MOS.ExcelGrading.Core.Graders.Project01;
+using MOS.ExcelGrading.Core.Graders.Word.Project01;
+using MOS.ExcelGrading.Core.Graders.Word.Project02;
+using MOS.ExcelGrading.Core.Graders.Word;
+using System.IO.Compression;
+using System.Xml.Linq;
 using MOS.ExcelGrading.Core.Graders.Project02;
 using MOS.ExcelGrading.Core.Graders.Project03;
 using MOS.ExcelGrading.Core.Graders.Project04;
@@ -20,6 +25,12 @@ using MOS.ExcelGrading.Core.Graders.Project20;
 using MOS.ExcelGrading.Core.Graders.Project22;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
+using MOS.ExcelGrading.Core.Graders.Word.Project03;
+using MOS.ExcelGrading.Core.Graders.Word.Project05;
+using MOS.ExcelGrading.Core.Graders.Word.Project07;
+using MOS.ExcelGrading.Core.Graders.Word.Project09;
+using MOS.ExcelGrading.Core.Graders.Word.Project11;
+using System.Text;
 
 namespace MOS.ExcelGrading.Core.Services
 {
@@ -44,6 +55,7 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly List<ITaskGrader> _project18Graders;
         private readonly List<ITaskGrader> _project20Graders;
         private readonly List<ITaskGrader> _project22Graders;
+        private readonly Dictionary<int, List<IWordTaskGrader>> _wordProjectGraders;
         private const decimal StandardProjectMaxScore = 125m;
 
         public GradingService()
@@ -239,7 +251,82 @@ namespace MOS.ExcelGrading.Core.Services
                 new P22T6Grader()
             };
 
+            _wordProjectGraders = Enumerable.Range(1, 24)
+                .ToDictionary(
+                    projectNumber => projectNumber,
+                    projectNumber => new List<IWordTaskGrader>
+                    {
+                        new WordProjectSkeletonTaskGrader(projectNumber)
+                    });
+
+            _wordProjectGraders[1] = new List<IWordTaskGrader>
+            {
+                new WP01T1Grader(),
+                new WP01T2Grader(),
+                new WP01T3Grader(),
+                new WP01T4Grader(),
+                new WP01T5Grader(),
+                new WP01T6Grader()
+            };
+
+            _wordProjectGraders[2] = new List<IWordTaskGrader>
+            {
+                new WP02T1Grader()
+            };
+
+            _wordProjectGraders[3] = new List<IWordTaskGrader>
+            {
+                new WP03T1Grader(),
+                new WP03T2Grader(),
+                new WP03T3Grader(),
+                new WP03T4Grader(),
+                new WP03T5Grader(),
+                new WP03T6Grader()
+            };
+
+            _wordProjectGraders[5] = new List<IWordTaskGrader>
+            {
+                new WP05T1Grader(),
+                new WP05T2Grader(),
+                new WP05T3Grader(),
+                new WP05T4Grader(),
+                new WP05T5Grader(),
+                new WP05T6Grader(),
+                new WP05T7Grader()
+            };
+
+            _wordProjectGraders[7] = new List<IWordTaskGrader>
+            {
+                new WP07T1Grader()
+            };
+
+            _wordProjectGraders[9] = new List<IWordTaskGrader>
+            {
+                new WP09T1Grader(),
+                new WP09T2Grader(),
+                new WP09T3Grader(),
+                new WP09T4Grader(),
+                new WP09T5Grader(),
+                new WP09T6Grader()
+            };
+
+            _wordProjectGraders[11] = CreateWordProject13LogicGraders();
+            _wordProjectGraders[13] = CreateWordProject13LogicGraders();
+
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        }
+
+        private static List<IWordTaskGrader> CreateWordProject13LogicGraders()
+        {
+            return new List<IWordTaskGrader>
+            {
+                new WP11T1Grader(),
+                new WP11T2Grader(),
+                new WP11T3Grader(),
+                new WP11T4Grader(),
+                new WP11T5Grader(),
+                new WP11T6Grader()
+            };
         }
 
         public async Task<GradingResult> GradeProject01Async(Stream studentFile)
@@ -257,7 +344,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project01Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -292,7 +379,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project02Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -327,7 +414,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project03Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -362,7 +449,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project04Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -397,7 +484,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project05Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -432,7 +519,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project06Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -452,8 +539,13 @@ namespace MOS.ExcelGrading.Core.Services
             return result;
         }
 
-        public async Task<GradingResult> GradeProject07Async(Stream studentFile)
+        public async Task<GradingResult> GradeProject07Async(Stream studentFile, string? sourceFileName = null)
         {
+            if (IsPlainTextWordInput(7, sourceFileName))
+            {
+                return await GradeWordProjectAsync(7, studentFile, sourceFileName);
+            }
+
             var result = new GradingResult
             {
                 ProjectId = "P07",
@@ -467,7 +559,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project07Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -502,7 +594,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project08Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -537,7 +629,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project09Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -572,7 +664,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project10Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -607,7 +699,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project11Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -642,7 +734,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project12Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -677,7 +769,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project13Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -712,7 +804,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project14Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -747,7 +839,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project15Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -782,7 +874,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project16Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -817,7 +909,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project18Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -852,7 +944,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project20Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -887,7 +979,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project22Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -907,6 +999,242 @@ namespace MOS.ExcelGrading.Core.Services
             return result;
         }
 
+        public async Task<GradingResult> GradeWordProjectAsync(int projectNumber, Stream studentFile, string? sourceFileName = null)
+        {
+            var result = new GradingResult
+            {
+                ProjectId = $"W{projectNumber:00}",
+                ProjectName = $"Word Project {projectNumber:00}"
+            };
+
+            if (projectNumber < 1 || projectNumber > 24)
+            {
+                result.TaskResults.Add(new TaskResult
+                {
+                    TaskId = "ERROR",
+                    TaskName = "Loi he thong",
+                    Errors = new List<string> { $"Project Word {projectNumber:00} khong duoc ho tro." }
+                });
+                ApplyProjectScoringModel(result);
+                return result;
+            }
+
+            if (!_wordProjectGraders.TryGetValue(projectNumber, out var projectGraders) || projectGraders.Count == 0)
+            {
+                result.TaskResults.Add(new TaskResult
+                {
+                    TaskId = "ERROR",
+                    TaskName = "Loi he thong",
+                    Errors = new List<string>
+                    {
+                        $"Chua cau hinh grader Word cho project {projectNumber:00}."
+                    }
+                });
+                ApplyProjectScoringModel(result);
+                return result;
+            }
+
+            try
+            {
+                var context = await LoadWordGradingContextAsync(projectNumber, studentFile, sourceFileName);
+                foreach (var grader in projectGraders)
+                {
+                    var taskResult = await Task.Run(() => grader.Grade(context));
+                    result.TaskResults.Add(taskResult);
+                }
+
+                ApplyProjectScoringModel(result);
+            }
+            catch (Exception ex)
+            {
+                result.TaskResults.Add(new TaskResult
+                {
+                    TaskId = "ERROR",
+                    TaskName = "Loi he thong",
+                    Errors = new List<string> { $"Loi: {ex.Message}" }
+                });
+                ApplyProjectScoringModel(result);
+            }
+
+            return result;
+        }
+
+        private static async Task<WordGradingContext> LoadWordGradingContextAsync(
+            int projectNumber,
+            Stream studentFile,
+            string? sourceFileName)
+        {
+            if (studentFile == null)
+            {
+                throw new InvalidOperationException("Khong co file dau vao de cham Word.");
+            }
+
+            await using var memoryStream = new MemoryStream();
+            await studentFile.CopyToAsync(memoryStream);
+            memoryStream.Position = 0;
+
+            if (IsPlainTextWordInput(projectNumber, sourceFileName))
+            {
+                return await LoadWordPlainTextContextAsync(projectNumber, memoryStream, sourceFileName);
+            }
+
+            try
+            {
+                using var zipArchive = new ZipArchive(memoryStream, ZipArchiveMode.Read, leaveOpen: true);
+                var entryNames = zipArchive.Entries
+                    .Select(entry => entry.FullName.Replace("\\", "/", StringComparison.Ordinal))
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                var xmlParts = new Dictionary<string, XDocument>(StringComparer.OrdinalIgnoreCase);
+                foreach (var entry in zipArchive.Entries)
+                {
+                    var normalizedName = entry.FullName.Replace("\\", "/", StringComparison.Ordinal);
+                    if (!normalizedName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+
+                    try
+                    {
+                        using var entryStream = entry.Open();
+                        xmlParts[normalizedName] = XDocument.Load(entryStream, LoadOptions.PreserveWhitespace);
+                    }
+                    catch
+                    {
+                        // Ignore malformed or unsupported XML parts to keep grading resilient.
+                    }
+                }
+
+                var documentRelationshipsXml = TryLoadXmlPart(zipArchive, "word/_rels/document.xml.rels");
+                var documentRelationships = BuildWordRelationships(documentRelationshipsXml);
+
+                xmlParts.TryGetValue("word/document.xml", out var mainDocumentXml);
+                xmlParts.TryGetValue("docProps/core.xml", out var corePropertiesXml);
+                xmlParts.TryGetValue("word/numbering.xml", out var numberingXml);
+                xmlParts.TryGetValue("word/_rels/document.xml.rels", out var relationshipsXmlFromParts);
+                documentRelationshipsXml ??= relationshipsXmlFromParts;
+
+                return new WordGradingContext
+                {
+                    ProjectNumber = projectNumber,
+                    SourceFileName = sourceFileName ?? $"project{projectNumber:00}.docx",
+                    HasMainDocumentPart = entryNames.Contains("word/document.xml"),
+                    PartCount = entryNames.Count,
+                    Entries = entryNames,
+                    MainDocumentXml = mainDocumentXml,
+                    CorePropertiesXml = corePropertiesXml,
+                    NumberingXml = numberingXml,
+                    DocumentRelationshipsXml = documentRelationshipsXml,
+                    DocumentRelationships = documentRelationships,
+                    XmlParts = xmlParts
+                };
+            }
+            catch (InvalidDataException ex)
+            {
+                throw new InvalidOperationException("File Word khong dung dinh dang OpenXML (.docx).", ex);
+            }
+        }
+
+        private static bool IsPlainTextWordInput(int projectNumber, string? sourceFileName)
+        {
+            if (projectNumber != 7)
+            {
+                return false;
+            }
+
+            var extension = Path.GetExtension(sourceFileName ?? string.Empty);
+            return string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static async Task<WordGradingContext> LoadWordPlainTextContextAsync(
+            int projectNumber,
+            MemoryStream memoryStream,
+            string? sourceFileName)
+        {
+            memoryStream.Position = 0;
+            using var reader = new StreamReader(memoryStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true, leaveOpen: true);
+            var text = await reader.ReadToEndAsync();
+
+            var plainTextXml = BuildPlainTextWordDocumentXml(text);
+            var entries = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            {
+                "plain-text-input"
+            };
+
+            return new WordGradingContext
+            {
+                ProjectNumber = projectNumber,
+                SourceFileName = sourceFileName ?? $"project{projectNumber:00}.txt",
+                HasMainDocumentPart = true,
+                PartCount = 1,
+                Entries = entries,
+                MainDocumentXml = plainTextXml,
+                CorePropertiesXml = null,
+                NumberingXml = null,
+                DocumentRelationshipsXml = null,
+                DocumentRelationships = new Dictionary<string, WordDocumentRelationship>(StringComparer.OrdinalIgnoreCase),
+                XmlParts = new Dictionary<string, XDocument>(StringComparer.OrdinalIgnoreCase)
+            };
+        }
+
+        private static XDocument BuildPlainTextWordDocumentXml(string text)
+        {
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var lines = (text ?? string.Empty)
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Split('\n');
+
+            var paragraphs = lines.Select(line =>
+                new XElement(w + "p",
+                    new XElement(w + "r",
+                        new XElement(w + "t", line))));
+
+            return new XDocument(
+                new XElement(w + "document",
+                    new XElement(w + "body", paragraphs)));
+        }
+
+        private static XDocument? TryLoadXmlPart(ZipArchive archive, string entryName)
+        {
+            var entry = archive.GetEntry(entryName);
+            if (entry == null)
+            {
+                return null;
+            }
+
+            using var entryStream = entry.Open();
+            return XDocument.Load(entryStream, LoadOptions.PreserveWhitespace);
+        }
+
+        private static Dictionary<string, WordDocumentRelationship> BuildWordRelationships(XDocument? documentRelationshipsXml)
+        {
+            var relationships = new Dictionary<string, WordDocumentRelationship>(StringComparer.OrdinalIgnoreCase);
+            if (documentRelationshipsXml?.Root == null)
+            {
+                return relationships;
+            }
+
+            XNamespace relNs = "http://schemas.openxmlformats.org/package/2006/relationships";
+            foreach (var relationNode in documentRelationshipsXml.Root.Elements(relNs + "Relationship"))
+            {
+                var relationshipId = relationNode.Attribute("Id")?.Value ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(relationshipId))
+                {
+                    continue;
+                }
+
+                relationships[relationshipId] = new WordDocumentRelationship
+                {
+                    Id = relationshipId,
+                    Type = relationNode.Attribute("Type")?.Value ?? string.Empty,
+                    Target = relationNode.Attribute("Target")?.Value ?? string.Empty
+                };
+            }
+
+            return relationships;
+        }
+
         private static void ApplyProjectScoringModel(GradingResult result)
         {
             var gradableTasks = result.TaskResults
@@ -917,6 +1245,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 result.TotalScore = 0m;
                 result.MaxScore = StandardProjectMaxScore;
+                EnsureCorrectionGuidance(result);
                 return;
             }
 
@@ -964,8 +1293,20 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 result.TotalScore = result.MaxScore;
             }
+
+            EnsureCorrectionGuidance(result);
+        }
+
+        private static void EnsureCorrectionGuidance(GradingResult result)
+        {
+            foreach (var task in result.TaskResults)
+            {
+                if (task.Errors.Count > 0 && task.FixActions.Count == 0)
+                {
+                    task.FixActions.Add("Xem lại các lỗi được liệt kê trong Errors và chỉnh lại tài liệu theo đúng yêu cầu của task.");
+                }
+            }
         }
     }
 }
-
 

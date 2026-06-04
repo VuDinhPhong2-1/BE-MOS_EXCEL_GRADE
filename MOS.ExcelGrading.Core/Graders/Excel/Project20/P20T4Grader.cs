@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project20
         public string TaskName => "Trong trang tính “New York City”, tại ô D23, sử dụng hàm để hiển thị giá trị lớn nhất trong cột Air Miles.";
         public decimal MaxScore => 18m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

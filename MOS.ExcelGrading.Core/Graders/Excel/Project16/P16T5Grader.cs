@@ -15,7 +15,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project16
         public string TaskName => "Products: cong thuc Estimated Value tai F3 va Fill Down";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

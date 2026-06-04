@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
         public string TaskName => "Total Cookie Sales B3 dùng SUM(Table2[Chocolate Mint Chip])";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

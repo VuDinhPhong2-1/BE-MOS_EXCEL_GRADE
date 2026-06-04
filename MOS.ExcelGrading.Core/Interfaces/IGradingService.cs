@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
         Task<GradingResult> GradeProject04Async(Stream studentFile);
         Task<GradingResult> GradeProject05Async(Stream studentFile);
         Task<GradingResult> GradeProject06Async(Stream studentFile);
-        Task<GradingResult> GradeProject07Async(Stream studentFile);
+        Task<GradingResult> GradeProject07Async(Stream studentFile, string? sourceFileName = null);
         Task<GradingResult> GradeProject08Async(Stream studentFile);
         Task<GradingResult> GradeProject09Async(Stream studentFile);
         Task<GradingResult> GradeProject10Async(Stream studentFile);

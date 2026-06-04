@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
         public string TaskName => "Canh trai + thut le cot Agent trong New Policy";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

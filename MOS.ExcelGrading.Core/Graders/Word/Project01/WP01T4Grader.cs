@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
         public string TaskName => "Trong phần \"Other points to know about dinosaurs\", thay đổi cấp độ danh sách của mục \"Velociraptor\" thành cấp độ 3.";
         public decimal MaxScore => 15m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {

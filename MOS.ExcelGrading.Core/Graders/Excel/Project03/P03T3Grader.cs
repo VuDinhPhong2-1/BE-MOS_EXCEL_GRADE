@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
         public string TaskName => "Thêm Header bên phải 'Sequential' và để ở chế độ Normal";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

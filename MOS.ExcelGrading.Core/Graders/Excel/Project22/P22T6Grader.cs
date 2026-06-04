@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project22
         public string TaskName => "Trên trang tính \"Results Distribution\", xóa chú giải khỏi biểu đồ và chỉ hiển thị các giá trị dưới dạng nhãn dữ liệu ở phía trên mỗi cột.";
         public decimal MaxScore => 31m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

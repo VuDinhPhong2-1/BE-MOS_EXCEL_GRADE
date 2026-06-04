@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project20
         public string TaskName => "Trong trang tính “London”, đối với biểu đồ Air Miles, hiển thị bảng dữ liệu (data table) mà không có ký hiệu chú giải.";
         public decimal MaxScore => 20m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

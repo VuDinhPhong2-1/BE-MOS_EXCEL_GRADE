@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
         public string TaskName => "Chèn Sparkline Line tai G5:G25 tren Enrollment";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

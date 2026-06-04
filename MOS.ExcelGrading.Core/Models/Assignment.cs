@@ -52,13 +52,6 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("currentTemplateFileId")]
         public string? CurrentTemplateFileId { get; set; }
 
-        /// <summary>
-        /// File đáp án hiện hành của bài tập (nếu có)
-        /// </summary>
-        [BsonRepresentation(BsonType.ObjectId)]
-        [BsonElement("currentAnswerFileId")]
-        public string? CurrentAnswerFileId { get; set; }
-
         [BsonElement("isActive")]
         public bool IsActive { get; set; } = true;
 

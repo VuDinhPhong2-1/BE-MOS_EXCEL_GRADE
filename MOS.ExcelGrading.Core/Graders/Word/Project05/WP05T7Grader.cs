@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
         public string TaskName => "Ở cuối phần \"Bank Fees\", liên kết biểu tượng mũi tên với \"Top of the Document\".";
         public decimal MaxScore => 18m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -25,6 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 if (headingIndex < 0)
                 {
                     result.Errors.Add("Không tìm thấy tiêu đề \"Bank Fees\".");
+                    result.FixActions.Add("Kiểm tra lại tiêu đề phần \"Bank Fees\"; không đổi tên hoặc xóa tiêu đề này trước khi tạo liên kết cho biểu tượng.");
                     return result;
                 }
 
@@ -45,6 +46,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 if (linkIds.Count == 0)
                 {
                     result.Errors.Add("Không tìm thấy liên kết nào trên biểu tượng trong phần \"Bank Fees\".");
+                    result.FixActions.Add("Chọn biểu tượng mũi tên ở cuối phần \"Bank Fees\", vào Insert > Link, chọn Place in This Document > Top of the Document.");
                     return result;
                 }
 
@@ -82,6 +84,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else
                 {
                     result.Errors.Add("Không có liên kết nào trỏ đúng tới \"Top of the Document\" (#_top).");
+                    result.FixActions.Add("Sửa hyperlink của biểu tượng để trỏ đến \"Top of the Document\" thay vì URL, email hoặc bookmark khác.");
                 }
 
                 if (WP05GraderHelpers.HasBookmark(studentDocument, "_top"))
@@ -92,6 +95,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else
                 {
                     result.Errors.Add("Tài liệu chưa có bookmark \"_top\", liên kết lên đầu tài liệu chưa hoàn chỉnh.");
+                    result.FixActions.Add("Tạo lại liên kết bằng Insert > Link > Place in This Document > Top of the Document để Word tự tạo/khôi phục đích \"_top\".");
                 }
 
                 if (wrongLinks.Count == 0)
@@ -102,11 +106,13 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else
                 {
                     result.Errors.Add($"Phát hiện liên kết sai đích: {wrongLinks.First()}");
+                    result.FixActions.Add("Kiểm tra các hyperlink trên biểu tượng ở cuối phần \"Bank Fees\" và xóa hoặc sửa mọi liên kết không trỏ đến \"Top of the Document\".");
                 }
             }
             catch (Exception ex)
             {
                 result.Errors.Add($"Lỗi khi chấm Task 7: {ex.Message}.");
+                result.FixActions.Add("Kiểm tra tài liệu có mở được trong Word và lưu lại ở định dạng .docx trước khi chấm lại.");
             }
 
             return result;

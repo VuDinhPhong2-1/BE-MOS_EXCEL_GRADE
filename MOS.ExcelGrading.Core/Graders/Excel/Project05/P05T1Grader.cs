@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
         public string TaskName => "Đặt Document Properties Company = 'Salon International'";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

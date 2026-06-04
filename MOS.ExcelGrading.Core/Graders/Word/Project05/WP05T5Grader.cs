@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
         public string TaskName => "Trong phần \"Checking Accounts\", chèn dòng chữ \"24/7 ACCOUNT ACCESS\" vào hộp văn bản màu xanh đậm.";
         public decimal MaxScore => 16m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -25,6 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 if (headingIndex < 0)
                 {
                     result.Errors.Add("Không tìm thấy tiêu đề \"Checking Accounts\".");
+                    result.FixActions.Add("Kiểm tra lại tiêu đề phần \"Checking Accounts\"; không đổi tên hoặc xóa tiêu đề này trước khi chèn chữ vào hộp văn bản.");
                     return result;
                 }
 
@@ -53,6 +54,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 if (textboxNodes.Count == 0)
                 {
                     result.Errors.Add("Không tìm thấy hộp văn bản trong phần \"Checking Accounts\".");
+                    result.FixActions.Add("Trong phần \"Checking Accounts\", chọn hộp văn bản màu xanh đậm có sẵn và nhập dòng \"24/7 ACCOUNT ACCESS\" vào bên trong.");
                     return result;
                 }
 
@@ -74,6 +76,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 {
                     var sample = normalizedTexts.FirstOrDefault() ?? "[Rỗng]";
                     result.Errors.Add($"Nội dung hộp văn bản chưa đúng. Giá trị hiện tại: \"{sample}\".");
+                    result.FixActions.Add("Sửa nội dung trong hộp văn bản màu xanh đậm thành chính xác \"24/7 ACCOUNT ACCESS\" bằng chữ hoa, đúng dấu / và không thêm chữ khác.");
                 }
 
                 var exactCount = normalizedTexts.Count(text => string.Equals(text, expectedText, StringComparison.Ordinal));
@@ -85,15 +88,18 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else if (exactCount == 0)
                 {
                     result.Errors.Add("Không có hộp văn bản nào chứa đúng cụm chữ yêu cầu.");
+                    result.FixActions.Add("Nhập chính xác \"24/7 ACCOUNT ACCESS\" vào hộp văn bản màu xanh đậm trong phần \"Checking Accounts\".");
                 }
                 else
                 {
                     result.Errors.Add($"Có {exactCount} hộp văn bản cùng chứa cụm chữ yêu cầu, cần kiểm tra lại để tránh chèn dư.");
+                    result.FixActions.Add("Giữ cụm \"24/7 ACCOUNT ACCESS\" chỉ trong đúng một hộp văn bản màu xanh đậm và xóa các bản chèn dư ở hộp văn bản khác.");
                 }
             }
             catch (Exception ex)
             {
                 result.Errors.Add($"Lỗi khi chấm Task 5: {ex.Message}.");
+                result.FixActions.Add("Kiểm tra tài liệu có mở được trong Word và lưu lại ở định dạng .docx trước khi chấm lại.");
             }
 
             return result;

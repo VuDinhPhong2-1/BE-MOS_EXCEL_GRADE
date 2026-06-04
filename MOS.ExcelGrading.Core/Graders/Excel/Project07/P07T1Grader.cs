@@ -19,7 +19,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
             (86, "Sweetened or Unsweetened Tea", "Tea", "$1.62", "$1.89", "$2.16")
         };
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

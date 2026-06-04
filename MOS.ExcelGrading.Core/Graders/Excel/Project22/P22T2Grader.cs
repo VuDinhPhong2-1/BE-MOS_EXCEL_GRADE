@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project22
         public string TaskName => "Trên trang tính \"Task\", đặt tên cho bảng là \"Task\".";
         public decimal MaxScore => 14m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

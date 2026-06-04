@@ -13,7 +13,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project15
         public string TaskName => "Orders: Conditional Formatting Above Average voi Green style";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

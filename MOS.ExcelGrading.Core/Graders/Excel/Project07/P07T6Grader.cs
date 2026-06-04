@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
         public string TaskName => "Transpose Q1 Sales A4:E9 sang Seedling Sales bắt đầu A4";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

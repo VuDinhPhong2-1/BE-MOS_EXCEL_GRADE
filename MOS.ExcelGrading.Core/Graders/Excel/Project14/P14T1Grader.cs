@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project14
         public string TaskName => "January: thiet lap Print Area A4:F20";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

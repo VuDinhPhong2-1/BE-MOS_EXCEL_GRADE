@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
         public string TaskName => "Thêm Quick Print vào Quick Access Toolbar";
         public decimal MaxScore => 0;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

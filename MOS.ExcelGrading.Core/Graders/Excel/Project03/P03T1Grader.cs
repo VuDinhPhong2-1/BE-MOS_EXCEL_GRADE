@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project03
         public string TaskName => "Gộp ô A1:N1 trên sheet Ingredients";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

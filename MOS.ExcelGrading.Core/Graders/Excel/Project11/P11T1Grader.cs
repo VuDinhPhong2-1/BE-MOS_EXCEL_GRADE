@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project11
         public string TaskName => "Games: Merge A12:B12 den A18:B18";
         public decimal MaxScore => 3;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

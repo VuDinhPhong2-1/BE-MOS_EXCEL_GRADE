@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project20
         public string TaskName => "Trong trang tính “London”, xóa tất cả các quy tắc định dạng có điều kiện.";
         public decimal MaxScore => 17m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

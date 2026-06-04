@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
         public string TaskName => "Chèn sparkline Win/Loss tại J5:J13";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project22
         public string TaskName => "Sao chép định dạng từ tiêu đề và phụ đề của trang tính \"Task\", sau đó áp dụng định dạng đó cho tiêu đề và phụ đề của trang tính \"Project\".";
         public decimal MaxScore => 18m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

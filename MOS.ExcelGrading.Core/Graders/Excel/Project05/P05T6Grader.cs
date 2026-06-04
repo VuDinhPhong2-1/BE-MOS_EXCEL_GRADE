@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
         public string TaskName => "Mở cửa sổ thứ hai và hiển thị Side by Side dạng trên-dưới";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

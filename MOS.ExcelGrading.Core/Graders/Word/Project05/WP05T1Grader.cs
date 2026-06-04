@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
         public string TaskName => "Hãy tìm từ \"automatic\" và xóa nó khỏi tài liệu.";
         public decimal MaxScore => 12m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -25,6 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 if (string.IsNullOrWhiteSpace(documentText))
                 {
                     result.Errors.Add("Không đọc được nội dung văn bản để kiểm tra từ \"automatic\".");
+                    result.FixActions.Add("Mở lại tài liệu Word và kiểm tra file không bị trống/hỏng trước khi nộp lại.");
                     return result;
                 }
 
@@ -41,6 +42,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else
                 {
                     result.Errors.Add($"Vẫn còn {automaticMatches.Count} từ \"automatic\" trong tài liệu.");
+                    result.FixActions.Add("Dùng Find để tìm từ \"automatic\" trong tài liệu, sau đó xóa đúng từ này khỏi câu yêu cầu.");
                 }
 
                 const string expectedSentence = "Set up a recurring transfer from your checking account to your savings account.";
@@ -53,15 +55,18 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 {
                     result.Score += 2m;
                     result.Errors.Add("Nội dung thay đổi gần đúng nhưng còn thiếu dấu chấm cuối câu.");
+                    result.FixActions.Add("Thêm dấu chấm cuối câu sau câu \"Set up a recurring transfer from your checking account to your savings account.\".");
                 }
                 else
                 {
                     result.Errors.Add("Câu sau khi chỉnh sửa chưa đúng hoàn toàn theo yêu cầu về chữ, khoảng trắng hoặc dấu câu.");
+                    result.FixActions.Add("Khôi phục câu thành \"Set up a recurring transfer from your checking account to your savings account.\" với đúng chữ, khoảng trắng và dấu câu.");
                 }
             }
             catch (Exception ex)
             {
                 result.Errors.Add($"Lỗi khi chấm Task 1: {ex.Message}.");
+                result.FixActions.Add("Kiểm tra tài liệu có mở được trong Word và lưu lại ở định dạng .docx trước khi chấm lại.");
             }
 
             return result;

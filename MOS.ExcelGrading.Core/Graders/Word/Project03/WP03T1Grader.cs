@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
         public string TaskName => "Hiển thị tiêu đề \"Integral\" trên tất cả các trang của tài liệu, trừ trang 1.";
         public decimal MaxScore => 20m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -17,12 +17,13 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 TaskName = TaskName,
                 MaxScore = MaxScore
             };
+            const string fixAction = "Vào Insert > Header > Edit Header, bật Different First Page, sau đó ở header từ trang 2 chèn Quick Parts > Document Property > Title để hiển thị tiêu đề \"Integral\".";
 
             try
             {
                 if (!WP03GraderHelpers.HasTitlePageEnabled(studentDocument))
                 {
-                    result.Errors.Add("Chưa bật Different First Page (w:titlePg), nên chưa loại trừ trang 1 khỏi phần tiêu đề.");
+                    WP03GraderHelpers.AddError(result, "Chưa bật Different First Page (w:titlePg), nên chưa loại trừ trang 1 khỏi phần tiêu đề.", fixAction);
                 }
                 else
                 {
@@ -32,7 +33,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
 
                 if (!WP03GraderHelpers.TryGetDefaultHeaderPart(studentDocument, out var headerXml, out var headerEntry))
                 {
-                    result.Errors.Add("Không tìm thấy header mặc định để kiểm tra tiêu đề hiển thị trên các trang.");
+                    WP03GraderHelpers.AddError(result, "Không tìm thấy header mặc định để kiểm tra tiêu đề hiển thị trên các trang.", fixAction);
                     return result;
                 }
 
@@ -45,7 +46,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
 
                 if (string.IsNullOrWhiteSpace(headerText))
                 {
-                    result.Errors.Add("Header đang rỗng, chưa hiển thị tiêu đề ở các trang từ trang 2 trở đi.");
+                    WP03GraderHelpers.AddError(result, "Header đang rỗng, chưa hiển thị tiêu đề ở các trang từ trang 2 trở đi.", fixAction);
                 }
                 else if ((!string.IsNullOrWhiteSpace(coreTitle)
                           && headerText.Contains(coreTitle, StringComparison.OrdinalIgnoreCase))
@@ -56,8 +57,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 }
                 else
                 {
-                    result.Errors.Add(
-                        $"Header đã có chữ nhưng chưa đúng tiêu đề yêu cầu. Giá trị hiện tại là \"{headerText}\".");
+                    WP03GraderHelpers.AddError(
+                        result,
+                        $"Header đã có chữ nhưng chưa đúng tiêu đề yêu cầu. Giá trị hiện tại là \"{headerText}\".",
+                        fixAction);
                 }
 
                 var titleBindingFound = headerXml
@@ -82,12 +85,12 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 }
                 else
                 {
-                    result.Errors.Add("Header chưa thể hiện liên kết Document Property Title (alias/binding).");
+                    WP03GraderHelpers.AddError(result, "Header chưa thể hiện liên kết Document Property Title (alias/binding).", fixAction);
                 }
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 1: {ex.Message}.");
+                WP03GraderHelpers.AddError(result, $"Lỗi khi chấm Task 1: {ex.Message}.", "Đóng file Word nếu đang mở, kiểm tra file .docx không bị hỏng rồi tải lại để chấm lại Task 1.");
             }
 
             return result;

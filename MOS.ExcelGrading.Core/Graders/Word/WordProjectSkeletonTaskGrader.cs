@@ -19,7 +19,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word
         public string TaskName => $"Word Project {_projectNumber:00} - Skeleton validation";
         public decimal MaxScore => 1m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {

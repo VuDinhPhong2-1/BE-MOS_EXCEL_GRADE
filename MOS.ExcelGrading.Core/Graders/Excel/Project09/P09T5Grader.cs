@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
         public string TaskName => "Subtotal theo Shirt Color, ngat trang va Grand Total";
         public decimal MaxScore => 8;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

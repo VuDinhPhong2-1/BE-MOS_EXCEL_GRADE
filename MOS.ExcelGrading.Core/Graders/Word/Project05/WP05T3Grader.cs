@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
         public string TaskName => "Trong phần \"Bank Fees\", chuyển đổi văn bản được phân tách bằng dấu tab thành một bảng gồm hai cột. Chấp nhận thiết lập AutoFit mặc định.";
         public decimal MaxScore => 24m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -25,6 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 if (headingIndex < 0)
                 {
                     result.Errors.Add("Không tìm thấy tiêu đề \"Bank Fees\".");
+                    result.FixActions.Add("Kiểm tra lại tiêu đề phần \"Bank Fees\"; không đổi tên hoặc xóa tiêu đề này trước khi chuyển văn bản thành bảng.");
                     return result;
                 }
 
@@ -35,6 +36,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 if (table == null)
                 {
                     result.Errors.Add("Không tìm thấy bảng trong phần \"Bank Fees\".");
+                    result.FixActions.Add("Chọn các dòng dữ liệu được phân tách bằng Tab trong phần \"Bank Fees\", vào Insert > Table > Convert Text to Table và chọn 2 columns.");
                     return result;
                 }
 
@@ -50,6 +52,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else
                 {
                     result.Errors.Add($"Bảng chưa đủ dữ liệu. Hiện tại chỉ có {rows.Count} dòng.");
+                    result.FixActions.Add("Chuyển đổi toàn bộ danh sách phí trong phần \"Bank Fees\" thành bảng, không bỏ sót dòng dữ liệu nào.");
                 }
 
                 var invalidRows = rows
@@ -70,6 +73,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 {
                     result.Errors.Add(
                         $"Có {invalidRows.Count} dòng không đúng 2 cột. Ví dụ: dòng {invalidRows.First().Index} có {invalidRows.First().CellCount} cột.");
+                    result.FixActions.Add("Sửa bảng trong phần \"Bank Fees\" để mỗi dòng có đúng 2 cột: tên loại phí ở cột 1 và số tiền ở cột 2.");
                 }
 
                 if (rows.Count > 0)
@@ -93,6 +97,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                     else
                     {
                         result.Errors.Add("Nội dung đầu hoặc cuối bảng chưa đúng yêu cầu về thứ tự, chính tả hoặc dấu câu.");
+                        result.FixActions.Add("Kiểm tra lại thứ tự và nội dung bảng: dòng đầu là \"Card Replacement (Loss)\" / \"$ 12\", dòng cuối là \"Bank Transfer: International\" / \"$ 35\".");
                     }
                 }
 
@@ -106,11 +111,13 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else
                 {
                     result.Errors.Add($"Vẫn còn {tabParagraphCount} đoạn đang dùng Tab thay vì chuyển thành ô trong bảng.");
+                    result.FixActions.Add("Chọn các đoạn còn dùng Tab trong phần \"Bank Fees\" và chuyển chúng vào bảng thay vì để dạng văn bản tab.");
                 }
             }
             catch (Exception ex)
             {
                 result.Errors.Add($"Lỗi khi chấm Task 3: {ex.Message}.");
+                result.FixActions.Add("Kiểm tra tài liệu có mở được trong Word và lưu lại ở định dạng .docx trước khi chấm lại.");
             }
 
             return result;

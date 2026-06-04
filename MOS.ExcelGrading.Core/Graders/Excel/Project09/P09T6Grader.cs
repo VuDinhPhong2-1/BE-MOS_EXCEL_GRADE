@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
         public string TaskName => "Tao bieu do Pie 3D trong sheet Farmers & Market";
         public decimal MaxScore => 8;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

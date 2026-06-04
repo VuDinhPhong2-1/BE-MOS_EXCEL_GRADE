@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
         public string TaskName => "Đặt độ rộng cột B:G = 12 trên sheet Number of course hours";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

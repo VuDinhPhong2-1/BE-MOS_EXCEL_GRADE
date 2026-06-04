@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
         public string TaskName => "Ap dung Pattern Fill vao bieu do (10% Area plot, 50% Area chart)";
         public decimal MaxScore => 5;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

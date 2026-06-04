@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project11
         public string TaskName => "Thiet lap ti le in cho tung worksheet (Fit to one page)";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

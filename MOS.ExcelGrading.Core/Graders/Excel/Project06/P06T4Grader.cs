@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
         public string TaskName => "Summary B15 dùng hàm MAX cho cột Total sales";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

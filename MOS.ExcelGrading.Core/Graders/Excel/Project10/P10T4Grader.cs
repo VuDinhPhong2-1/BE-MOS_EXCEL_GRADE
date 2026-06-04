@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project10
         public string TaskName => "Last semester: xoa dong Agriculture khoi Table";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

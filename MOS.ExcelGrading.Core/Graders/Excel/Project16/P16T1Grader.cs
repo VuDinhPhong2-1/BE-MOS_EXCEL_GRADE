@@ -15,7 +15,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project16
         public string TaskName => "Products: co dinh 2 hang dau";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
         public string TaskName => "Tính tổng tại C48 bằng SUM và 4 named range";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

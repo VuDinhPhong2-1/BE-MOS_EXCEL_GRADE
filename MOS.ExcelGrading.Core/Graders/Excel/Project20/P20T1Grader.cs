@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project20
         public string TaskName => "Trong trang tính “London”, mở rộng công thức trong ô E5 xuống cuối cột của bảng.";
         public decimal MaxScore => 18m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

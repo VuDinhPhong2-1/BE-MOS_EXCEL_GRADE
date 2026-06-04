@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project13
         public string TaskName => "Shirt Orders: cong thuc C2 SUMIF cho Blue cost";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

@@ -14,6 +14,16 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
 
         private static readonly Regex WhiteSpaceRegex = new(@"\s+", RegexOptions.Compiled);
 
+        public static void AddError(TaskResult result, string errorMessage, string fixAction)
+        {
+            result.Errors.Add(errorMessage);
+
+            if (!string.IsNullOrWhiteSpace(fixAction))
+            {
+                result.FixActions.Add(fixAction);
+            }
+        }
+
         public static string NormalizeText(string? value)
         {
             return WhiteSpaceRegex.Replace((value ?? string.Empty).Trim(), " ");

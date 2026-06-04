@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project09
         public string TaskName => "Loc cot Total: tu 34,000 den 45,000";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

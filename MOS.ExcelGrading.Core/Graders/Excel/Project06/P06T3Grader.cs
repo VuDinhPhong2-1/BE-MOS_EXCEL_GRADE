@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
         public string TaskName => "Forecasts Quarter 2 = Quarter 1 * Q2_Increase (named range)";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

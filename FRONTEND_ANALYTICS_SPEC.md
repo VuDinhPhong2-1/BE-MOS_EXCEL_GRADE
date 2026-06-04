@@ -1,10 +1,13 @@
 # Frontend Analytics Spec
 
+This file documents frontend-facing analytics response shapes and UI mapping notes. Keep canonical API contract details in `../API_CONTRACT.md` and the full endpoint inventory in `../API_ENDPOINTS_DETAILED.md`.
+
 ## Base
 
-- Base URL: `/api`
+- Base URL: configured by `FRONTEND/src/config/api.ts`
+- Protected requests: use `authFetch`
 - Auth: `Authorization: Bearer <accessToken>`
-- Role: `Teacher` hoặc `Admin`
+- Roles: `Teacher` or `Admin`
 - Permission claim: `grades.view`
 
 ## 1) Class Overview
@@ -51,14 +54,15 @@ export function mapOverviewToGaugeData(d: ClassAnalyticsOverviewResponse) {
 }
 ```
 
-## 2) Weak Tasks (Top câu hay sai)
+## 2) Weak Tasks
 
 ### Endpoint
 
-`GET /api/analytics/class/{classId}/weak-tasks?projectEndpoint=project09&top=10`
+`GET /api/analytics/class/{classId}/weak-tasks?projectEndpoint=excel/project09&top=10`
 
-- `projectEndpoint` optional
-- `top` optional, default backend là `10`
+- `projectEndpoint` is optional.
+- `top` is optional; backend default is `10`.
+- Use canonical project endpoints such as `excel/project09` when filtering. Legacy values such as `project09` may appear in old persisted attempts and should be handled defensively in UI labels.
 
 ### Response
 
@@ -118,13 +122,13 @@ export function mapWeakTasksToBarChart(rows: WeakTaskResponse[]) {
 ```json
 [
   {
-    "projectEndpoint": "project09",
+    "projectEndpoint": "excel/project09",
     "attemptCount": 80,
     "averagePercentage": 72.5,
     "passRate": 81.25
   },
   {
-    "projectEndpoint": "project10",
+    "projectEndpoint": "excel/project10",
     "attemptCount": 40,
     "averagePercentage": 61.2,
     "passRate": 62.5
@@ -156,48 +160,60 @@ export function mapProjectPerformanceToCombo(rows: ProjectPerformanceResponse[])
 }
 ```
 
-## API Client Example (Axios)
+## API Client Example (`authFetch`)
 
 ```ts
-import axios from "axios";
+import { authFetch } from "../context/AuthContext";
+import { API_BASE_URL } from "../config/api";
 
-export const api = axios.create({ baseURL: "/api" });
+async function getJson<T>(path: string): Promise<T> {
+  const response = await authFetch(`${API_BASE_URL}${path}`);
+  if (!response.ok) {
+    throw new Error(`Analytics request failed: ${response.status}`);
+  }
 
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("accessToken");
-  if (token) config.headers.Authorization = `Bearer ${token}`;
-  return config;
-});
+  return response.json() as Promise<T>;
+}
 
 export const analyticsApi = {
   getClassOverview: (classId: string) =>
-    api.get<ClassAnalyticsOverviewResponse>(`/analytics/class/${classId}/overview`),
+    getJson<ClassAnalyticsOverviewResponse>(`/analytics/class/${classId}/overview`),
 
-  getWeakTasks: (classId: string, projectEndpoint?: string, top = 10) =>
-    api.get<WeakTaskResponse[]>(`/analytics/class/${classId}/weak-tasks`, {
-      params: { projectEndpoint, top }
-    }),
+  getWeakTasks: (classId: string, projectEndpoint?: string, top = 10) => {
+    const params = new URLSearchParams({ top: String(top) });
+    if (projectEndpoint) params.set("projectEndpoint", projectEndpoint);
+
+    return getJson<WeakTaskResponse[]>(
+      `/analytics/class/${classId}/weak-tasks?${params.toString()}`
+    );
+  },
 
   getProjectPerformance: (classId: string) =>
-    api.get<ProjectPerformanceResponse[]>(`/analytics/class/${classId}/project-performance`)
+    getJson<ProjectPerformanceResponse[]>(
+      `/analytics/class/${classId}/project-performance`
+    )
 };
 ```
+
+Adapt imports to the actual service/context locations in `FRONTEND/src`; do not introduce a parallel Axios client for protected API calls.
 
 ## Suggested UI Blocks
 
 1. KPI cards: `averagePercentage`, `passRate`, `warningRate`, `totalAttempts`
-2. Bar chart: Top weak tasks (`failedRate`)
-3. Combo chart: Project performance (`averagePercentage` line + `passRate` bar)
+2. Bar chart: top weak tasks (`failedRate`)
+3. Combo chart: project performance (`averagePercentage` line + `passRate` bar)
 4. Filter: `classId`, `projectEndpoint`, `top`
 
 ## Data Collection Requirement
 
-Để analytics có dữ liệu đúng theo lớp, frontend khi gọi:
-
-`POST /api/grading/project09` (`multipart/form-data`)
-
-ngoài `studentFile`, cần gửi thêm:
+Analytics depends on persisted grading attempts. Frontend grading flows that should feed analytics need to include context fields with grading requests and/or save scores through the score persistence workflow:
 
 - `classId`
 - `assignmentId`
 - `studentId`
+
+Example canonical direct grading route:
+
+`POST /api/grading/excel/project09` (`multipart/form-data`)
+
+Legacy Excel aliases such as `/api/grading/project09` remain supported for backward compatibility, but new docs and UI code should prefer canonical endpoint names.

@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project18
         public string TaskName => "Trong trang tính \"New Accounts\", xóa hàng khỏi bảng có chứa dữ liệu Tailspin Toys. Không thay đổi bất kỳ nội dung nào bên ngoài bảng.";
         public decimal MaxScore => 25m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

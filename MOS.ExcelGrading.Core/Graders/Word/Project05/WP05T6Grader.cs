@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
         public string TaskName => "Trong phần \"Woodgrove Essential Savings\", xóa bình luận gắn với dòng chữ \"$3,000\".";
         public decimal MaxScore => 15m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -25,6 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 if (headingIndex < 0)
                 {
                     result.Errors.Add("Không tìm thấy tiêu đề \"Woodgrove Essential Savings\".");
+                    result.FixActions.Add("Kiểm tra lại tiêu đề phần \"Woodgrove Essential Savings\"; không đổi tên hoặc xóa tiêu đề này trước khi xóa comment.");
                     return result;
                 }
 
@@ -38,6 +39,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 if (targetParagraph == null)
                 {
                     result.Errors.Add("Không tìm thấy dòng chữ \"$3,000\" để kiểm tra bình luận.");
+                    result.FixActions.Add("Tìm trong phần \"Woodgrove Essential Savings\" dòng chứa \"$3,000\" và giữ nguyên định dạng số có dấu phẩy.");
                     return result;
                 }
 
@@ -58,6 +60,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else
                 {
                     result.Errors.Add("Vẫn còn comment marker bám trên dòng \"$3,000\".");
+                    result.FixActions.Add("Chọn comment gắn với dòng \"$3,000\" và dùng Review > Delete để xóa comment đó khỏi tài liệu.");
                 }
 
                 if (studentDocument.TryGetXmlPart("word/comments.xml", out var commentsXml))
@@ -71,6 +74,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                     else
                     {
                         result.Errors.Add($"Tài liệu vẫn còn {commentCount} comment, khả năng chưa xóa đúng comment yêu cầu.");
+                        result.FixActions.Add("Mở Review > Comments, kiểm tra danh sách comment và xóa đúng comment được yêu cầu gắn với dòng \"$3,000\".");
                     }
                 }
                 else
@@ -82,6 +86,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
             catch (Exception ex)
             {
                 result.Errors.Add($"Lỗi khi chấm Task 6: {ex.Message}.");
+                result.FixActions.Add("Kiểm tra tài liệu có mở được trong Word và lưu lại ở định dạng .docx trước khi chấm lại.");
             }
 
             return result;

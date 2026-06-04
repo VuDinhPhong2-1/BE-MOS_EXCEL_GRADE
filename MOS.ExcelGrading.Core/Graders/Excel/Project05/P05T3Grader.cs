@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project05
         public string TaskName => "F37 tính trung bình Selling Price cho 'Fabrikam, Inc.'";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

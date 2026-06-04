@@ -8,6 +8,6 @@ namespace MOS.ExcelGrading.Core.Interfaces
         string TaskId { get; }
         string TaskName { get; }
         decimal MaxScore { get; }
-        TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet);
+        TaskResult Grade(ExcelWorksheet studentSheet);
     }
 }

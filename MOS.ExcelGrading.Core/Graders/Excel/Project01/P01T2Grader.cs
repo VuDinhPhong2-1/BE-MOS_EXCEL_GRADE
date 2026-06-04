@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
         public string TaskName => "Đổi tên bảng Table2 thành Units_Sold trong Menu Items";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

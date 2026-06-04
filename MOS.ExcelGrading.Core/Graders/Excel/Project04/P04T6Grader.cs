@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
         public string TaskName => "Đặt tiêu đề trục dọc chính là 'Hours'";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

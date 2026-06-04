@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
         public string TaskName => "Trong phần \"Overview\", áp dụng hiệu ứng \"Soft Round Bevel\" cho đồ họa SmartArt. Hãy chắc chắn chọn toàn bộ SmartArt.";
         public decimal MaxScore => 25m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -17,6 +17,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 TaskName = TaskName,
                 MaxScore = MaxScore
             };
+            const string fixAction = "Trong phần Overview, chọn toàn bộ SmartArt, vào SmartArt Design/Format > Shape Effects > Bevel và chọn hiệu ứng Soft Round Bevel để áp dụng cho toàn bộ SmartArt.";
 
             try
             {
@@ -24,7 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 var headingIndex = WP03GraderHelpers.FindParagraphIndexByExactText(bodyElements, "Overview");
                 if (headingIndex < 0)
                 {
-                    result.Errors.Add("Không tìm thấy tiêu đề \"Overview\".");
+                    WP03GraderHelpers.AddError(result, "Không tìm thấy tiêu đề \"Overview\".", "Kiểm tra lại tài liệu và đảm bảo vẫn còn tiêu đề \"Overview\" đúng chính tả trước khi áp dụng hiệu ứng cho SmartArt.");
                     return result;
                 }
 
@@ -38,7 +39,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
 
                 if (smartArtRel == null)
                 {
-                    result.Errors.Add("Không tìm thấy SmartArt trong phần Overview để kiểm tra hiệu ứng.");
+                    WP03GraderHelpers.AddError(result, "Không tìm thấy SmartArt trong phần Overview để kiểm tra hiệu ứng.", "Khôi phục hoặc chèn đúng SmartArt trong phần Overview, sau đó chọn toàn bộ SmartArt và áp dụng Soft Round Bevel.");
                     return result;
                 }
 
@@ -48,7 +49,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 var dataModelRelationId = smartArtRel.Attribute(WP03GraderHelpers.R + "dm")?.Value ?? string.Empty;
                 if (string.IsNullOrWhiteSpace(dataModelRelationId))
                 {
-                    result.Errors.Add("SmartArt không có liên kết dữ liệu r:dm.");
+                    WP03GraderHelpers.AddError(result, "SmartArt không có liên kết dữ liệu r:dm.", "Chọn đúng toàn bộ SmartArt gốc trong phần Overview và áp dụng lại hiệu ứng Soft Round Bevel; tránh chuyển SmartArt thành hình/ảnh rời.");
                     return result;
                 }
 
@@ -58,8 +59,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                         out var smartArtDataXml,
                         out var smartArtDataEntry))
                 {
-                    result.Errors.Add(
-                        $"Không mở được part dữ liệu SmartArt từ relationship \"{dataModelRelationId}\".");
+                    WP03GraderHelpers.AddError(
+                        result,
+                        $"Không mở được part dữ liệu SmartArt từ relationship \"{dataModelRelationId}\".",
+                        "Đóng file Word nếu đang mở, kiểm tra SmartArt trong tài liệu không bị hỏng rồi lưu lại file .docx.");
                     return result;
                 }
 
@@ -82,17 +85,19 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 else if (softRoundCount > 0)
                 {
                     result.Score += 6m;
-                    result.Errors.Add(
-                        $"Đã có Soft Round Bevel nhưng chưa đều toàn bộ SmartArt (chỉ phát hiện {softRoundCount} điểm \"softRound\").");
+                    WP03GraderHelpers.AddError(
+                        result,
+                        $"Đã có Soft Round Bevel nhưng chưa đều toàn bộ SmartArt (chỉ phát hiện {softRoundCount} điểm \"softRound\").",
+                        fixAction);
                 }
                 else
                 {
-                    result.Errors.Add("Chưa phát hiện hiệu ứng Soft Round Bevel trong dữ liệu SmartArt.");
+                    WP03GraderHelpers.AddError(result, "Chưa phát hiện hiệu ứng Soft Round Bevel trong dữ liệu SmartArt.", fixAction);
                 }
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 5: {ex.Message}.");
+                WP03GraderHelpers.AddError(result, $"Lỗi khi chấm Task 5: {ex.Message}.", "Đóng file Word nếu đang mở, kiểm tra file .docx không bị hỏng rồi tải lại để chấm lại Task 5.");
             }
 
             return result;

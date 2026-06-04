@@ -1,6 +1,7 @@
 ﻿using OfficeOpenXml;
 using MOS.ExcelGrading.Core.Graders.Project01;
 using MOS.ExcelGrading.Core.Graders.Word.Project01;
+using MOS.ExcelGrading.Core.Graders.Word.Project02;
 using MOS.ExcelGrading.Core.Graders.Word;
 using System.IO.Compression;
 using System.Xml.Linq;
@@ -27,6 +28,8 @@ using MOS.ExcelGrading.Core.Models;
 using MOS.ExcelGrading.Core.Graders.Word.Project03;
 using MOS.ExcelGrading.Core.Graders.Word.Project05;
 using MOS.ExcelGrading.Core.Graders.Word.Project07;
+using MOS.ExcelGrading.Core.Graders.Word.Project09;
+using MOS.ExcelGrading.Core.Graders.Word.Project11;
 using System.Text;
 
 namespace MOS.ExcelGrading.Core.Services
@@ -266,6 +269,11 @@ namespace MOS.ExcelGrading.Core.Services
                 new WP01T6Grader()
             };
 
+            _wordProjectGraders[2] = new List<IWordTaskGrader>
+            {
+                new WP02T1Grader()
+            };
+
             _wordProjectGraders[3] = new List<IWordTaskGrader>
             {
                 new WP03T1Grader(),
@@ -292,7 +300,33 @@ namespace MOS.ExcelGrading.Core.Services
                 new WP07T1Grader()
             };
 
+            _wordProjectGraders[9] = new List<IWordTaskGrader>
+            {
+                new WP09T1Grader(),
+                new WP09T2Grader(),
+                new WP09T3Grader(),
+                new WP09T4Grader(),
+                new WP09T5Grader(),
+                new WP09T6Grader()
+            };
+
+            _wordProjectGraders[11] = CreateWordProject13LogicGraders();
+            _wordProjectGraders[13] = CreateWordProject13LogicGraders();
+
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
+        }
+
+        private static List<IWordTaskGrader> CreateWordProject13LogicGraders()
+        {
+            return new List<IWordTaskGrader>
+            {
+                new WP11T1Grader(),
+                new WP11T2Grader(),
+                new WP11T3Grader(),
+                new WP11T4Grader(),
+                new WP11T5Grader(),
+                new WP11T6Grader()
+            };
         }
 
         public async Task<GradingResult> GradeProject01Async(Stream studentFile)
@@ -310,7 +344,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project01Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -345,7 +379,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project02Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -380,7 +414,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project03Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -415,7 +449,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project04Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -450,7 +484,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project05Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -485,7 +519,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project06Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -505,8 +539,13 @@ namespace MOS.ExcelGrading.Core.Services
             return result;
         }
 
-        public async Task<GradingResult> GradeProject07Async(Stream studentFile)
+        public async Task<GradingResult> GradeProject07Async(Stream studentFile, string? sourceFileName = null)
         {
+            if (IsPlainTextWordInput(7, sourceFileName))
+            {
+                return await GradeWordProjectAsync(7, studentFile, sourceFileName);
+            }
+
             var result = new GradingResult
             {
                 ProjectId = "P07",
@@ -520,7 +559,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project07Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -555,7 +594,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project08Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -590,7 +629,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project09Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -625,7 +664,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project10Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -660,7 +699,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project11Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -695,7 +734,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project12Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -730,7 +769,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project13Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -765,7 +804,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project14Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -800,7 +839,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project15Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -835,7 +874,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project16Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -870,7 +909,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project18Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -905,7 +944,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project20Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -940,7 +979,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var grader in _project22Graders)
                 {
-                    var taskResult = await Task.Run(() => grader.Grade(studentSheet, studentSheet));
+                    var taskResult = await Task.Run(() => grader.Grade(studentSheet));
                     result.TaskResults.Add(taskResult);
                 }
 
@@ -1206,6 +1245,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 result.TotalScore = 0m;
                 result.MaxScore = StandardProjectMaxScore;
+                EnsureCorrectionGuidance(result);
                 return;
             }
 
@@ -1253,8 +1293,20 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 result.TotalScore = result.MaxScore;
             }
+
+            EnsureCorrectionGuidance(result);
+        }
+
+        private static void EnsureCorrectionGuidance(GradingResult result)
+        {
+            foreach (var task in result.TaskResults)
+            {
+                if (task.Errors.Count > 0 && task.FixActions.Count == 0)
+                {
+                    task.FixActions.Add("Xem lại các lỗi được liệt kê trong Errors và chỉnh lại tài liệu theo đúng yêu cầu của task.");
+                }
+            }
         }
     }
 }
-
 

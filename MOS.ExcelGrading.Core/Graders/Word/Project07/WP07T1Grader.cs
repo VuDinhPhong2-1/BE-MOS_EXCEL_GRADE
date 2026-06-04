@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project07
         public string TaskName => "Lưu bản sao dưới dạng plain text tên Memo";
         public decimal MaxScore => 12m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -26,6 +26,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project07
             if (!string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase))
             {
                 result.Errors.Add("Task này yêu cầu nộp file plain text (.txt).");
+                result.FixActions.Add("Mở tài liệu gốc trong Word, chọn File > Save As/Browse, chọn Save as type là Plain Text (*.txt), rồi lưu bản sao.");
                 return result;
             }
 
@@ -36,6 +37,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project07
             if (!string.Equals(baseName, "memo", StringComparison.OrdinalIgnoreCase))
             {
                 result.Errors.Add("Tên file plain text phải là Memo.txt.");
+                result.FixActions.Add("Đổi tên file plain text thành Memo.txt trước khi nộp. Tên file phải là Memo và phần mở rộng phải là .txt.");
                 return result;
             }
 
@@ -46,6 +48,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project07
             if (string.IsNullOrWhiteSpace(documentText))
             {
                 result.Errors.Add("Không đọc được nội dung plain text để chấm điểm.");
+                result.FixActions.Add("Mở Memo.txt để kiểm tra nội dung. Nếu file rỗng hoặc lỗi mã hóa, hãy xuất lại từ tài liệu Word gốc dưới dạng Plain Text (*.txt) và đảm bảo nội dung memo vẫn còn trong file.");
                 return result;
             }
 
@@ -58,6 +61,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project07
             else
             {
                 result.Errors.Add("Không tìm thấy tiêu đề Memo ở đầu nội dung.");
+                result.FixActions.Add("Đặt tiêu đề Memo ở đầu file plain text, trước các dòng To:, From: và CC:.");
             }
 
             if (ContainsIgnoreCase(normalized, "to:"))
@@ -67,6 +71,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project07
             else
             {
                 result.Errors.Add("Thiếu dòng To: trong memo.");
+                result.FixActions.Add("Bổ sung dòng người nhận bắt đầu bằng To: trong nội dung Memo.txt.");
             }
 
             if (ContainsIgnoreCase(normalized, "from:"))
@@ -76,6 +81,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project07
             else
             {
                 result.Errors.Add("Thiếu dòng From: trong memo.");
+                result.FixActions.Add("Bổ sung dòng người gửi bắt đầu bằng From: trong nội dung Memo.txt.");
             }
 
             if (ContainsIgnoreCase(normalized, "cc:"))
@@ -85,6 +91,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project07
             else
             {
                 result.Errors.Add("Thiếu dòng CC: trong memo.");
+                result.FixActions.Add("Bổ sung dòng người nhận bản sao bắt đầu bằng CC: trong nội dung Memo.txt.");
             }
 
             return result;

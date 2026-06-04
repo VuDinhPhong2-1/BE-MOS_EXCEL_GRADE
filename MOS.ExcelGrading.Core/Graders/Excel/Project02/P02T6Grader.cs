@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project02
         public string TaskName => "Đổi chart layout thành Layout 3 trên sheet 'New Policy'";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

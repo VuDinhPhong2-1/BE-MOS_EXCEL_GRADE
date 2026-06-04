@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
         public string TaskName => "Summary A2 tạo hyperlink đến www.nodpublishers.com với ScreenTip";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

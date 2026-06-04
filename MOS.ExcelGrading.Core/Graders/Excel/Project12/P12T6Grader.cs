@@ -14,7 +14,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project12
         public string TaskName => "Inventory chart: hien thi tieu de + Data Labels vi tri outEnd";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

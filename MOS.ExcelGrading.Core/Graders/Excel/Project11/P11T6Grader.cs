@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project11
         public string TaskName => "Costs: thiet lap Print Titles hang 1:3";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

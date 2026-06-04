@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
         public string TaskName => "Tea chart Layout 9 + Vertical Axis Title='Price' + remove Horizontal Axis Title";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
         public string TaskName => "Trong phần \"Geological eras\", sắp xếp dữ liệu trong bảng theo cột \"Geologic Period\" tăng dần, sau đó theo cột \"Dinosaur\" cũng theo thứ tự tăng dần.";
         public decimal MaxScore => 30m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {

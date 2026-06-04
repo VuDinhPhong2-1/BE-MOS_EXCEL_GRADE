@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project22
         public string TaskName => "Trên trang tính \"Exams\", tại ô E35, sử dụng công thức để xác định số học sinh không đạt điểm Exam 3.";
         public decimal MaxScore => 22m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

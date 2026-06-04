@@ -13,7 +13,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project15
         public string TaskName => "Thiet lap mau tab worksheet la Pink Accent 1";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

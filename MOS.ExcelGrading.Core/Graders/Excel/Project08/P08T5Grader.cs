@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
         public string TaskName => "Sales Postal Code đúng UPPER cho 3 ký tự đầu";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

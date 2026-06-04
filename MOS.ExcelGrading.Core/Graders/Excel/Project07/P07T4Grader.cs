@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project07
         public string TaskName => "Total Cookie Sales A3:A8 đúng Pattern Fill theo mẫu đề bài";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

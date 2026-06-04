@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
         public string TaskName => "Trong phần \"Favorite Dinosaurs\", tại đoạn văn trống ở cuối trang, sử dụng tính năng 3D Models để chèn mô hình \"Triceratops\" từ thư mục 3D Objects. Sau đó định vị mô hình theo kiểu In Line with Text.";
         public decimal MaxScore => 30m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {

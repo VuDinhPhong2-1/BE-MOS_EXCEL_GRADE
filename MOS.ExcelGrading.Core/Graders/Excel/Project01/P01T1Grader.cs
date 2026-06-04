@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
         public string TaskName => "Sao chép định dạng A1:A2 từ Documentation sang Menu Items";
         public decimal MaxScore => 2;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

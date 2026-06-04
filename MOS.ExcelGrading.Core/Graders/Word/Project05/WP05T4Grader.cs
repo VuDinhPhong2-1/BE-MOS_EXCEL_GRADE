@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
         public string TaskName => "Trong đoạn văn trống ngay dưới tiêu đề tài liệu, chèn một mục lục tự động. Sử dụng kiểu \"Automatic Table 1\".";
         public decimal MaxScore => 22m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -29,6 +29,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else
                 {
                     result.Errors.Add("Không tìm thấy khối mục lục tự động (Table of Contents).");
+                    result.FixActions.Add("Đặt con trỏ ở đoạn trống ngay dưới tiêu đề tài liệu, vào References > Table of Contents và chọn \"Automatic Table 1\".");
                     return result;
                 }
 
@@ -40,6 +41,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 if (titleIndex < 0)
                 {
                     result.Errors.Add("Không tìm thấy dòng tiêu đề chính của tài liệu để kiểm tra vị trí mục lục.");
+                    result.FixActions.Add("Khôi phục tiêu đề chính \"American Bank Accounts for International Students\" để mục lục được đặt đúng vị trí yêu cầu.");
                 }
                 else
                 {
@@ -52,6 +54,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                     else
                     {
                         result.Errors.Add("Mục lục chưa nằm ngay dưới tiêu đề tài liệu.");
+                        result.FixActions.Add("Cắt và dán mục lục vào đúng đoạn trống ngay bên dưới tiêu đề chính của tài liệu.");
                     }
                 }
 
@@ -69,6 +72,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else
                 {
                     result.Errors.Add("Khối mục lục chưa đúng cấu hình trường TOC tự động chuẩn.");
+                    result.FixActions.Add("Xóa mục lục hiện tại và chèn lại bằng References > Table of Contents > Automatic Table 1 thay vì gõ thủ công hoặc dùng kiểu khác.");
                 }
 
                 var tocText = WP05GraderHelpers.NormalizeText(
@@ -85,11 +89,13 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project05
                 else
                 {
                     result.Errors.Add("Nội dung mục lục chưa đầy đủ hoặc sai chính tả ở các mục chính.");
+                    result.FixActions.Add("Cập nhật lại mục lục bằng Update Table và kiểm tra các heading chính như \"Checking Accounts\" và \"Bank Fees\" vẫn đúng chính tả.");
                 }
             }
             catch (Exception ex)
             {
                 result.Errors.Add($"Lỗi khi chấm Task 4: {ex.Message}.");
+                result.FixActions.Add("Kiểm tra tài liệu có mở được trong Word và lưu lại ở định dạng .docx trước khi chấm lại.");
             }
 
             return result;

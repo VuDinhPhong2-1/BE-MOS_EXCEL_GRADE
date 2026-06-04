@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
         public string TaskName => "Trong phần \"Dinosaurs in a few points\", áp dụng hiệu ứng nghệ thuật \"Pencil Sketch\" cho bức tranh hóa thạch khủng long.";
         public decimal MaxScore => 20m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {

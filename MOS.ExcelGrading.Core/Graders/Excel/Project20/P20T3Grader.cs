@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project20
         public string TaskName => "Trong trang tính “New York City”, sắp xếp dữ liệu trong bảng theo nhiều cấp độ: trước tiên theo Country or region (từ A đến Z), sau đó theo City (từ A đến Z).";
         public decimal MaxScore => 24m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

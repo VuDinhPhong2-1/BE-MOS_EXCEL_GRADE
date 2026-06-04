@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project20
         public string TaskName => "Trong trang tính “New York City”, tạo biểu đồ cột dạng Clustered Column để hiển thị Air Miles của tất cả các thành phố, với các thành phố là nhãn trên trục ngang (trục X). Đặt biểu đồ bên dưới bảng. Kích thước và vị trí chính xác như yêu cầu.";
         public decimal MaxScore => 28m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

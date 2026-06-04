@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project08
         public string TaskName => "Sale History bật chế độ Show Formulas";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

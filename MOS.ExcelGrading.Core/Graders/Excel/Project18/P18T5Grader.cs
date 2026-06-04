@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project18
         public string TaskName => "Trong trang tính \"Contact\", tại cột Email Address, sử dụng hàm để tạo địa chỉ email cho mỗi người bằng cách kết hợp First Name với “@woodgrovebank.com”.";
         public decimal MaxScore => 20m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

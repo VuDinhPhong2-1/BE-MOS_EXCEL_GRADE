@@ -14,7 +14,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project12
         public string TaskName => "Range: Merge E7:F7";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

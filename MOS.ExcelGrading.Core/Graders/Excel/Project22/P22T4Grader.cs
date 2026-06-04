@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project22
         public string TaskName => "Trên trang tính \"Scoring Criteria\", tại ô B28, nhập công thức để cộng các giá trị trong các phạm vi đã đặt tên là \"Total 1\", \"Total 2\" và \"Total 3\". Sử dụng tên phạm vi trong công thức thay vì tham chiếu ô hoặc giá trị cụ thể.";
         public decimal MaxScore => 24m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

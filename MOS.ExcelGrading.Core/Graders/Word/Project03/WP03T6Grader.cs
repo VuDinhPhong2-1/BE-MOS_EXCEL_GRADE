@@ -9,7 +9,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
         public string TaskName => "Trong phần \"Serving\", thay đổi cách ngắt dòng văn bản cho hình ảnh thành Square.";
         public decimal MaxScore => 20m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -17,6 +17,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 TaskName = TaskName,
                 MaxScore = MaxScore
             };
+            const string fixAction = "Trong phần Serving, chọn hình ảnh, vào Picture Format > Wrap Text và chọn Square để văn bản bao quanh hình theo dạng hình vuông.";
 
             try
             {
@@ -24,7 +25,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 var headingIndex = WP03GraderHelpers.FindParagraphIndexByExactText(bodyElements, "Serving");
                 if (headingIndex < 0)
                 {
-                    result.Errors.Add("Không tìm thấy tiêu đề \"Serving\".");
+                    WP03GraderHelpers.AddError(result, "Không tìm thấy tiêu đề \"Serving\".", "Kiểm tra lại tài liệu và đảm bảo vẫn còn tiêu đề \"Serving\" đúng chính tả trước khi chỉnh Wrap Text cho hình ảnh.");
                     return result;
                 }
 
@@ -38,7 +39,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
 
                 if (firstDrawing == null)
                 {
-                    result.Errors.Add("Không tìm thấy hình ảnh trong phần \"Serving\".");
+                    WP03GraderHelpers.AddError(result, "Không tìm thấy hình ảnh trong phần \"Serving\".", "Khôi phục hoặc chèn lại hình ảnh trong phần Serving, sau đó chọn hình và đặt Wrap Text là Square.");
                     return result;
                 }
 
@@ -55,12 +56,12 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 }
                 else if (inlineNode != null)
                 {
-                    result.Errors.Add("Hình ảnh vẫn đang ở chế độ In Line with Text (wp:inline), chưa đổi sang kiểu wrap Square.");
+                    WP03GraderHelpers.AddError(result, "Hình ảnh vẫn đang ở chế độ In Line with Text (wp:inline), chưa đổi sang kiểu wrap Square.", fixAction);
                     return result;
                 }
                 else
                 {
-                    result.Errors.Add("Không nhận diện được container anchor/inline của hình ảnh.");
+                    WP03GraderHelpers.AddError(result, "Không nhận diện được container anchor/inline của hình ảnh.", "Chọn lại đúng hình ảnh trong phần Serving, áp dụng Wrap Text > Square rồi lưu lại file .docx.");
                     return result;
                 }
 
@@ -78,7 +79,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 {
                     var actualWrap = anchorNode.Elements().FirstOrDefault(node => node.Name.LocalName.StartsWith("wrap", StringComparison.OrdinalIgnoreCase))?.Name.LocalName
                                      ?? "không xác định";
-                    result.Errors.Add($"Kiểu ngắt dòng hiện tại chưa phải Square (đang là {actualWrap}).");
+                    WP03GraderHelpers.AddError(result, $"Kiểu ngắt dòng hiện tại chưa phải Square (đang là {actualWrap}).", fixAction);
                 }
 
                 var paragraph = firstDrawing.Ancestors(WP03GraderHelpers.W + "p").FirstOrDefault();
@@ -90,12 +91,12 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 }
                 else
                 {
-                    result.Errors.Add("Đoạn văn cạnh hình ảnh thiếu dấu câu kết thúc hoặc sai dấu chấm câu.");
+                    WP03GraderHelpers.AddError(result, "Đoạn văn cạnh hình ảnh thiếu dấu câu kết thúc hoặc sai dấu chấm câu.", "Kiểm tra đoạn văn cạnh hình ảnh trong phần Serving và khôi phục dấu chấm kết thúc câu nếu đã bị xóa hoặc sửa sai.");
                 }
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 6: {ex.Message}.");
+                WP03GraderHelpers.AddError(result, $"Lỗi khi chấm Task 6: {ex.Message}.", "Đóng file Word nếu đang mở, kiểm tra file .docx không bị hỏng rồi tải lại để chấm lại Task 6.");
             }
 
             return result;

@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project18
         public string TaskName => "Trong trang tính \"Key Accounts\", tại cột Monthly Average, sử dụng hàm để tính số dư trung bình hàng tháng cho mỗi tài khoản, dựa trên dữ liệu từ tháng 1 đến tháng 4.";
         public decimal MaxScore => 20m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

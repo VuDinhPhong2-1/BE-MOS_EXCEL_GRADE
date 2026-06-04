@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project18
         public string TaskName => "Trong trang tính \"Exchange Rates\", định dạng các ô từ B4 đến D8 để hiển thị số với tối đa hai chữ số thập phân.";
         public decimal MaxScore => 20m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

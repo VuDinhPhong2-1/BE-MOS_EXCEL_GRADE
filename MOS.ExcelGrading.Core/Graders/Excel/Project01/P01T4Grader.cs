@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project01
         public string TaskName => "Đếm số mục thiếu hàng tháng 9 tại ô K48";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

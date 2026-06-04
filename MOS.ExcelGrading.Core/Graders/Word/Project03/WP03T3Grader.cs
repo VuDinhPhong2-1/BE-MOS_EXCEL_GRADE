@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
         public string TaskName => "Đặt giãn cách dòng của toàn bộ tài liệu thành 1.4 dòng.";
         public decimal MaxScore => 18m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -18,6 +18,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 TaskName = TaskName,
                 MaxScore = MaxScore
             };
+            const string fixAction = "Nhấn Ctrl+A để chọn toàn bộ tài liệu, vào Home > Paragraph > Line and Paragraph Spacing > Line Spacing Options, đặt Line spacing là Multiple và At là 1.4.";
 
             try
             {
@@ -29,7 +30,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
 
                 if (paragraphs.Count == 0)
                 {
-                    result.Errors.Add("Không tìm thấy đoạn văn nào để kiểm tra giãn cách dòng.");
+                    WP03GraderHelpers.AddError(result, "Không tìm thấy đoạn văn nào để kiểm tra giãn cách dòng.", "Kiểm tra lại file Word để đảm bảo tài liệu còn nội dung văn bản trước khi đặt giãn cách dòng 1.4.");
                     return result;
                 }
 
@@ -44,7 +45,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
 
                 if (checkedParagraphs.Count == 0)
                 {
-                    result.Errors.Add("Không có đoạn văn có nội dung để kiểm tra giãn cách dòng 1.4.");
+                    WP03GraderHelpers.AddError(result, "Không có đoạn văn có nội dung để kiểm tra giãn cách dòng 1.4.", "Kiểm tra lại file Word để đảm bảo tài liệu còn các đoạn văn hoặc đối tượng cần áp dụng giãn cách dòng.");
                     return result;
                 }
 
@@ -82,8 +83,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 }
                 else
                 {
-                    result.Errors.Add(
-                        $"Có {invalidLineParagraphs.Count} đoạn chưa có line=336. Ví dụ: {invalidLineParagraphs.First()}");
+                    WP03GraderHelpers.AddError(
+                        result,
+                        $"Có {invalidLineParagraphs.Count} đoạn chưa có line=336. Ví dụ: {invalidLineParagraphs.First()}",
+                        fixAction);
                 }
 
                 if (invalidRuleParagraphs.Count == 0)
@@ -93,13 +96,15 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 }
                 else
                 {
-                    result.Errors.Add(
-                        $"Có {invalidRuleParagraphs.Count} đoạn chưa có lineRule=auto. Ví dụ: {invalidRuleParagraphs.First()}");
+                    WP03GraderHelpers.AddError(
+                        result,
+                        $"Có {invalidRuleParagraphs.Count} đoạn chưa có lineRule=auto. Ví dụ: {invalidRuleParagraphs.First()}",
+                        fixAction);
                 }
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 3: {ex.Message}.");
+                WP03GraderHelpers.AddError(result, $"Lỗi khi chấm Task 3: {ex.Message}.", "Đóng file Word nếu đang mở, kiểm tra file .docx không bị hỏng rồi tải lại để chấm lại Task 3.");
             }
 
             return result;

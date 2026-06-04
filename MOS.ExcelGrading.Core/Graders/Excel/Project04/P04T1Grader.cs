@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project04
         public string TaskName => "Import Substitutes data + table style Medium 1";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

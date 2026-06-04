@@ -90,7 +90,6 @@ namespace MOS.ExcelGrading.Core.Models
     public static class AssignmentFileKinds
     {
         public const string Template = "template";
-        public const string Answer = "answer";
 
         public static string Normalize(string? value) =>
             (value ?? string.Empty).Trim().ToLowerInvariant();
@@ -98,7 +97,7 @@ namespace MOS.ExcelGrading.Core.Models
         public static bool IsValid(string? value)
         {
             var normalized = Normalize(value);
-            return normalized == Template || normalized == Answer;
+            return normalized == Template;
         }
     }
 }

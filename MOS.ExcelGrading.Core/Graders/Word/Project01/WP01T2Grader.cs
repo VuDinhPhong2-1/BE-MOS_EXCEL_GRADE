@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project01
         public string TaskName => "Trong phần \"Children love dinosaurs\", sử dụng công cụ Format Painter để sao chép định dạng của đoạn đầu tiên và áp dụng cho đoạn thứ hai.";
         public decimal MaxScore => 18m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {

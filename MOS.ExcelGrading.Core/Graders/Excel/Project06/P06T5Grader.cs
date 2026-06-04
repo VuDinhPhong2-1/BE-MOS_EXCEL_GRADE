@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
         public string TaskName => "Comparison chart: Switch Row/Column";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

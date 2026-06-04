@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
         public string TaskName => "Trong phần \"Depanning\", chèn biểu tượng nhiệt kế trước cụm từ \"The muffin tray will still be hot!\". Sử dụng phông \"Webdings\" và mã ký tự \"225\".";
         public decimal MaxScore => 20m;
 
-        public TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null)
+        public TaskResult Grade(WordGradingContext studentDocument)
         {
             var result = new TaskResult
             {
@@ -18,6 +18,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 TaskName = TaskName,
                 MaxScore = MaxScore
             };
+            const string fixAction = "Trong phần Depanning, đặt con trỏ ngay trước câu \"The muffin tray will still be hot!\", vào Insert > Symbol > More Symbols, chọn font Webdings, nhập mã ký tự 225 rồi chèn biểu tượng nhiệt kế.";
 
             try
             {
@@ -25,7 +26,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 var headingIndex = WP03GraderHelpers.FindParagraphIndexByExactText(bodyElements, "Depanning");
                 if (headingIndex < 0)
                 {
-                    result.Errors.Add("Không tìm thấy tiêu đề \"Depanning\".");
+                    WP03GraderHelpers.AddError(result, "Không tìm thấy tiêu đề \"Depanning\".", "Kiểm tra lại tài liệu và đảm bảo vẫn còn tiêu đề \"Depanning\" đúng chính tả trước khi chèn biểu tượng cảnh báo.");
                     return result;
                 }
 
@@ -36,7 +37,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 var targetParagraph = WP03GraderHelpers.FindParagraphContainingText(sectionParagraphs, "muffin tray will still be hot");
                 if (targetParagraph == null)
                 {
-                    result.Errors.Add("Không tìm thấy đoạn chứa cụm \"The muffin tray will still be hot!\" trong phần Depanning.");
+                    WP03GraderHelpers.AddError(result, "Không tìm thấy đoạn chứa cụm \"The muffin tray will still be hot!\" trong phần Depanning.", "Khôi phục hoặc nhập lại câu \"The muffin tray will still be hot!\" trong phần Depanning, sau đó chèn biểu tượng nhiệt kế ngay phía trước câu này.");
                     return result;
                 }
 
@@ -49,8 +50,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 }
                 else
                 {
-                    result.Errors.Add(
-                        $"Cụm chữ cảnh báo chưa đúng tuyệt đối. Giá trị hiện tại là \"{paragraphText}\".");
+                    WP03GraderHelpers.AddError(
+                        result,
+                        $"Cụm chữ cảnh báo chưa đúng tuyệt đối. Giá trị hiện tại là \"{paragraphText}\".",
+                        "Sửa cụm cảnh báo thành đúng chính tả và dấu câu: \"The muffin tray will still be hot!\".");
                 }
 
                 var runs = targetParagraph.Elements(WP03GraderHelpers.W + "r").ToList();
@@ -63,14 +66,14 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
 
                 if (phraseRunIndex < 0)
                 {
-                    result.Errors.Add("Không xác định được run chứa cụm cảnh báo để kiểm tra vị trí biểu tượng.");
+                    WP03GraderHelpers.AddError(result, "Không xác định được run chứa cụm cảnh báo để kiểm tra vị trí biểu tượng.", fixAction);
                     return result;
                 }
 
                 var symbolBeforePhrase = runs.Take(phraseRunIndex).FirstOrDefault(run => run.Element(WP03GraderHelpers.W + "sym") != null);
                 if (symbolBeforePhrase == null)
                 {
-                    result.Errors.Add("Chưa có biểu tượng chèn trước cụm cảnh báo.");
+                    WP03GraderHelpers.AddError(result, "Chưa có biểu tượng chèn trước cụm cảnh báo.", fixAction);
                     return result;
                 }
 
@@ -89,8 +92,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 }
                 else
                 {
-                    result.Errors.Add(
-                        $"Biểu tượng chưa đúng chuẩn Webdings/225. Giá trị hiện tại: font=\"{symbolFont}\", char=\"{symbolChar}\".");
+                    WP03GraderHelpers.AddError(
+                        result,
+                        $"Biểu tượng chưa đúng chuẩn Webdings/225. Giá trị hiện tại: font=\"{symbolFont}\", char=\"{symbolChar}\".",
+                        fixAction);
                 }
 
                 var phraseRunText = WP03GraderHelpers.NormalizeText(
@@ -102,13 +107,13 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
                 }
                 else
                 {
-                    result.Errors.Add("Cụm cảnh báo có dấu hoặc khoảng trắng dư trước nội dung chính.");
+                    WP03GraderHelpers.AddError(result, "Cụm cảnh báo có dấu hoặc khoảng trắng dư trước nội dung chính.", "Xóa các khoảng trắng hoặc ký tự thừa giữa biểu tượng nhiệt kế và câu \"The muffin tray will still be hot!\".");
                 }
 
                 var duplicateSymbolCount = targetParagraph.Descendants(WP03GraderHelpers.W + "sym").Count();
                 if (duplicateSymbolCount > 1)
                 {
-                    result.Errors.Add($"Có {duplicateSymbolCount} biểu tượng trong cùng đoạn, cần kiểm tra lại để tránh chèn dư.");
+                    WP03GraderHelpers.AddError(result, $"Có {duplicateSymbolCount} biểu tượng trong cùng đoạn, cần kiểm tra lại để tránh chèn dư.", "Giữ lại một biểu tượng nhiệt kế Webdings mã 225 ngay trước câu cảnh báo và xóa các biểu tượng dư trong cùng đoạn.");
                 }
                 else
                 {
@@ -118,7 +123,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi khi chấm Task 2: {ex.Message}.");
+                WP03GraderHelpers.AddError(result, $"Lỗi khi chấm Task 2: {ex.Message}.", "Đóng file Word nếu đang mở, kiểm tra file .docx không bị hỏng rồi tải lại để chấm lại Task 2.");
             }
 
             return result;

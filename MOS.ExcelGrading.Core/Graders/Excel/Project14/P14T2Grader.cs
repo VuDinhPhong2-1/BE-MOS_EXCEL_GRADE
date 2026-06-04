@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project14
         public string TaskName => "March: loc Policy Type = PM";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

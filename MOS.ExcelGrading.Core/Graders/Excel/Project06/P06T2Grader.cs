@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
         public string TaskName => "Region 1: Multi-level sort Product A-Z, then Total sales desc";
         public decimal MaxScore => 4;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project18
         public string TaskName => "Trong trang tính \"New Accounts\", đối với biểu đồ Account Balances, hoán đổi dữ liệu trên trục để hiển thị Opening Balance và Current Balance dưới dạng chú giải (legend).";
         public decimal MaxScore => 25m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

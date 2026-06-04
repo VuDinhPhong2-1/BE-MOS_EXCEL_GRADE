@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project22
         public string TaskName => "Trên trang tính \"Task\", định cấu hình các tùy chọn kiểu bảng để mỗi hàng được tự động tô màu xen kẽ.";
         public decimal MaxScore => 16m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

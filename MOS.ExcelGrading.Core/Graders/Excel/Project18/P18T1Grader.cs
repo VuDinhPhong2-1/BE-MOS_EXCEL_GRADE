@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.Core.Graders.Project18
         public string TaskName => "Đi tới phạm vi đã đặt tên Rate và xóa nội dung của các ô trong phạm vi đó.";
         public decimal MaxScore => 15m;
 
-        public TaskResult Grade(ExcelWorksheet studentSheet, ExcelWorksheet answerSheet)
+        public TaskResult Grade(ExcelWorksheet studentSheet)
         {
             var result = new TaskResult
             {

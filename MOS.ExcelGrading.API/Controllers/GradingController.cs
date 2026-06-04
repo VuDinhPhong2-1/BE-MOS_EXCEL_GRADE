@@ -366,11 +366,12 @@ namespace MOS.ExcelGrading.API.Controllers
                 if (studentFile == null)
                     return BadRequest(new { error = "Can cung cap file: studentFile" });
 
-                if (!IsExcelFile(studentFile))
-                    return BadRequest(new { error = "File phai co dinh dang .xlsx hoac .xlsm" });
+                if (!IsExcelFile(studentFile) &&
+                    !string.Equals(Path.GetExtension(studentFile.FileName), ".txt", StringComparison.OrdinalIgnoreCase))
+                    return BadRequest(new { error = "File phai co dinh dang .xlsx, .xlsm hoac .txt" });
 
                 using var studentStream = studentFile.OpenReadStream();
-                var result = await _gradingService.GradeProject07Async(studentStream);
+                var result = await _gradingService.GradeProject07Async(studentStream, studentFile.FileName);
 
                 await _analyticsService.SaveGradingAttemptAsync(
                     result,
@@ -1222,6 +1223,4 @@ namespace MOS.ExcelGrading.API.Controllers
         }
     }
 }
-
-
 

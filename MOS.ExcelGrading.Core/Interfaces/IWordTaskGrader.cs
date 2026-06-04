@@ -7,6 +7,6 @@ namespace MOS.ExcelGrading.Core.Interfaces
         string TaskId { get; }
         string TaskName { get; }
         decimal MaxScore { get; }
-        TaskResult Grade(WordGradingContext studentDocument, WordGradingContext? answerDocument = null);
+        TaskResult Grade(WordGradingContext studentDocument);
     }
 }

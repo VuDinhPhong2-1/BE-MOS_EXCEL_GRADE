@@ -1,11 +1,11 @@
-using System.Globalization;
+﻿using System.Globalization;
 using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using MOS.ExcelGrading.Core.Models;
 
-namespace MOS.ExcelGrading.Core.Graders.Word.Project11
+namespace MOS.ExcelGrading.Core.Graders.Word.Project13
 {
-    internal static class WP11GraderHelpers
+    internal static class WP13GraderHelpers
     {
         public static readonly XNamespace W = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
         public static readonly XNamespace R = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
@@ -146,7 +146,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project11
             return -1;
         }
 
-        public static int FindProject11MainImageParagraphIndex(IReadOnlyList<XElement> paragraphs)
+        public static int FindProject13MainImageParagraphIndex(IReadOnlyList<XElement> paragraphs)
         {
             var imageParagraphIndexes = paragraphs
                 .Select((paragraph, index) => new { paragraph, index })
@@ -410,7 +410,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project11
                 expectedDate.ToString("MMM", CultureInfo.InvariantCulture),
                 expectedDate.ToString("MMMM", CultureInfo.InvariantCulture)
             };
-            var vietnameseMonthPattern = $"tháng {expectedDate.Month.ToString(CultureInfo.InvariantCulture)}";
+            var vietnameseMonthPattern = $"thÃ¡ng {expectedDate.Month.ToString(CultureInfo.InvariantCulture)}";
 
             var dateLikeWindows = Regex.Matches(text, @".{0,40}" + Regex.Escape(yearPattern) + @".{0,40}");
             foreach (Match window in dateLikeWindows)

@@ -1,4 +1,4 @@
-﻿using OfficeOpenXml;
+using OfficeOpenXml;
 using MOS.ExcelGrading.Core.Graders.Project01;
 using MOS.ExcelGrading.Core.Graders.Word.Project01;
 using MOS.ExcelGrading.Core.Graders.Word.Project02;
@@ -30,6 +30,7 @@ using MOS.ExcelGrading.Core.Graders.Word.Project05;
 using MOS.ExcelGrading.Core.Graders.Word.Project07;
 using MOS.ExcelGrading.Core.Graders.Word.Project09;
 using MOS.ExcelGrading.Core.Graders.Word.Project11;
+using MOS.ExcelGrading.Core.Graders.Word.Project13;
 using System.Text;
 
 namespace MOS.ExcelGrading.Core.Services
@@ -310,13 +311,13 @@ namespace MOS.ExcelGrading.Core.Services
                 new WP09T6Grader()
             };
 
-            _wordProjectGraders[11] = CreateWordProject13LogicGraders();
-            _wordProjectGraders[13] = CreateWordProject13LogicGraders();
+            _wordProjectGraders[11] = CreateWordProject11Graders();
+            _wordProjectGraders[13] = CreateWordProject13LogicGraders(13);
 
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         }
 
-        private static List<IWordTaskGrader> CreateWordProject13LogicGraders()
+        private static List<IWordTaskGrader> CreateWordProject11Graders()
         {
             return new List<IWordTaskGrader>
             {
@@ -326,6 +327,19 @@ namespace MOS.ExcelGrading.Core.Services
                 new WP11T4Grader(),
                 new WP11T5Grader(),
                 new WP11T6Grader()
+            };
+        }
+
+        private static List<IWordTaskGrader> CreateWordProject13LogicGraders(int projectNumber)
+        {
+            return new List<IWordTaskGrader>
+            {
+                new WP13T1Grader($"W{projectNumber:00}-T01"),
+                new WP13T2Grader($"W{projectNumber:00}-T02"),
+                new WP13T3Grader($"W{projectNumber:00}-T03"),
+                new WP13T4Grader($"W{projectNumber:00}-T04"),
+                new WP13T5Grader($"W{projectNumber:00}-T05"),
+                new WP13T6Grader($"W{projectNumber:00}-T06")
             };
         }
 
@@ -1004,7 +1018,7 @@ namespace MOS.ExcelGrading.Core.Services
             var result = new GradingResult
             {
                 ProjectId = $"W{projectNumber:00}",
-                ProjectName = $"Word Project {projectNumber:00}"
+                ProjectName = projectNumber == 11 ? "River Cruises" : $"Word Project {projectNumber:00}"
             };
 
             if (projectNumber < 1 || projectNumber > 24)
@@ -1119,6 +1133,7 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     ProjectNumber = projectNumber,
                     SourceFileName = sourceFileName ?? $"project{projectNumber:00}.docx",
+                    PackageBytes = memoryStream.ToArray(),
                     HasMainDocumentPart = entryNames.Contains("word/document.xml"),
                     PartCount = entryNames.Count,
                     Entries = entryNames,
@@ -1166,6 +1181,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 ProjectNumber = projectNumber,
                 SourceFileName = sourceFileName ?? $"project{projectNumber:00}.txt",
+                PackageBytes = memoryStream.ToArray(),
                 HasMainDocumentPart = true,
                 PartCount = 1,
                 Entries = entries,
@@ -1309,4 +1325,3 @@ namespace MOS.ExcelGrading.Core.Services
         }
     }
 }
-

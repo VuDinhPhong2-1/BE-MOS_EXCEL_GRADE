@@ -6,6 +6,7 @@ namespace MOS.ExcelGrading.Core.Models
     {
         public int ProjectNumber { get; init; }
         public string SourceFileName { get; init; } = string.Empty;
+        public byte[] PackageBytes { get; init; } = Array.Empty<byte>();
         public bool HasMainDocumentPart { get; init; }
         public int PartCount { get; init; }
         public HashSet<string> Entries { get; init; } = new(StringComparer.OrdinalIgnoreCase);

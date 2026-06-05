@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
         }
 
         public string TaskId { get; }
-        public string TaskName => "Äáº·t alt text Process Flow cho SmartArt trong Manufacturing Process";
+        public string TaskName => "Đặt alt text Process Flow cho SmartArt trong Manufacturing Process";
         public decimal MaxScore => 20m;
 
         public TaskResult Grade(WordGradingContext studentDocument)
@@ -23,8 +23,8 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "KhÃ´ng tÃ¬m tháº¥y section â€œManufacturing Processâ€ hoáº·c khÃ´ng cÃ³ ná»™i dung Ä‘á»ƒ kiá»ƒm tra SmartArt.",
-                    "KhÃ´i phá»¥c section Manufacturing Process, chá»n toÃ n bá»™ SmartArt trong section nÃ y, má»Ÿ Alt Text vÃ  nháº­p Process Flow.");
+                    "Không tìm thấy section \"Manufacturing Process\" hoặc không có nội dung để kiểm tra SmartArt.",
+                    "Khôi phục section Manufacturing Process, chọn toàn bộ SmartArt trong section này, mở Alt Text và nhập Process Flow.");
                 return result;
             }
 
@@ -33,8 +33,8 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "KhÃ´ng phÃ¡t hiá»‡n SmartArt trong section â€œManufacturing Processâ€.",
-                    "ChÃ¨n/khÃ´i phá»¥c SmartArt Ä‘Ãºng trong section Manufacturing Process, sau Ä‘Ã³ chá»n toÃ n bá»™ SmartArt chá»© khÃ´ng chá»n tá»«ng shape con.");
+                    "Không phát hiện SmartArt trong section \"Manufacturing Process\".",
+                    "Chèn/khôi phục SmartArt đúng trong section Manufacturing Process, sau đó chọn toàn bộ SmartArt chứ không chọn từng shape con.");
                 return result;
             }
 
@@ -42,13 +42,13 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "SmartArt trong section â€œManufacturing Processâ€ chÆ°a cÃ³ alt text/title/description lÃ  â€œProcess Flowâ€.",
-                    "Chá»n toÃ n bá»™ SmartArt trong Manufacturing Process, má»Ÿ Format/Alt Text vÃ  nháº­p chÃ­nh xÃ¡c Process Flow vÃ o Title hoáº·c Description.");
+                    "SmartArt trong section \"Manufacturing Process\" chưa có alt text/title/description là \"Process Flow\".",
+                    "Chọn toàn bộ SmartArt trong Manufacturing Process, mở Format/Alt Text và nhập chính xác Process Flow vào Title hoặc Description.");
             }
 
             if (result.Errors.Count == 0)
             {
-                WP13GraderHelpers.AddDetail(result, "SmartArt trong Manufacturing Process cÃ³ alt text Process Flow.");
+                WP13GraderHelpers.AddDetail(result, "SmartArt trong Manufacturing Process có alt text Process Flow.");
             }
 
             return result;

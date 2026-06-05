@@ -317,11 +317,14 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project11
         public static bool HasWhispLikeSignature(SdtBlock coverBlock)
         {
             var xml = coverBlock.OuterXml;
-            return xml.Contains("Cover Pages", StringComparison.OrdinalIgnoreCase)
-                && xml.Contains("flowChartProcess", StringComparison.OrdinalIgnoreCase)
-                && xml.Contains("Ink Free", StringComparison.OrdinalIgnoreCase)
-                && xml.Contains("Title", StringComparison.OrdinalIgnoreCase)
-                && xml.Contains("Subtitle", StringComparison.OrdinalIgnoreCase);
+            if (!xml.Contains("Cover Pages", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            var aliasValues = GetCoverPageAliasValues(coverBlock);
+            var requiredAliases = new[] { "Title", "Subtitle", "Author", "Company", "Date" };
+            return requiredAliases.All(aliasValues.ContainsKey);
         }
 
         public static bool HasCoverPageAtStart(Body body, SdtBlock coverBlock)

@@ -1319,7 +1319,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 if (task.Errors.Count > 0 && task.FixActions.Count == 0)
                 {
-                    task.FixActions.Add("Xem lại các lỗi được liệt kê trong Errors và chỉnh lại tài liệu theo đúng yêu cầu của task.");
+                    task.FixActions.Add("Xem láº¡i cÃ¡c lá»—i Ä‘Æ°á»£c liá»‡t kÃª trong Errors vÃ  chá»‰nh láº¡i tÃ i liá»‡u theo Ä‘Ãºng yÃªu cáº§u cá»§a task.");
                 }
             }
         }

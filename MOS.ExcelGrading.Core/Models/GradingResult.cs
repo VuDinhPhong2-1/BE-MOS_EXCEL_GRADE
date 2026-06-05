@@ -1,5 +1,44 @@
-﻿namespace MOS.ExcelGrading.Core.Models
+namespace MOS.ExcelGrading.Core.Models
 {
+    public class SingleFixActionList : List<string>
+    {
+        public SingleFixActionList()
+        {
+        }
+
+        public SingleFixActionList(IEnumerable<string>? items)
+        {
+            AddRange(items ?? Enumerable.Empty<string>());
+        }
+
+        public new void Add(string item)
+        {
+            if (Count > 0 || string.IsNullOrWhiteSpace(item))
+            {
+                return;
+            }
+
+            base.Add(item);
+        }
+
+        public new void AddRange(IEnumerable<string> collection)
+        {
+            if (collection == null)
+            {
+                return;
+            }
+
+            foreach (var item in collection)
+            {
+                Add(item);
+                if (Count > 0)
+                {
+                    break;
+                }
+            }
+        }
+    }
+
     public class GradingResult
     {
         public string ProjectId { get; set; } = string.Empty;
@@ -23,6 +62,6 @@
         public bool IsPassed => Score >= MaxScore * 0.5m;
         public List<string> Details { get; set; } = new();
         public List<string> Errors { get; set; } = new();
-        public List<string> FixActions { get; set; } = new();
+        public SingleFixActionList FixActions { get; set; } = new();
     }
 }

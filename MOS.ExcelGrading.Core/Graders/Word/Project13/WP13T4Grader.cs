@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
         }
 
         public string TaskId { get; }
-        public string TaskName => "ThÃªm placeholder citation Fabrication1 cuá»‘i Ä‘oáº¡n vÄƒn thá»© hai trong Description";
+        public string TaskName => "Thêm placeholder citation Fabrication1 cuối đoạn văn thứ hai trong Description";
         public decimal MaxScore => 20m;
 
         public TaskResult Grade(WordGradingContext studentDocument)
@@ -25,8 +25,8 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "KhÃ´ng tÃ¬m tháº¥y Ä‘oáº¡n vÄƒn thá»© hai dÆ°á»›i tiÃªu Ä‘á» â€œDescriptionâ€.",
-                    "KhÃ´i phá»¥c ná»™i dung section Description, Ä‘áº·t con trá» á»Ÿ cuá»‘i Ä‘oáº¡n vÄƒn thá»© hai rá»“i vÃ o References > Insert Citation > Add New Placeholder vÃ  nháº­p Fabrication1.");
+                    "Không tìm thấy đoạn văn thứ hai dưới tiêu đề \"Description\".",
+                    "Khôi phục nội dung section Description, đặt con trỏ ở cuối đoạn văn thứ hai rồi vào References > Insert Citation > Add New Placeholder và nhập Fabrication1.");
                 return result;
             }
 
@@ -35,13 +35,13 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "ChÆ°a phÃ¡t hiá»‡n placeholder citation â€œFabrication1â€ á»Ÿ cuá»‘i Ä‘oáº¡n vÄƒn thá»© hai dÆ°á»›i Description.",
-                    "Äáº·t con trá» á»Ÿ cuá»‘i Ä‘oáº¡n vÄƒn thá»© hai trong section Description, vÃ o References > Insert Citation > Add New Placeholder, nháº­p Fabrication1 rá»“i lÆ°u tÃ i liá»‡u.");
+                    "Chưa phát hiện placeholder citation \"Fabrication1\" ở cuối đoạn văn thứ hai dưới Description.",
+                    "Đặt con trỏ ở cuối đoạn văn thứ hai trong section Description, vào References > Insert Citation > Add New Placeholder, nhập Fabrication1 rồi lưu tài liệu.");
             }
 
             if (result.Errors.Count == 0)
             {
-                WP13GraderHelpers.AddDetail(result, "Äoáº¡n vÄƒn thá»© hai trong Description cÃ³ placeholder citation Fabrication1 á»Ÿ cuá»‘i Ä‘oáº¡n.");
+                WP13GraderHelpers.AddDetail(result, "Đoạn văn thứ hai trong Description có placeholder citation Fabrication1 ở cuối đoạn.");
             }
 
             return result;

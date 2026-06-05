@@ -410,7 +410,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
                 expectedDate.ToString("MMM", CultureInfo.InvariantCulture),
                 expectedDate.ToString("MMMM", CultureInfo.InvariantCulture)
             };
-            var vietnameseMonthPattern = $"thÃ¡ng {expectedDate.Month.ToString(CultureInfo.InvariantCulture)}";
+            var vietnameseMonthPattern = $"tháng {expectedDate.Month.ToString(CultureInfo.InvariantCulture)}";
 
             var dateLikeWindows = Regex.Matches(text, @".{0,40}" + Regex.Escape(yearPattern) + @".{0,40}");
             foreach (Match window in dateLikeWindows)

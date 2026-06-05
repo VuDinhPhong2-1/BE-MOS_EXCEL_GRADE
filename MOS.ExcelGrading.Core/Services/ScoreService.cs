@@ -1,4 +1,4 @@
-﻿// MOS.ExcelGrading.Core/Services/ScoreService.cs
+// MOS.ExcelGrading.Core/Services/ScoreService.cs
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -604,7 +604,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 var normalizedErrors = NormalizeAutoGradingErrors(item.Errors);
                 var normalizedDetails = NormalizeAutoGradingErrors(item.Details);
-                var normalizedFixActions = NormalizeAutoGradingErrors(item.FixActions);
+                var normalizedFixActions = new SingleFixActionList(NormalizeAutoGradingErrors(item.FixActions));
 
                 normalized.Add(new AutoGradingTaskResultRequest
                 {
@@ -635,7 +635,7 @@ namespace MOS.ExcelGrading.Core.Services
                         MaxScore = (decimal)task.MaxScore,
                         Details = task.Details ?? new List<string>(),
                         Errors = task.Errors ?? new List<string>(),
-                        FixActions = task.FixActions ?? new List<string>()
+                        FixActions = new SingleFixActionList(task.FixActions)
                     })
                     .ToList();
             }

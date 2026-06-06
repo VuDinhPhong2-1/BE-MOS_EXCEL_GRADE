@@ -188,8 +188,16 @@ namespace MOS.ExcelGrading.Core.Services
                 Builders<Assignment>.Update.Set(a => a.UpdatedBy, userId)
             };
 
-            assignmentUpdates.Add(
-                Builders<Assignment>.Update.Set(a => a.CurrentTemplateFileId, uploadedFile.Id));
+            if (normalizedKind == AssignmentFileKinds.Template)
+            {
+                assignmentUpdates.Add(
+                    Builders<Assignment>.Update.Set(a => a.CurrentTemplateFileId, uploadedFile.Id));
+            }
+            else if (normalizedKind == AssignmentFileKinds.Answer)
+            {
+                assignmentUpdates.Add(
+                    Builders<Assignment>.Update.Set(a => a.CurrentAnswerFileId, uploadedFile.Id));
+            }
 
             await _assignments.UpdateOneAsync(
                 a => a.Id == assignmentId,
@@ -288,7 +296,14 @@ namespace MOS.ExcelGrading.Core.Services
                 Builders<Assignment>.Update.Set(a => a.UpdatedBy, userId)
             };
 
-            assignmentUpdates.Add(Builders<Assignment>.Update.Set(a => a.CurrentTemplateFileId, null));
+            if (file.Kind == AssignmentFileKinds.Template)
+            {
+                assignmentUpdates.Add(Builders<Assignment>.Update.Set(a => a.CurrentTemplateFileId, null));
+            }
+            else if (file.Kind == AssignmentFileKinds.Answer)
+            {
+                assignmentUpdates.Add(Builders<Assignment>.Update.Set(a => a.CurrentAnswerFileId, null));
+            }
 
             await _assignments.UpdateOneAsync(
                 a => a.Id == file.AssignmentId,

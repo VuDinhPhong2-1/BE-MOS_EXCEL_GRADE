@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 
 namespace MOS.ExcelGrading.Core.Models
 {
+    [BsonIgnoreExtraElements]
     public class Assignment
     {
         [BsonId]
@@ -51,6 +52,13 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonRepresentation(BsonType.ObjectId)]
         [BsonElement("currentTemplateFileId")]
         public string? CurrentTemplateFileId { get; set; }
+
+        /// <summary>
+        /// File answer hiện hành của bài tập (backward-compatible với dữ liệu cũ)
+        /// </summary>
+        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonElement("currentAnswerFileId")]
+        public string? CurrentAnswerFileId { get; set; }
 
         [BsonElement("isActive")]
         public bool IsActive { get; set; } = true;

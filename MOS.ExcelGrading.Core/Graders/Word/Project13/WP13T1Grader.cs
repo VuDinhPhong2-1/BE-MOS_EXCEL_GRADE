@@ -1,4 +1,4 @@
-﻿using MOS.ExcelGrading.Core.Interfaces;
+using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 
 namespace MOS.ExcelGrading.Core.Graders.Word.Project13
@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
         }
 
         public string TaskId { get; }
-        public string TaskName => "Kiá»ƒm tra Accessibility vÃ  thÃªm tiÃªu Ä‘á» cho báº£ng";
+        public string TaskName => "Kiểm tra Accessibility và thêm tiêu đề cho bảng";
         public decimal MaxScore => 20m;
 
         public TaskResult Grade(WordGradingContext studentDocument)
@@ -23,26 +23,27 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "KhÃ´ng tÃ¬m tháº¥y báº£ng trong tÃ i liá»‡u Ä‘á»ƒ kiá»ƒm tra lá»—i Accessibility vá» Table Title.",
-                    "KhÃ´i phá»¥c Ä‘Ãºng báº£ng trong tÃ i liá»‡u, sau Ä‘Ã³ vÃ o Review > Check Accessibility, chá»n lá»—i liÃªn quan Ä‘áº¿n báº£ng vÃ  Ã¡p dá»¥ng recommended action Ä‘áº§u tiÃªn Ä‘á»ƒ thÃªm Table Title.");
+                    "Không tìm thấy bảng trong tài liệu để kiểm tra lỗi Accessibility về Table Title.",
+                    "Khôi phục đúng bảng trong tài liệu, sau đó vào Review > Check Accessibility, chọn lỗi liên quan đến bảng và áp dụng recommended action đầu tiên để thêm Table Title.");
                 return result;
             }
 
-            var tablesWithoutTitle = tables
-                .Where(table => !WP13GraderHelpers.HasTableTitleOrCaption(table))
-                .ToList();
+            var targetTable = WP13GraderHelpers.FindFirstTableAfterHeading(studentDocument, "Filling Agents");
+            var tableToCheck = targetTable ?? tables[0];
 
-            if (tablesWithoutTitle.Count > 0)
+            if (!WP13GraderHelpers.HasTableTitleOrCaption(tableToCheck))
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    $"CÃ³ {tablesWithoutTitle.Count} báº£ng chÆ°a cÃ³ tiÃªu Ä‘á»/caption dÃ¹ng cho Accessibility.",
-                    "VÃ o Review > Check Accessibility, má»Ÿ lá»—i Table Title, chá»n recommended action Ä‘áº§u tiÃªn vÃ  nháº­p tiÃªu Ä‘á» phÃ¹ há»£p cho báº£ng.");
+                    targetTable != null
+                        ? "Bảng Filling Agents chưa có tiêu đề/caption dùng cho Accessibility."
+                        : "Bảng cần kiểm tra chưa có tiêu đề/caption dùng cho Accessibility.",
+                    "Vào Review > Check Accessibility, mở lỗi Table Title, chọn recommended action đầu tiên và nhập tiêu đề phù hợp cho bảng.");
             }
 
             if (result.Errors.Count == 0)
             {
-                WP13GraderHelpers.AddDetail(result, "Táº¥t cáº£ báº£ng cÃ³ dáº¥u hiá»‡u Table Title/caption hoáº·c metadata mÃ´ táº£ dÃ¹ng cho Accessibility.");
+                WP13GraderHelpers.AddDetail(result, "Bảng cần kiểm tra đã có Table Title/caption hoặc metadata mô tả dùng cho Accessibility.");
             }
 
             return result;

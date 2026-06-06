@@ -1,4 +1,4 @@
-﻿using MOS.ExcelGrading.Core.Interfaces;
+using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 
 namespace MOS.ExcelGrading.Core.Graders.Word.Project13
@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
         }
 
         public string TaskId { get; }
-        public string TaskName => "ChÃ¨n 3D model Blister Packs inline trong Ä‘oáº¡n trá»‘ng cá»§a Description";
+        public string TaskName => "Chèn 3D model Blister Packs inline trong đoạn trống của Description";
         public decimal MaxScore => 20m;
 
         public TaskResult Grade(WordGradingContext studentDocument)
@@ -23,8 +23,8 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "KhÃ´ng tÃ¬m tháº¥y section â€œDescriptionâ€ Ä‘á»ƒ kiá»ƒm tra vá»‹ trÃ­ 3D model.",
-                    "KhÃ´i phá»¥c section Description, Ä‘áº·t con trá» vÃ o Ä‘oáº¡n vÄƒn trá»‘ng trong section nÃ y, chÃ¨n 3D model Blister Packs vÃ  chá»n In Line with Text.");
+                    "Không tìm thấy section “Description” để kiểm tra vị trí 3D model.",
+                    "Khôi phục section Description, đặt con trỏ vào đoạn văn trống trong section này, chèn 3D model Blister Packs và chọn In Line with Text.");
                 return result;
             }
 
@@ -32,37 +32,42 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
                 .Where(paragraph => string.IsNullOrWhiteSpace(WP13GraderHelpers.GetParagraphText(paragraph)))
                 .ToList();
 
-            if (blankParagraphs.Count == 0)
+            var hasInlineModelInBlankParagraph = blankParagraphs
+                .Any(paragraph => WP13GraderHelpers.HasInline3DModelInParagraph(paragraph, studentDocument));
+
+            var hasAnyInline3DModelInDescription = descriptionParagraphs
+                .Any(paragraph => WP13GraderHelpers.HasInline3DModelInParagraph(paragraph, studentDocument));
+
+            if (blankParagraphs.Count == 0 && !hasAnyInline3DModelInDescription)
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "KhÃ´ng tÃ¬m tháº¥y Ä‘oáº¡n vÄƒn trá»‘ng trong section Description Ä‘á»ƒ chá»©a 3D model.",
-                    "Trong section Description, táº¡o/khÃ´i phá»¥c Ä‘oáº¡n vÄƒn trá»‘ng Ä‘Ãºng vá»‹ trÃ­ rá»“i chÃ¨n 3D model Blister Packs vÃ o Ä‘oáº¡n Ä‘Ã³.");
+                    "Không tìm thấy đoạn văn trống trong section Description để chứa 3D model.",
+                    "Trong section Description, tạo/khôi phục đoạn văn trống đúng vị trí rồi chèn 3D model Blister Packs vào đoạn đó.");
                 return result;
             }
 
-            var hasInlineBlisterPacksModel = blankParagraphs
-                .Any(paragraph => WP13GraderHelpers.HasInline3DModelInParagraph(paragraph, studentDocument, "Blister Packs"));
-
-            if (!hasInlineBlisterPacksModel)
+            if (!hasInlineModelInBlankParagraph)
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "ChÆ°a phÃ¡t hiá»‡n 3D model â€œBlister Packsâ€ Ä‘Æ°á»£c chÃ¨n inline trong Ä‘oáº¡n vÄƒn trá»‘ng cá»§a Description.",
-                    "Äáº·t con trá» vÃ o Ä‘oáº¡n vÄƒn trá»‘ng trong Description, vÃ o Insert > 3D Models, chá»n Blister Packs, sau Ä‘Ã³ Ä‘áº·t Wrap Text/In Line with Text.");
+                    hasAnyInline3DModelInDescription
+                        ? "Phát hiện 3D model trong section Description nhưng không nằm trong đoạn văn trống yêu cầu."
+                        : "Chưa phát hiện 3D model được chèn inline trong đoạn văn trống của Description.",
+                    "Đặt con trỏ vào đoạn văn trống trong Description, vào Insert > 3D Models, chọn Blister Packs, sau đó đặt Wrap Text/In Line with Text.");
             }
 
-            if (WP13GraderHelpers.HasAnchored3DModelInScope(descriptionParagraphs))
+            if (!hasInlineModelInBlankParagraph && WP13GraderHelpers.HasAnchored3DModelInScope(descriptionParagraphs))
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "PhÃ¡t hiá»‡n 3D model dáº¡ng floating/anchor trong Description; yÃªu cáº§u pháº£i lÃ  In Line with Text.",
-                    "Chá»n 3D model Blister Packs, má»Ÿ Layout Options/Wrap Text vÃ  chá»n In Line with Text.");
+                    "Phát hiện 3D model dạng floating/anchor trong Description; yêu cầu phải là In Line with Text.",
+                    "Chọn 3D model Blister Packs, mở Layout Options/Wrap Text và chọn In Line with Text.");
             }
 
             if (result.Errors.Count == 0)
             {
-                WP13GraderHelpers.AddDetail(result, "Äoáº¡n vÄƒn trá»‘ng trong Description cÃ³ 3D model Blister Packs vÃ  Ä‘á»‘i tÆ°á»£ng Ä‘Æ°á»£c Ä‘áº·t In Line with Text.");
+                WP13GraderHelpers.AddDetail(result, "Đoạn trống trong Description có 3D model và đối tượng được đặt In Line with Text.");
             }
 
             return result;

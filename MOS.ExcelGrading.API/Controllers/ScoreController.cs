@@ -39,10 +39,14 @@ namespace MOS.ExcelGrading.API.Controllers
                 var scores = await _scoreService.GetScoresByAssignmentAsync(assignmentId);
                 return Ok(scores);
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting scores for assignment {AssignmentId}", assignmentId);
-                return StatusCode(500, "Lỗi máy chủ nội bộ");
+                return StatusCode(500, new { message = ex.Message });
             }
         }
 
@@ -195,10 +199,14 @@ namespace MOS.ExcelGrading.API.Controllers
                 var scores = await _scoreService.GetScoresByClassAsync(classId);
                 return Ok(scores);
             }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting scores by class {ClassId}", classId);
-                return StatusCode(500, "Lỗi máy chủ nội bộ");
+                return StatusCode(500, new { message = ex.Message });
             }
         }
 

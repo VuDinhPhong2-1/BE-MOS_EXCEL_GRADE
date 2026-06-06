@@ -28,9 +28,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project11
         {
             result.Score = 0m;
             result.Errors.Add(errorMessage);
-
+            // Only add a single fixAction guidance per TaskResult to avoid
+            // producing multiple, potentially duplicated suggestions.
             if (!string.IsNullOrWhiteSpace(fixAction)
-                && !result.FixActions.Contains(fixAction, StringComparer.Ordinal))
+                && result.FixActions.Count == 0)
             {
                 result.FixActions.Add(fixAction);
             }
@@ -318,10 +319,11 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project11
         {
             var xml = coverBlock.OuterXml;
             return xml.Contains("Cover Pages", StringComparison.OrdinalIgnoreCase)
-                && xml.Contains("flowChartProcess", StringComparison.OrdinalIgnoreCase)
-                && xml.Contains("Ink Free", StringComparison.OrdinalIgnoreCase)
                 && xml.Contains("Title", StringComparison.OrdinalIgnoreCase)
-                && xml.Contains("Subtitle", StringComparison.OrdinalIgnoreCase);
+                && xml.Contains("Subtitle", StringComparison.OrdinalIgnoreCase)
+                && xml.Contains("Author", StringComparison.OrdinalIgnoreCase)
+                && xml.Contains("Company", StringComparison.OrdinalIgnoreCase)
+                && xml.Contains("Date", StringComparison.OrdinalIgnoreCase);
         }
 
         public static bool HasCoverPageAtStart(Body body, SdtBlock coverBlock)
@@ -362,11 +364,26 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project11
                 ? NormalizeComparisonText(expectedValue)
                 : NormalizeText(expectedValue);
 
+            if (ignoreCase)
+            {
+                normalizedExpected = normalizedExpected
+                    .Replace("\u2019", "'")
+                    .Replace("\u2018", "'");
+            }
+
             return actualValues.Any(value =>
             {
                 var normalizedActual = ignoreCase
                     ? NormalizeComparisonText(value)
                     : NormalizeText(value);
+
+                if (ignoreCase)
+                {
+                    normalizedActual = normalizedActual
+                        .Replace("\u2019", "'")
+                        .Replace("\u2018", "'");
+                }
+
                 return string.Equals(normalizedActual, normalizedExpected, comparison);
             });
         }

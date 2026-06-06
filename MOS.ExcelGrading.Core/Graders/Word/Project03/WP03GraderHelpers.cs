@@ -17,8 +17,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project03
         public static void AddError(TaskResult result, string errorMessage, string fixAction)
         {
             result.Errors.Add(errorMessage);
-
-            if (!string.IsNullOrWhiteSpace(fixAction))
+            // Only add a single fixAction guidance per TaskResult to avoid
+            // producing multiple, potentially duplicated suggestions.
+            if (!string.IsNullOrWhiteSpace(fixAction)
+                && result.FixActions.Count == 0)
             {
                 result.FixActions.Add(fixAction);
             }

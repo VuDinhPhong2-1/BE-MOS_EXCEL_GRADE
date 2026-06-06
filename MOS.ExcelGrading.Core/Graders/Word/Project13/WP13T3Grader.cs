@@ -1,4 +1,4 @@
-﻿using MOS.ExcelGrading.Core.Interfaces;
+using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 
 namespace MOS.ExcelGrading.Core.Graders.Word.Project13
@@ -14,7 +14,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
         }
 
         public string TaskId { get; }
-        public string TaskName => "Äáº·t táº¥t cáº£ cá»™t báº£ng Filling Agents rá»™ng 5.59 cm";
+        public string TaskName => "Đặt tất cả cột bảng Filling Agents rộng 5.59 cm";
         public decimal MaxScore => 25m;
 
         public TaskResult Grade(WordGradingContext studentDocument)
@@ -26,8 +26,8 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "KhÃ´ng tÃ¬m tháº¥y báº£ng ngay sau tiÃªu Ä‘á»/section â€œFilling Agentsâ€.",
-                    "KhÃ´i phá»¥c Ä‘Ãºng báº£ng trong section Filling Agents, chá»n toÃ n bá»™ báº£ng rá»“i Ä‘áº·t Table Layout > Cell Size > Width = 5.59 cm.");
+                    "Không tìm thấy bảng ngay sau tiêu đề/section “Filling Agents”.",
+                    "Khôi phục đúng bảng trong section Filling Agents, chọn toàn bộ bảng rồi đặt Table Layout > Cell Size > Width = 5.59 cm.");
                 return result;
             }
 
@@ -36,8 +36,8 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "KhÃ´ng Ä‘á»c Ä‘Æ°á»£c Ä‘á»™ rá»™ng cá»™t cá»§a báº£ng Filling Agents trong XML.",
-                    "Chá»n toÃ n bá»™ báº£ng Filling Agents, vÃ o Table Layout > Cell Size vÃ  nháº­p Width = 5.59 cm Ä‘á»ƒ Word lÆ°u láº¡i Ä‘á»™ rá»™ng cá»™t.");
+                    "Không đọc được độ rộng cột của bảng Filling Agents trong XML.",
+                    "Chọn toàn bộ bảng Filling Agents, vào Table Layout > Cell Size và nhập Width = 5.59 cm để Word lưu lại độ rộng cột.");
                 return result;
             }
 
@@ -46,20 +46,20 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    $"ChÆ°a cÃ³ cá»™t nÃ o cá»§a báº£ng Filling Agents rá»™ng 5.59 cm. GiÃ¡ trá»‹ hiá»‡n táº¡i: {string.Join(", ", widths)} twips.",
-                    "Chá»n toÃ n bá»™ báº£ng trong section Filling Agents, khÃ´ng chá»‰ chá»n má»™t cá»™t, rá»“i Ä‘áº·t Table Layout > Cell Size > Width = 5.59 cm.");
+                    $"Chưa có cột nào của bảng Filling Agents rộng 5.59 cm. Giá trị hiện tại: {string.Join(", ", widths)} twips.",
+                    "Chọn toàn bộ bảng trong section Filling Agents, không chỉ chọn một cột, rồi đặt Table Layout > Cell Size > Width = 5.59 cm.");
             }
             else if (correctCount < widths.Count)
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    $"Chá»‰ cÃ³ {correctCount}/{widths.Count} cá»™t cá»§a báº£ng Filling Agents rá»™ng 5.59 cm; cÃ³ thá»ƒ báº¡n má»›i chá»‰nh má»™t vÃ i cá»™t.",
-                    "BÃ´i Ä‘en toÃ n bá»™ báº£ng Filling Agents rá»“i Ä‘áº·t Width = 5.59 cm Ä‘á»ƒ táº¥t cáº£ cá»™t cÃ³ cÃ¹ng Ä‘á»™ rá»™ng.");
+                    $"Chỉ có {correctCount}/{widths.Count} cột của bảng Filling Agents rộng 5.59 cm; có thể bạn mới chỉnh một vài cột.",
+                    "Bôi đen toàn bộ bảng Filling Agents rồi đặt Width = 5.59 cm để tất cả cột có cùng độ rộng.");
             }
 
             if (result.Errors.Count == 0)
             {
-                WP13GraderHelpers.AddDetail(result, $"Táº¥t cáº£ {widths.Count} cá»™t cá»§a báº£ng Filling Agents cÃ³ Ä‘á»™ rá»™ng xáº¥p xá»‰ 5.59 cm.");
+                WP13GraderHelpers.AddDetail(result, $"Tất cả {widths.Count} cột của bảng Filling Agents có độ rộng xấp xỉ 5.59 cm.");
             }
 
             return result;

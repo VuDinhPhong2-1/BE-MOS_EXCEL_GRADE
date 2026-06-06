@@ -118,6 +118,11 @@ namespace MOS.ExcelGrading.API.Controllers
                 var assignments = await _assignmentService.GetAssignmentsByClassIdAsync(classId, includeInactive);
                 return Ok(assignments);
             }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Invalid assignment list request for class {ClassId}", classId);
+                return BadRequest(new { message = ex.Message });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error getting assignments for class {ClassId}", classId);

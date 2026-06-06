@@ -1,5 +1,7 @@
 ﻿// MOS.ExcelGrading.Core/Services/AssignmentService.cs
 using Microsoft.Extensions.Logging;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
 using MongoDB.Driver;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
@@ -10,6 +12,7 @@ namespace MOS.ExcelGrading.Core.Services
     public class AssignmentService : IAssignmentService
     {
         private readonly IMongoCollection<Assignment> _assignments;
+        private readonly IMongoCollection<BsonDocument> _assignmentDocuments;
         private readonly IMongoCollection<Score> _scores;
         private readonly IMongoCollection<Student> _students;
         private readonly IMongoCollection<User> _users;
@@ -20,6 +23,7 @@ namespace MOS.ExcelGrading.Core.Services
             ILogger<AssignmentService> logger)
         {
             _assignments = database.GetCollection<Assignment>("assignments");
+            _assignmentDocuments = database.GetCollection<BsonDocument>("assignments");
             _scores = database.GetCollection<Score>("scores");
             _students = database.GetCollection<Student>("students");
             _users = database.GetCollection<User>("users");
@@ -30,6 +34,8 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
+                EnsureValidObjectId(classId, "Mã lớp");
+
                 var filter = Builders<Assignment>.Filter.Eq(a => a.ClassId, classId);
                 if (!includeInactive)
                 {
@@ -40,10 +46,182 @@ namespace MOS.ExcelGrading.Core.Services
                     .SortByDescending(a => a.CreatedAt)
                     .ToListAsync();
             }
+            catch (BsonSerializationException ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "⚠️ Deserialization error while reading assignments for class {ClassId}. Falling back to tolerant document mapping.",
+                    classId);
+
+                return await GetAssignmentsByClassIdFromRawDocumentsAsync(classId, includeInactive);
+            }
+            catch (FormatException ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "⚠️ Invalid assignment document format while reading assignments for class {ClassId}. Falling back to tolerant document mapping.",
+                    classId);
+
+                return await GetAssignmentsByClassIdFromRawDocumentsAsync(classId, includeInactive);
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "❌ Error getting assignments for class {ClassId}", classId);
                 throw;
+            }
+        }
+
+        private async Task<List<Assignment>> GetAssignmentsByClassIdFromRawDocumentsAsync(string classId, bool includeInactive)
+        {
+            var classIdFilter = Builders<BsonDocument>.Filter.Eq("classId", classId);
+            if (ObjectId.TryParse(classId, out var classObjectId))
+            {
+                classIdFilter |= Builders<BsonDocument>.Filter.Eq("classId", classObjectId);
+            }
+
+            var filter = classIdFilter;
+            if (!includeInactive)
+            {
+                filter &= Builders<BsonDocument>.Filter.Eq("isActive", true);
+            }
+
+            var documents = await _assignmentDocuments.Find(filter).ToListAsync();
+            var assignments = new List<Assignment>();
+
+            foreach (var document in documents)
+            {
+                if (TryMapAssignmentDocument(document, out var assignment))
+                {
+                    assignments.Add(assignment);
+                    continue;
+                }
+
+                var documentId = ReadString(document, "_id") ?? "(unknown)";
+                _logger.LogWarning(
+                    "⚠️ Skipping malformed assignment document {AssignmentId} for class {ClassId}",
+                    documentId,
+                    classId);
+            }
+
+            return assignments
+                .OrderByDescending(a => a.CreatedAt)
+                .ToList();
+        }
+
+        private static bool TryMapAssignmentDocument(BsonDocument document, out Assignment assignment)
+        {
+            assignment = new Assignment();
+
+            try
+            {
+                var id = ReadString(document, "_id");
+                var classId = ReadString(document, "classId");
+                var name = ReadString(document, "name");
+
+                if (string.IsNullOrWhiteSpace(id) ||
+                    string.IsNullOrWhiteSpace(classId) ||
+                    string.IsNullOrWhiteSpace(name))
+                {
+                    return false;
+                }
+
+                assignment = new Assignment
+                {
+                    Id = id,
+                    Name = name,
+                    Description = ReadString(document, "description"),
+                    ClassId = classId,
+                    MaxScore = ReadDouble(document, "maxScore") ?? 10d,
+                    GradingApiEndpoint = ReadString(document, "gradingApiEndpoint"),
+                    GradingType = ReadString(document, "gradingType") ?? GradingTypes.Manual,
+                    CurrentTemplateFileId = ReadString(document, "currentTemplateFileId"),
+                    CurrentAnswerFileId = ReadString(document, "currentAnswerFileId"),
+                    IsActive = ReadBool(document, "isActive") ?? true,
+                    CreatedAt = ReadDateTime(document, "createdAt") ?? DateTime.UtcNow,
+                    CreatedBy = ReadString(document, "createdBy"),
+                    UpdatedAt = ReadDateTime(document, "updatedAt"),
+                    UpdatedBy = ReadString(document, "updatedBy")
+                };
+
+                return true;
+            }
+            catch
+            {
+                assignment = new Assignment();
+                return false;
+            }
+        }
+
+        private static string? ReadString(BsonDocument document, string fieldName)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return null;
+            }
+
+            return value.BsonType switch
+            {
+                BsonType.ObjectId => value.AsObjectId.ToString(),
+                BsonType.String => value.AsString,
+                _ => value.ToString()
+            };
+        }
+
+        private static bool? ReadBool(BsonDocument document, string fieldName)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return null;
+            }
+
+            return value.BsonType switch
+            {
+                BsonType.Boolean => value.AsBoolean,
+                BsonType.Int32 => value.AsInt32 != 0,
+                BsonType.Int64 => value.AsInt64 != 0,
+                BsonType.String when bool.TryParse(value.AsString, out var parsed) => parsed,
+                _ => null
+            };
+        }
+
+        private static double? ReadDouble(BsonDocument document, string fieldName)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return null;
+            }
+
+            return value.BsonType switch
+            {
+                BsonType.Double => value.AsDouble,
+                BsonType.Int32 => value.AsInt32,
+                BsonType.Int64 => value.AsInt64,
+                BsonType.Decimal128 => (double)value.AsDecimal128,
+                BsonType.String when double.TryParse(value.AsString, out var parsed) => parsed,
+                _ => null
+            };
+        }
+
+        private static DateTime? ReadDateTime(BsonDocument document, string fieldName)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return null;
+            }
+
+            return value.BsonType switch
+            {
+                BsonType.DateTime => value.ToUniversalTime(),
+                BsonType.String when DateTime.TryParse(value.AsString, out var parsed) => parsed,
+                _ => null
+            };
+        }
+
+        private static void EnsureValidObjectId(string? value, string fieldLabel)
+        {
+            if (string.IsNullOrWhiteSpace(value) || !ObjectId.TryParse(value.Trim(), out _))
+            {
+                throw new ArgumentException($"{fieldLabel} không hợp lệ.");
             }
         }
 

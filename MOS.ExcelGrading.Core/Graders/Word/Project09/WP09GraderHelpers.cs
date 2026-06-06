@@ -26,9 +26,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project09
         {
             result.Score = 0m;
             result.Errors.Add(errorMessage);
-
+            // Only add a single fixAction guidance per TaskResult to avoid
+            // producing multiple, potentially duplicated suggestions.
             if (!string.IsNullOrWhiteSpace(fixAction)
-                && !result.FixActions.Contains(fixAction, StringComparer.Ordinal))
+                && result.FixActions.Count == 0)
             {
                 result.FixActions.Add(fixAction);
             }

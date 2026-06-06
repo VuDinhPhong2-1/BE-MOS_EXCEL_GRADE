@@ -35,9 +35,10 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
         {
             result.Score = 0m;
             result.Errors.Add(errorMessage);
-
+            // Only add a single fixAction guidance per TaskResult to avoid
+            // producing multiple, potentially duplicated suggestions.
             if (!string.IsNullOrWhiteSpace(fixAction)
-                && !result.FixActions.Contains(fixAction, StringComparer.Ordinal))
+                && result.FixActions.Count == 0)
             {
                 result.FixActions.Add(fixAction);
             }
@@ -410,7 +411,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
                 expectedDate.ToString("MMM", CultureInfo.InvariantCulture),
                 expectedDate.ToString("MMMM", CultureInfo.InvariantCulture)
             };
-            var vietnameseMonthPattern = $"thÃ¡ng {expectedDate.Month.ToString(CultureInfo.InvariantCulture)}";
+            var vietnameseMonthPattern = $"tháng {expectedDate.Month.ToString(CultureInfo.InvariantCulture)}";
 
             var dateLikeWindows = Regex.Matches(text, @".{0,40}" + Regex.Escape(yearPattern) + @".{0,40}");
             foreach (Match window in dateLikeWindows)
@@ -458,23 +459,46 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
         public static bool HasTableTitleOrCaption(XElement table)
         {
             var tableProperties = table.Element(W + "tblPr");
-            var caption = tableProperties?.Element(W + "tblCaption")?.Attribute(W + "val")?.Value;
-            var description = tableProperties?.Element(W + "tblDescription")?.Attribute(W + "val")?.Value;
+            var caption = tableProperties?
+                .Descendants(W + "tblCaption")
+                .Select(node => node.Attribute(W + "val")?.Value)
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+            var description = tableProperties?
+                .Descendants(W + "tblDescription")
+                .Select(node => node.Attribute(W + "val")?.Value)
+                .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
 
             if (!string.IsNullOrWhiteSpace(caption) || !string.IsNullOrWhiteSpace(description))
             {
                 return true;
             }
 
-            var surroundingText = NormalizeText(string.Join(" ", table
-                .ElementsBeforeSelf(W + "p")
-                .TakeLast(2)
-                .Concat(table.ElementsAfterSelf(W + "p").Take(1))
-                .Select(GetParagraphText)));
+            return HasHeaderRowForAccessibility(table);
+        }
 
-            return surroundingText.Contains("Table Title", StringComparison.OrdinalIgnoreCase)
-                || surroundingText.Contains("Caption", StringComparison.OrdinalIgnoreCase)
-                || surroundingText.Contains("Filling Agents", StringComparison.OrdinalIgnoreCase);
+        public static bool HasHeaderRowForAccessibility(XElement table)
+        {
+            var tableLook = table
+                .Element(W + "tblPr")?
+                .Element(W + "tblLook");
+
+            var firstRowFlag = tableLook?.Attribute(W + "firstRow")?.Value;
+            if (firstRowFlag == "1" || firstRowFlag?.Equals("true", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                return true;
+            }
+
+            var firstRow = table.Elements(W + "tr").FirstOrDefault();
+            if (firstRow == null)
+            {
+                return false;
+            }
+
+            var cnfStyle = firstRow
+                .Element(W + "trPr")?
+                .Element(W + "cnfStyle");
+
+            return cnfStyle?.Attribute(W + "firstRow")?.Value == "1";
         }
 
         public static int FindBodyElementIndexContainingText(IReadOnlyList<XElement> bodyElements, string headingText)
@@ -662,7 +686,7 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
                     || node.Name.LocalName.Contains("smartArt", StringComparison.OrdinalIgnoreCase));
         }
 
-        public static bool HasInline3DModelInParagraph(XElement paragraph, WordGradingContext context, string expectedName)
+        public static bool HasInline3DModelInParagraph(XElement paragraph, WordGradingContext context, string? expectedName = null)
         {
             return paragraph.Descendants(Wp + "inline").Any(inline =>
             {
@@ -689,6 +713,11 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
                 var has3DModel = modelSignals.Contains("model3d", StringComparison.OrdinalIgnoreCase)
                     || modelSignals.Contains("3dmodel", StringComparison.OrdinalIgnoreCase)
                     || modelSignals.Contains("3D", StringComparison.OrdinalIgnoreCase);
+
+                if (string.IsNullOrWhiteSpace(expectedName))
+                {
+                    return has3DModel;
+                }
 
                 var hasExpectedName = modelSignals.Contains(expectedName, StringComparison.OrdinalIgnoreCase)
                     || modelSignals.Contains(expectedName.Replace(" ", string.Empty, StringComparison.Ordinal), StringComparison.OrdinalIgnoreCase)

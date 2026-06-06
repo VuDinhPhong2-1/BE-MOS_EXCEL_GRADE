@@ -1191,7 +1191,7 @@ namespace MOS.ExcelGrading.API.Controllers
         private bool IsExcelFile(IFormFile file)
         {
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            return extension == ".xlsx" || extension == ".xlsm";
+            return extension == ".xlsx" || extension == ".xlsm" || extension == ".xls";
         }
 
         private static bool IsAcceptedWordInputForProject(IFormFile file, int projectNumber)
@@ -1213,13 +1213,9 @@ namespace MOS.ExcelGrading.API.Controllers
         private static bool IsMemoPlainTextFile(IFormFile file)
         {
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (extension != ".txt")
-            {
-                return false;
-            }
-
-            var baseName = Path.GetFileNameWithoutExtension(file.FileName) ?? string.Empty;
-            return string.Equals(baseName, "memo", StringComparison.OrdinalIgnoreCase);
+            // Allow any plain-text .txt file for project 07 (frontend already suggests 'memo.txt',
+            // but server accepts any .txt and grading will treat it as plain-text input).
+            return string.Equals(extension, ".txt", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

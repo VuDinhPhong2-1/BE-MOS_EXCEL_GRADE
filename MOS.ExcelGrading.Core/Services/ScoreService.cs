@@ -13,6 +13,8 @@ namespace MOS.ExcelGrading.Core.Services
     public class ScoreService : IScoreService
     {
         private readonly IMongoCollection<Score> _scores;
+        private readonly IMongoCollection<BsonDocument> _scoreDocuments;
+        private readonly IMongoCollection<BsonDocument> _assignmentDocuments;
         private readonly IMongoCollection<Student> _students;
         private readonly IMongoCollection<Assignment> _assignments;
         private readonly IMongoCollection<User> _users;
@@ -28,6 +30,8 @@ namespace MOS.ExcelGrading.Core.Services
             ILogger<ScoreService> logger)
         {
             _scores = database.GetCollection<Score>("scores");
+            _scoreDocuments = database.GetCollection<BsonDocument>("scores");
+            _assignmentDocuments = database.GetCollection<BsonDocument>("assignments");
             _students = database.GetCollection<Student>("students");
             _assignments = database.GetCollection<Assignment>("assignments");
             _users = database.GetCollection<User>("users");
@@ -39,41 +43,41 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
+                EnsureValidObjectId(assignmentId, "Mã bài tập");
+
                 var scores = await _scores.Find(s => s.AssignmentId == assignmentId).ToListAsync();
-                var result = new List<ScoreResponse>();
+                var assignment = await SafeGetAssignmentAsync(assignmentId);
+                return await BuildScoreResponsesAsync(scores, assignment);
+            }
+            catch (BsonSerializationException ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "⚠️ Deserialization error while reading scores for assignment {AssignmentId}. Falling back to tolerant document mapping.",
+                    assignmentId);
 
-                var assignment = await _assignments.Find(a => a.Id == assignmentId).FirstOrDefaultAsync();
+                return await GetScoresByAssignmentFromRawDocumentsAsync(assignmentId);
+            }
+            catch (FormatException ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "⚠️ Invalid score document format while reading scores for assignment {AssignmentId}. Falling back to tolerant document mapping.",
+                    assignmentId);
 
-                foreach (var score in scores)
-                {
-                    var student = await _students.Find(s => s.Id == score.StudentId).FirstOrDefaultAsync();
-
-                    var graderName = await ResolveGraderNameAsync(score.GradedBy);
-
-                    result.Add(new ScoreResponse
-                    {
-                        Id = score.Id,
-                        StudentId = score.StudentId,
-                        StudentFirstName = student?.FirstName ?? "",
-                        StudentMiddleName = student?.MiddleName ?? "",
-                        StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
-                        AssignmentId = score.AssignmentId,
-                        AssignmentName = assignment?.Name ?? "",
-                        ScoreValue = score.ScoreValue,
-                        Feedback = score.Feedback,
-                        AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
-                        GradedAt = score.GradedAt,
-                        GradedBy = score.GradedBy,
-                        GradedByName = graderName
-                    });
-                }
-
-                return result.OrderBy(r => r.StudentFullName).ToList();
+                return await GetScoresByAssignmentFromRawDocumentsAsync(assignmentId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Error getting scores for assignment {AssignmentId}", assignmentId);
-                throw;
+                var diagnostic = await BuildScoreSchemaDiagnosticAsync(assignmentId);
+                _logger.LogError(
+                    ex,
+                    "❌ Error getting scores for assignment {AssignmentId}. Diagnostic: {Diagnostic}",
+                    assignmentId,
+                    diagnostic);
+                throw new InvalidOperationException(
+                    $"Không thể đọc điểm của bài tập. {diagnostic}",
+                    ex);
             }
         }
 
@@ -413,45 +417,40 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
+                EnsureValidObjectId(classId, "Mã lớp");
+
                 var scores = await _scores.Find(s => s.ClassId == classId).ToListAsync();
-                var result = new List<ScoreResponse>();
+                return await BuildScoreResponsesForClassAsync(classId, scores);
+            }
+            catch (BsonSerializationException ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "⚠️ Deserialization error while reading scores for class {ClassId}. Falling back to tolerant document mapping.",
+                    classId);
 
-                // Lấy dữ liệu cần thiết
-                var assignments = await _assignments.Find(a => a.ClassId == classId).ToListAsync();
-                var students = await _students.Find(s => s.ClassId == classId).ToListAsync();
+                return await GetScoresByClassFromRawDocumentsAsync(classId);
+            }
+            catch (FormatException ex)
+            {
+                _logger.LogWarning(
+                    ex,
+                    "⚠️ Invalid score document format while reading scores for class {ClassId}. Falling back to tolerant document mapping.",
+                    classId);
 
-                foreach (var score in scores)
-                {
-                    var student = students.FirstOrDefault(st => st.Id == score.StudentId);
-                    var assignment = assignments.FirstOrDefault(a => a.Id == score.AssignmentId);
-
-                    var graderName = await ResolveGraderNameAsync(score.GradedBy);
-
-                    result.Add(new ScoreResponse
-                    {
-                        Id = score.Id,
-                        StudentId = score.StudentId,
-                        StudentFirstName = student?.FirstName ?? "",
-                        StudentMiddleName = student?.MiddleName ?? "",
-                        StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
-                        AssignmentId = score.AssignmentId,
-                        AssignmentName = assignment?.Name ?? "",
-                        ScoreValue = score.ScoreValue,
-                        Feedback = score.Feedback,
-                        AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
-                        GradedAt = score.GradedAt,
-                        GradedBy = score.GradedBy,
-                        GradedByName = graderName
-                    });
-                }
-
-                // Đảm bảo trả về đủ dữ liệu điểm các assignment, nếu học sinh chưa có score vẫn có thể default 0/undefined tại FE khi map
-                return result;
+                return await GetScoresByClassFromRawDocumentsAsync(classId);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "❌ Error getting all scores for class {ClassId}", classId);
-                throw;
+                var diagnostic = await BuildClassScoreSchemaDiagnosticAsync(classId);
+                _logger.LogError(
+                    ex,
+                    "❌ Error getting all scores for class {ClassId}. Diagnostic: {Diagnostic}",
+                    classId,
+                    diagnostic);
+                throw new InvalidOperationException(
+                    $"Không thể đọc điểm của lớp. {diagnostic}",
+                    ex);
             }
         }
 
@@ -555,6 +554,17 @@ namespace MOS.ExcelGrading.Core.Services
                 .ToList();
         }
 
+        private static List<string> NormalizeSingleTaskFeedbackLine(List<string>? lines)
+        {
+            var normalizedLines = NormalizeAutoGradingErrors(lines);
+            if (normalizedLines.Count <= 1)
+            {
+                return normalizedLines;
+            }
+
+            return new List<string> { normalizedLines[0] };
+        }
+
         private static List<AutoGradingTaskResultRequest> NormalizeAutoGradingTaskResults(
             List<AutoGradingTaskResultRequest>? autoGradingTaskResults)
         {
@@ -602,9 +612,9 @@ namespace MOS.ExcelGrading.Core.Services
                     normalizedScore = 0d;
                 }
 
-                var normalizedErrors = NormalizeAutoGradingErrors(item.Errors);
+                var normalizedErrors = NormalizeSingleTaskFeedbackLine(item.Errors);
                 var normalizedDetails = NormalizeAutoGradingErrors(item.Details);
-                var normalizedFixActions = NormalizeAutoGradingErrors(item.FixActions);
+                var normalizedFixActions = NormalizeSingleTaskFeedbackLine(item.FixActions);
 
                 normalized.Add(new AutoGradingTaskResultRequest
                 {
@@ -710,8 +720,636 @@ namespace MOS.ExcelGrading.Core.Services
                 return null;
             }
 
-            var grader = await _users.Find(u => u.Id == normalizedGraderId).FirstOrDefaultAsync();
-            return grader?.FullName ?? grader?.Username;
+            try
+            {
+                var grader = await _users.Find(u => u.Id == normalizedGraderId).FirstOrDefaultAsync();
+                return grader?.FullName ?? grader?.Username;
+            }
+            catch (BsonSerializationException ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Skipping invalid grader payload for user {UserId}", normalizedGraderId);
+                return null;
+            }
+        }
+
+        private async Task<List<ScoreResponse>> BuildScoreResponsesAsync(List<Score> scores, Assignment? assignment)
+        {
+            var result = new List<ScoreResponse>();
+
+            foreach (var score in scores)
+            {
+                var student = await SafeGetStudentAsync(score.StudentId);
+                var graderName = await ResolveGraderNameAsync(score.GradedBy);
+
+                result.Add(new ScoreResponse
+                {
+                    Id = score.Id,
+                    StudentId = score.StudentId,
+                    StudentFirstName = student?.FirstName ?? "",
+                    StudentMiddleName = student?.MiddleName ?? "",
+                    StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
+                    AssignmentId = score.AssignmentId,
+                    AssignmentName = assignment?.Name ?? "",
+                    ScoreValue = score.ScoreValue,
+                    Feedback = score.Feedback,
+                    AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                    GradedAt = score.GradedAt,
+                    GradedBy = score.GradedBy,
+                    GradedByName = graderName
+                });
+            }
+
+            return result.OrderBy(r => r.StudentFullName).ToList();
+        }
+
+        private async Task<List<ScoreResponse>> BuildScoreResponsesForClassAsync(string classId, List<Score> scores)
+        {
+            var result = new List<ScoreResponse>();
+
+            var assignments = await SafeGetAssignmentsByClassAsync(classId);
+            var assignmentsById = assignments.ToDictionary(assignment => assignment.Id, StringComparer.Ordinal);
+            var students = await SafeGetStudentsByClassAsync(classId);
+            var studentsById = students
+                .Where(student => !string.IsNullOrWhiteSpace(student.Id))
+                .ToDictionary(student => student.Id!, StringComparer.Ordinal);
+
+            foreach (var score in scores)
+            {
+                studentsById.TryGetValue(score.StudentId, out var student);
+                assignmentsById.TryGetValue(score.AssignmentId, out var assignment);
+                var graderName = await ResolveGraderNameAsync(score.GradedBy);
+
+                result.Add(new ScoreResponse
+                {
+                    Id = score.Id,
+                    StudentId = score.StudentId,
+                    StudentFirstName = student?.FirstName ?? "",
+                    StudentMiddleName = student?.MiddleName ?? "",
+                    StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
+                    AssignmentId = score.AssignmentId,
+                    AssignmentName = assignment?.Name ?? "",
+                    ScoreValue = score.ScoreValue,
+                    Feedback = score.Feedback,
+                    AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                    GradedAt = score.GradedAt,
+                    GradedBy = score.GradedBy,
+                    GradedByName = graderName
+                });
+            }
+
+            return result.OrderBy(r => r.StudentFullName).ToList();
+        }
+
+        private async Task<List<ScoreResponse>> GetScoresByAssignmentFromRawDocumentsAsync(string assignmentId)
+        {
+            var assignment = await SafeGetAssignmentAsync(assignmentId);
+            var assignmentFilter = Builders<BsonDocument>.Filter.Eq("assignmentId", assignmentId);
+            if (ObjectId.TryParse(assignmentId, out var assignmentObjectId))
+            {
+                assignmentFilter |= Builders<BsonDocument>.Filter.Eq("assignmentId", assignmentObjectId);
+            }
+
+            var documents = await _scoreDocuments.Find(assignmentFilter).ToListAsync();
+            var result = new List<ScoreResponse>();
+
+            foreach (var document in documents)
+            {
+                if (!TryMapScoreDocument(document, out var score))
+                {
+                    var documentId = ReadString(document, "_id") ?? "(unknown)";
+                    _logger.LogWarning(
+                        "⚠️ Skipping malformed score document {ScoreId} for assignment {AssignmentId}",
+                        documentId,
+                        assignmentId);
+                    continue;
+                }
+
+                var student = await SafeGetStudentAsync(score.StudentId);
+                var graderName = await ResolveGraderNameAsync(score.GradedBy);
+
+                result.Add(new ScoreResponse
+                {
+                    Id = score.Id,
+                    StudentId = score.StudentId,
+                    StudentFirstName = student?.FirstName ?? "",
+                    StudentMiddleName = student?.MiddleName ?? "",
+                    StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
+                    AssignmentId = score.AssignmentId,
+                    AssignmentName = assignment?.Name ?? "",
+                    ScoreValue = score.ScoreValue,
+                    Feedback = score.Feedback,
+                    AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                    GradedAt = score.GradedAt,
+                    GradedBy = score.GradedBy,
+                    GradedByName = graderName
+                });
+            }
+
+            return result.OrderBy(r => r.StudentFullName).ToList();
+        }
+
+        private async Task<List<ScoreResponse>> GetScoresByClassFromRawDocumentsAsync(string classId)
+        {
+            var classFilter = Builders<BsonDocument>.Filter.Eq("classId", classId);
+            if (ObjectId.TryParse(classId, out var classObjectId))
+            {
+                classFilter |= Builders<BsonDocument>.Filter.Eq("classId", classObjectId);
+            }
+
+            var documents = await _scoreDocuments.Find(classFilter).ToListAsync();
+            var assignments = await SafeGetAssignmentsByClassAsync(classId);
+            var assignmentsById = assignments.ToDictionary(assignment => assignment.Id, StringComparer.Ordinal);
+            var students = await SafeGetStudentsByClassAsync(classId);
+            var studentsById = students
+                .Where(student => !string.IsNullOrWhiteSpace(student.Id))
+                .ToDictionary(student => student.Id!, StringComparer.Ordinal);
+            var result = new List<ScoreResponse>();
+
+            foreach (var document in documents)
+            {
+                if (!TryMapScoreDocument(document, out var score))
+                {
+                    var documentId = ReadString(document, "_id") ?? "(unknown)";
+                    _logger.LogWarning(
+                        "⚠️ Skipping malformed score document {ScoreId} for class {ClassId}",
+                        documentId,
+                        classId);
+                    continue;
+                }
+
+                studentsById.TryGetValue(score.StudentId, out var student);
+                assignmentsById.TryGetValue(score.AssignmentId, out var assignment);
+                var graderName = await ResolveGraderNameAsync(score.GradedBy);
+
+                result.Add(new ScoreResponse
+                {
+                    Id = score.Id,
+                    StudentId = score.StudentId,
+                    StudentFirstName = student?.FirstName ?? "",
+                    StudentMiddleName = student?.MiddleName ?? "",
+                    StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
+                    AssignmentId = score.AssignmentId,
+                    AssignmentName = assignment?.Name ?? "",
+                    ScoreValue = score.ScoreValue,
+                    Feedback = score.Feedback,
+                    AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                    GradedAt = score.GradedAt,
+                    GradedBy = score.GradedBy,
+                    GradedByName = graderName
+                });
+            }
+
+            return result.OrderBy(r => r.StudentFullName).ToList();
+        }
+
+        private async Task<Student?> SafeGetStudentAsync(string? studentId)
+        {
+            if (string.IsNullOrWhiteSpace(studentId) || !ObjectId.TryParse(studentId.Trim(), out _))
+            {
+                return null;
+            }
+
+            try
+            {
+                return await _students.Find(s => s.Id == studentId).FirstOrDefaultAsync();
+            }
+            catch (BsonSerializationException ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Skipping invalid student payload for student {StudentId}", studentId);
+                return null;
+            }
+        }
+
+        private async Task<List<Student>> SafeGetStudentsByClassAsync(string classId)
+        {
+            try
+            {
+                return await _students.Find(s => s.ClassId == classId).ToListAsync();
+            }
+            catch (BsonSerializationException ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Unable to fully deserialize students for class {ClassId}; returning partial empty list.", classId);
+                return new List<Student>();
+            }
+        }
+
+        private async Task<List<Assignment>> SafeGetAssignmentsByClassAsync(string classId)
+        {
+            try
+            {
+                return await _assignments.Find(a => a.ClassId == classId).ToListAsync();
+            }
+            catch (BsonSerializationException ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Unable to fully deserialize assignments for class {ClassId}; returning partial empty list.", classId);
+                return new List<Assignment>();
+            }
+        }
+
+        private async Task<string> BuildScoreSchemaDiagnosticAsync(string assignmentId)
+        {
+            try
+            {
+                var assignment = await _assignmentDocuments
+                    .Find(Builders<BsonDocument>.Filter.Eq("_id", ObjectId.Parse(assignmentId)))
+                    .FirstOrDefaultAsync();
+
+                var endpoint = assignment == null ? "(không rõ endpoint)" : ReadString(assignment, "gradingApiEndpoint") ?? "(trống)";
+                var assignmentName = assignment == null ? "(không rõ tên)" : ReadString(assignment, "name") ?? "(trống)";
+
+                var assignmentFilter = Builders<BsonDocument>.Filter.Eq("assignmentId", assignmentId);
+                if (ObjectId.TryParse(assignmentId, out var assignmentObjectId))
+                {
+                    assignmentFilter |= Builders<BsonDocument>.Filter.Eq("assignmentId", assignmentObjectId);
+                }
+
+                var rawScores = await _scoreDocuments.Find(assignmentFilter).Limit(5).ToListAsync();
+                if (rawScores.Count == 0)
+                {
+                    return $"Assignment '{assignmentName}' ({endpoint}) chưa có score document nào.";
+                }
+
+                foreach (var score in rawScores)
+                {
+                    var problems = InspectScoreDocumentShape(score);
+                    if (problems.Count > 0)
+                    {
+                        var scoreId = ReadString(score, "_id") ?? "(unknown)";
+                        return $"Assignment '{assignmentName}' ({endpoint}) có score {scoreId} lệch schema: {string.Join("; ", problems)}";
+                    }
+                }
+
+                var fieldSummary = SummarizeScoreFieldTypes(rawScores);
+                return $"Assignment '{assignmentName}' ({endpoint}) không có field bắt buộc sai rõ ràng, nhưng schema thực tế là: {fieldSummary}";
+            }
+            catch (Exception diagnosticEx)
+            {
+                _logger.LogWarning(diagnosticEx, "⚠️ Unable to build score schema diagnostic for assignment {AssignmentId}", assignmentId);
+                return "Không lấy được chẩn đoán schema từ raw score documents.";
+            }
+        }
+
+        private async Task<string> BuildClassScoreSchemaDiagnosticAsync(string classId)
+        {
+            try
+            {
+                var classFilter = Builders<BsonDocument>.Filter.Eq("classId", classId);
+                if (ObjectId.TryParse(classId, out var classObjectId))
+                {
+                    classFilter |= Builders<BsonDocument>.Filter.Eq("classId", classObjectId);
+                }
+
+                var rawScores = await _scoreDocuments.Find(classFilter).Limit(5).ToListAsync();
+                if (rawScores.Count == 0)
+                {
+                    return $"Lớp {classId} chưa có score document nào hoặc score đang lưu bằng schema/filter khác.";
+                }
+
+                foreach (var score in rawScores)
+                {
+                    var problems = InspectScoreDocumentShape(score);
+                    if (problems.Count > 0)
+                    {
+                        var scoreId = ReadString(score, "_id") ?? "(unknown)";
+                        return $"Lớp {classId} có score {scoreId} lệch schema: {string.Join("; ", problems)}";
+                    }
+                }
+
+                var fieldSummary = SummarizeScoreFieldTypes(rawScores);
+                return $"Schema điểm của lớp {classId}: {fieldSummary}";
+            }
+            catch (Exception diagnosticEx)
+            {
+                _logger.LogWarning(diagnosticEx, "⚠️ Unable to build class score schema diagnostic for class {ClassId}", classId);
+                return "Không lấy được chẩn đoán schema từ raw class score documents.";
+            }
+        }
+
+        private static List<string> InspectScoreDocumentShape(BsonDocument score)
+        {
+            var problems = new List<string>();
+
+            ValidateObjectIdLikeField(score, "_id", problems);
+            ValidateObjectIdLikeField(score, "studentId", problems);
+            ValidateObjectIdLikeField(score, "assignmentId", problems);
+            ValidateObjectIdLikeField(score, "classId", problems);
+            ValidateOptionalObjectIdLikeField(score, "gradedBy", problems);
+            ValidateOptionalObjectIdLikeField(score, "createdBy", problems);
+            ValidateOptionalObjectIdLikeField(score, "updatedBy", problems);
+            ValidateOptionalNumericField(score, "scoreValue", problems);
+            ValidateOptionalStringField(score, "feedback", problems);
+            ValidateOptionalStringArrayField(score, "autoGradingErrors", problems);
+            ValidateOptionalDateField(score, "gradedAt", problems);
+            ValidateOptionalDateField(score, "createdAt", problems);
+            ValidateOptionalDateField(score, "updatedAt", problems);
+
+            return problems;
+        }
+
+        private static void ValidateObjectIdLikeField(BsonDocument document, string fieldName, List<string> problems)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                problems.Add($"{fieldName} bị thiếu");
+                return;
+            }
+
+            if (value.BsonType == BsonType.ObjectId)
+            {
+                return;
+            }
+
+            if (value.BsonType == BsonType.String && ObjectId.TryParse(value.AsString, out _))
+            {
+                return;
+            }
+
+            problems.Add($"{fieldName} có kiểu {DescribeBsonValue(value)}");
+        }
+
+        private static void ValidateOptionalObjectIdLikeField(BsonDocument document, string fieldName, List<string> problems)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType == BsonType.ObjectId)
+            {
+                return;
+            }
+
+            if (value.BsonType == BsonType.String && ObjectId.TryParse(value.AsString, out _))
+            {
+                return;
+            }
+
+            problems.Add($"{fieldName} có kiểu {DescribeBsonValue(value)}");
+        }
+
+        private static void ValidateOptionalNumericField(BsonDocument document, string fieldName, List<string> problems)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType is BsonType.Double or BsonType.Int32 or BsonType.Int64 or BsonType.Decimal128)
+            {
+                return;
+            }
+
+            if (value.BsonType == BsonType.String && double.TryParse(value.AsString, out _))
+            {
+                return;
+            }
+
+            problems.Add($"{fieldName} có kiểu {DescribeBsonValue(value)}");
+        }
+
+        private static void ValidateOptionalStringField(BsonDocument document, string fieldName, List<string> problems)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType != BsonType.String)
+            {
+                problems.Add($"{fieldName} có kiểu {DescribeBsonValue(value)}");
+            }
+        }
+
+        private static void ValidateOptionalStringArrayField(BsonDocument document, string fieldName, List<string> problems)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType != BsonType.Array)
+            {
+                problems.Add($"{fieldName} có kiểu {DescribeBsonValue(value)}");
+                return;
+            }
+
+            var invalidElement = value.AsBsonArray.FirstOrDefault(item => item is { IsBsonNull: false, BsonType: not BsonType.String });
+            if (invalidElement != null)
+            {
+                problems.Add($"{fieldName} chứa phần tử kiểu {DescribeBsonValue(invalidElement)}");
+            }
+        }
+
+        private static void ValidateOptionalDateField(BsonDocument document, string fieldName, List<string> problems)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType == BsonType.DateTime)
+            {
+                return;
+            }
+
+            if (value.BsonType == BsonType.String && DateTime.TryParse(value.AsString, out _))
+            {
+                return;
+            }
+
+            problems.Add($"{fieldName} có kiểu {DescribeBsonValue(value)}");
+        }
+
+        private static string SummarizeScoreFieldTypes(List<BsonDocument> rawScores)
+        {
+            var fields = new[]
+            {
+                "_id",
+                "studentId",
+                "assignmentId",
+                "classId",
+                "scoreValue",
+                "feedback",
+                "autoGradingErrors",
+                "gradedAt",
+                "gradedBy",
+                "createdAt",
+                "createdBy",
+                "updatedAt",
+                "updatedBy"
+            };
+
+            var summaries = new List<string>();
+            foreach (var field in fields)
+            {
+                var types = rawScores
+                    .Where(doc => doc.Contains(field))
+                    .Select(doc => DescribeBsonValue(doc[field]))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (types.Count == 0)
+                {
+                    continue;
+                }
+
+                summaries.Add($"{field}=[{string.Join(", ", types)}]");
+            }
+
+            return string.Join("; ", summaries);
+        }
+
+        private static string DescribeBsonValue(BsonValue value)
+        {
+            if (value.IsBsonNull)
+            {
+                return "Null";
+            }
+
+            if (value.BsonType != BsonType.Array)
+            {
+                return value.BsonType.ToString();
+            }
+
+            var elementTypes = value.AsBsonArray
+                .Select(item => item.IsBsonNull ? "Null" : item.BsonType.ToString())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            return elementTypes.Count == 0
+                ? "Array<empty>"
+                : $"Array<{string.Join("|", elementTypes)}>";
+        }
+
+        private async Task<Assignment?> SafeGetAssignmentAsync(string? assignmentId)
+        {
+            if (string.IsNullOrWhiteSpace(assignmentId) || !ObjectId.TryParse(assignmentId.Trim(), out _))
+            {
+                return null;
+            }
+
+            try
+            {
+                return await _assignments.Find(a => a.Id == assignmentId).FirstOrDefaultAsync();
+            }
+            catch (BsonSerializationException ex)
+            {
+                _logger.LogWarning(ex, "⚠️ Skipping invalid assignment payload for assignment {AssignmentId}", assignmentId);
+                return null;
+            }
+        }
+
+        private static bool TryMapScoreDocument(BsonDocument document, out Score score)
+        {
+            score = new Score();
+
+            try
+            {
+                var id = ReadString(document, "_id");
+                var studentId = ReadString(document, "studentId");
+                var assignmentId = ReadString(document, "assignmentId");
+                var classId = ReadString(document, "classId");
+
+                if (string.IsNullOrWhiteSpace(id) ||
+                    string.IsNullOrWhiteSpace(studentId) ||
+                    string.IsNullOrWhiteSpace(assignmentId) ||
+                    string.IsNullOrWhiteSpace(classId))
+                {
+                    return false;
+                }
+
+                score = new Score
+                {
+                    Id = id,
+                    StudentId = studentId,
+                    AssignmentId = assignmentId,
+                    ClassId = classId,
+                    ScoreValue = ReadDouble(document, "scoreValue"),
+                    Feedback = ReadString(document, "feedback"),
+                    AutoGradingErrors = ReadStringList(document, "autoGradingErrors"),
+                    GradedAt = ReadDateTime(document, "gradedAt"),
+                    GradedBy = ReadString(document, "gradedBy"),
+                    CreatedAt = ReadDateTime(document, "createdAt") ?? DateTime.UtcNow,
+                    CreatedBy = ReadString(document, "createdBy"),
+                    UpdatedAt = ReadDateTime(document, "updatedAt"),
+                    UpdatedBy = ReadString(document, "updatedBy")
+                };
+
+                return true;
+            }
+            catch
+            {
+                score = new Score();
+                return false;
+            }
+        }
+
+        private static string? ReadString(BsonDocument document, string fieldName)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return null;
+            }
+
+            return value.BsonType switch
+            {
+                BsonType.ObjectId => value.AsObjectId.ToString(),
+                BsonType.String => value.AsString,
+                _ => value.ToString()
+            };
+        }
+
+        private static double? ReadDouble(BsonDocument document, string fieldName)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return null;
+            }
+
+            return value.BsonType switch
+            {
+                BsonType.Double => value.AsDouble,
+                BsonType.Int32 => value.AsInt32,
+                BsonType.Int64 => value.AsInt64,
+                BsonType.Decimal128 => (double)value.AsDecimal128,
+                BsonType.String when double.TryParse(value.AsString, out var parsed) => parsed,
+                _ => null
+            };
+        }
+
+        private static DateTime? ReadDateTime(BsonDocument document, string fieldName)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return null;
+            }
+
+            return value.BsonType switch
+            {
+                BsonType.DateTime => value.ToUniversalTime(),
+                BsonType.String when DateTime.TryParse(value.AsString, out var parsed) => parsed,
+                _ => null
+            };
+        }
+
+        private static List<string> ReadStringList(BsonDocument document, string fieldName)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return new List<string>();
+            }
+
+            if (value.BsonType != BsonType.Array)
+            {
+                var singleValue = ReadString(document, fieldName);
+                return string.IsNullOrWhiteSpace(singleValue) ? new List<string>() : new List<string> { singleValue };
+            }
+
+            return value.AsBsonArray
+                .Select(item => item.IsBsonNull ? null : item.ToString())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Select(item => item!.Trim())
+                .ToList();
         }
 
         private async Task SaveGradingAttemptFromSavedScoreAsync(

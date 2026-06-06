@@ -108,6 +108,7 @@ namespace MOS.ExcelGrading.Core.Services
                         ScoreValue = score.ScoreValue,
                         Feedback = score.Feedback,
                         AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                        AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
                         GradedAt = score.GradedAt,
                         GradedBy = score.GradedBy,
                         GradedByName = graderName
@@ -152,6 +153,7 @@ namespace MOS.ExcelGrading.Core.Services
                         MaxScore = assignment.MaxScore,
                         Feedback = score?.Feedback,
                         AutoGradingErrors = score?.AutoGradingErrors ?? new List<string>(),
+                        AutoGradingTaskResults = MapAutoGradingTaskResults(score?.AutoGradingTaskResults),
                         GradedAt = score?.GradedAt
                     });
 
@@ -244,6 +246,7 @@ namespace MOS.ExcelGrading.Core.Services
                         .Set(s => s.ScoreValue, normalizedScoreValue)
                         .Set(s => s.Feedback, normalizedFeedback)
                         .Set(s => s.AutoGradingErrors, normalizedAutoErrors)
+                        .Set(s => s.AutoGradingTaskResults, MapScoreTaskResults(normalizedAutoTaskResults))
                         .Set(s => s.GradedAt, DateTime.UtcNow)
                         .Set(s => s.GradedBy, gradedBy)
                         .Set(s => s.UpdatedAt, DateTime.UtcNow)
@@ -256,6 +259,7 @@ namespace MOS.ExcelGrading.Core.Services
                     existingScore.ScoreValue = normalizedScoreValue;
                     existingScore.Feedback = normalizedFeedback;
                     existingScore.AutoGradingErrors = normalizedAutoErrors;
+                    existingScore.AutoGradingTaskResults = MapScoreTaskResults(normalizedAutoTaskResults);
                     existingScore.GradedAt = DateTime.UtcNow;
                     existingScore.GradedBy = gradedBy;
                     existingScore.UpdatedAt = DateTime.UtcNow;
@@ -280,6 +284,7 @@ namespace MOS.ExcelGrading.Core.Services
                         ScoreValue = normalizedScoreValue,
                         Feedback = normalizedFeedback,
                         AutoGradingErrors = normalizedAutoErrors,
+                        AutoGradingTaskResults = MapScoreTaskResults(normalizedAutoTaskResults),
                         GradedAt = DateTime.UtcNow,
                         GradedBy = gradedBy,
                         CreatedBy = gradedBy,
@@ -707,6 +712,48 @@ namespace MOS.ExcelGrading.Core.Services
                 .ToList();
         }
 
+        private static List<ScoreTaskResult> MapScoreTaskResults(
+            List<AutoGradingTaskResultRequest>? taskResults)
+        {
+            if (taskResults == null || taskResults.Count == 0)
+            {
+                return new List<ScoreTaskResult>();
+            }
+
+            return taskResults.Select(task => new ScoreTaskResult
+            {
+                TaskId = task.TaskId,
+                TaskName = task.TaskName,
+                Score = task.Score,
+                MaxScore = task.MaxScore,
+                IsPassed = task.IsPassed,
+                Details = task.Details ?? new List<string>(),
+                Errors = task.Errors ?? new List<string>(),
+                FixActions = task.FixActions ?? new List<string>()
+            }).ToList();
+        }
+
+        private static List<AutoGradingTaskResultRequest> MapAutoGradingTaskResults(
+            List<ScoreTaskResult>? taskResults)
+        {
+            if (taskResults == null || taskResults.Count == 0)
+            {
+                return new List<AutoGradingTaskResultRequest>();
+            }
+
+            return taskResults.Select(task => new AutoGradingTaskResultRequest
+            {
+                TaskId = task.TaskId,
+                TaskName = task.TaskName,
+                Score = task.Score,
+                MaxScore = task.MaxScore,
+                IsPassed = task.IsPassed,
+                Details = task.Details ?? new List<string>(),
+                Errors = task.Errors ?? new List<string>(),
+                FixActions = task.FixActions ?? new List<string>()
+            }).ToList();
+        }
+
         private async Task<string?> ResolveGraderNameAsync(string? graderId)
         {
             if (string.IsNullOrWhiteSpace(graderId))
@@ -753,6 +800,7 @@ namespace MOS.ExcelGrading.Core.Services
                     ScoreValue = score.ScoreValue,
                     Feedback = score.Feedback,
                     AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                    AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
                     GradedAt = score.GradedAt,
                     GradedBy = score.GradedBy,
                     GradedByName = graderName
@@ -791,6 +839,7 @@ namespace MOS.ExcelGrading.Core.Services
                     ScoreValue = score.ScoreValue,
                     Feedback = score.Feedback,
                     AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                    AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
                     GradedAt = score.GradedAt,
                     GradedBy = score.GradedBy,
                     GradedByName = graderName
@@ -839,6 +888,7 @@ namespace MOS.ExcelGrading.Core.Services
                     ScoreValue = score.ScoreValue,
                     Feedback = score.Feedback,
                     AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                    AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
                     GradedAt = score.GradedAt,
                     GradedBy = score.GradedBy,
                     GradedByName = graderName
@@ -893,6 +943,7 @@ namespace MOS.ExcelGrading.Core.Services
                     ScoreValue = score.ScoreValue,
                     Feedback = score.Feedback,
                     AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                    AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
                     GradedAt = score.GradedAt,
                     GradedBy = score.GradedBy,
                     GradedByName = graderName
@@ -1267,6 +1318,7 @@ namespace MOS.ExcelGrading.Core.Services
                     ScoreValue = ReadDouble(document, "scoreValue"),
                     Feedback = ReadString(document, "feedback"),
                     AutoGradingErrors = ReadStringList(document, "autoGradingErrors"),
+                    AutoGradingTaskResults = ReadTaskResults(document, "autoGradingTaskResults"),
                     GradedAt = ReadDateTime(document, "gradedAt"),
                     GradedBy = ReadString(document, "gradedBy"),
                     CreatedAt = ReadDateTime(document, "createdAt") ?? DateTime.UtcNow,
@@ -1349,6 +1401,30 @@ namespace MOS.ExcelGrading.Core.Services
                 .Select(item => item.IsBsonNull ? null : item.ToString())
                 .Where(item => !string.IsNullOrWhiteSpace(item))
                 .Select(item => item!.Trim())
+                .ToList();
+        }
+
+        private static List<ScoreTaskResult> ReadTaskResults(BsonDocument document, string fieldName)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull || value.BsonType != BsonType.Array)
+            {
+                return new List<ScoreTaskResult>();
+            }
+
+            return value.AsBsonArray
+                .OfType<BsonDocument>()
+                .Select(item => new ScoreTaskResult
+                {
+                    TaskId = ReadString(item, "taskId") ?? string.Empty,
+                    TaskName = ReadString(item, "taskName") ?? string.Empty,
+                    Score = ReadDouble(item, "score") ?? 0,
+                    MaxScore = ReadDouble(item, "maxScore") ?? 0,
+                    IsPassed = item.TryGetValue("isPassed", out var isPassedValue) && isPassedValue.ToBoolean(),
+                    Details = ReadStringList(item, "details"),
+                    Errors = ReadStringList(item, "errors"),
+                    FixActions = ReadStringList(item, "fixActions")
+                })
+                .Where(item => !string.IsNullOrWhiteSpace(item.TaskId) || !string.IsNullOrWhiteSpace(item.TaskName))
                 .ToList();
         }
 

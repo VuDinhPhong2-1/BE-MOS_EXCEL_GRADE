@@ -17,6 +17,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public double? ScoreValue { get; set; }
         public string? Feedback { get; set; }
         public List<string>? AutoGradingErrors { get; set; }
+        public List<AutoGradingTaskResultRequest>? AutoGradingTaskResults { get; set; }
     }
 
     public class BulkScoreRequest
@@ -59,6 +60,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public double? ScoreValue { get; set; }
         public string? Feedback { get; set; }
         public List<string> AutoGradingErrors { get; set; } = new();
+        public List<AutoGradingTaskResultRequest> AutoGradingTaskResults { get; set; } = new();
         public DateTime? GradedAt { get; set; }
         public string? GradedBy { get; set; }
         public string? GradedByName { get; set; }
@@ -81,6 +83,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public double MaxScore { get; set; }
         public string? Feedback { get; set; }
         public List<string> AutoGradingErrors { get; set; } = new();
+        public List<AutoGradingTaskResultRequest> AutoGradingTaskResults { get; set; } = new();
         public DateTime? GradedAt { get; set; }
     }
 }

@@ -52,11 +52,11 @@ namespace MOS.ExcelGrading.Core.Services
             var classInfo = await ResolveClassAsync(schedule, ownerId, isAdmin);
             if (classInfo == null)
             {
-                throw new InvalidOperationException("Lich day chua gan lop hop le, khong the diem danh.");
+                throw new InvalidOperationException("Lịch dạy chưa gắn lớp hợp lệ, không thể điểm danh.");
             }
             if (string.IsNullOrWhiteSpace(classInfo.Id))
             {
-                throw new InvalidOperationException("Khong tim thay ma lop hop le de diem danh.");
+                throw new InvalidOperationException("Không tìm thấy mã lớp hợp lệ để điểm danh.");
             }
 
             var students = await _students
@@ -115,11 +115,11 @@ namespace MOS.ExcelGrading.Core.Services
             var classInfo = await ResolveClassAsync(schedule, ownerId, isAdmin);
             if (classInfo == null)
             {
-                throw new InvalidOperationException("Lich day chua gan lop hop le, khong the luu diem danh.");
+                throw new InvalidOperationException("Lịch dạy chưa gắn lớp hợp lệ, không thể lưu điểm danh.");
             }
             if (string.IsNullOrWhiteSpace(classInfo.Id))
             {
-                throw new InvalidOperationException("Khong tim thay ma lop hop le de luu diem danh.");
+                throw new InvalidOperationException("Không tìm thấy mã lớp hợp lệ để lưu điểm danh.");
             }
 
             var classStudentIds = await _students

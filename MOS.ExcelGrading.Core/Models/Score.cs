@@ -37,6 +37,9 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("autoGradingErrors")]
         public List<string> AutoGradingErrors { get; set; } = new();
 
+        [BsonElement("autoGradingTaskResults")]
+        public List<ScoreTaskResult> AutoGradingTaskResults { get; set; } = new();
+
         [BsonElement("gradedAt")]
         public DateTime? GradedAt { get; set; }
 
@@ -58,5 +61,32 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonRepresentation(BsonType.ObjectId)]
         [BsonElement("updatedBy")]
         public string? UpdatedBy { get; set; }
+    }
+
+    public class ScoreTaskResult
+    {
+        [BsonElement("taskId")]
+        public string TaskId { get; set; } = string.Empty;
+
+        [BsonElement("taskName")]
+        public string TaskName { get; set; } = string.Empty;
+
+        [BsonElement("score")]
+        public double Score { get; set; }
+
+        [BsonElement("maxScore")]
+        public double MaxScore { get; set; }
+
+        [BsonElement("isPassed")]
+        public bool IsPassed { get; set; }
+
+        [BsonElement("details")]
+        public List<string> Details { get; set; } = new();
+
+        [BsonElement("errors")]
+        public List<string> Errors { get; set; } = new();
+
+        [BsonElement("fixActions")]
+        public List<string> FixActions { get; set; } = new();
     }
 }

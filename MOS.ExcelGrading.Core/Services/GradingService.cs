@@ -31,6 +31,7 @@ using MOS.ExcelGrading.Core.Graders.Word.Project07;
 using MOS.ExcelGrading.Core.Graders.Word.Project09;
 using MOS.ExcelGrading.Core.Graders.Word.Project11;
 using MOS.ExcelGrading.Core.Graders.Word.Project13;
+using MOS.ExcelGrading.Core.Graders.Word.Project15;
 using System.Text;
 
 namespace MOS.ExcelGrading.Core.Services
@@ -313,6 +314,10 @@ namespace MOS.ExcelGrading.Core.Services
 
             _wordProjectGraders[11] = CreateWordProject11Graders();
             _wordProjectGraders[13] = CreateWordProject13LogicGraders(13);
+            _wordProjectGraders[15] = new List<IWordTaskGrader>
+            {
+                new WP15T1Grader()
+            };
 
             ExcelPackage.LicenseContext = LicenseContext.NonCommercial;
         }
@@ -474,8 +479,8 @@ namespace MOS.ExcelGrading.Core.Services
                 result.TaskResults.Add(new TaskResult
                 {
                     TaskId = "ERROR",
-                    TaskName = "Loi he thong",
-                    Errors = new List<string> { $"Loi: {ex.Message}" }
+                    TaskName = "Lỗi hệ thống",
+                    Errors = new List<string> { $"Lỗi: {ex.Message}" }
                 });
                 ApplyProjectScoringModel(result);
             }

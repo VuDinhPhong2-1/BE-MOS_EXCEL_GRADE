@@ -12,7 +12,6 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
 
         public string TaskId { get; }
         public string TaskName => "Kiểm tra Accessibility và thêm tiêu đề cho bảng";
-        public string TaskName => "Kiểm tra Accessibility và thêm tiêu đề cho bảng";
         public decimal MaxScore => 20m;
 
         public TaskResult Grade(WordGradingContext studentDocument)

@@ -12,7 +12,6 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
 
         public string TaskId { get; }
         public string TaskName => "Đặt trang 3 ở hướng Landscape";
-        public string TaskName => "Đặt trang 3 ở hướng Landscape";
         public decimal MaxScore => 20m;
 
         public TaskResult Grade(WordGradingContext studentDocument)
@@ -44,8 +43,6 @@ namespace MOS.ExcelGrading.Core.Graders.Word.Project13
             {
                 WP13GraderHelpers.AddError(
                     result,
-                    "Toàn bộ tài liệu hoặc quá nhiều section đang ở hướng Landscape, chưa giới hạn riêng trang 3.",
-                    "Chỉ chọn/tách riêng trang 3 rồi áp dụng Layout > Orientation > Landscape; các trang còn lại giữ Portrait.");
                     "Toàn bộ tài liệu hoặc quá nhiều section đang ở hướng Landscape, chưa giới hạn riêng trang 3.",
                     "Chỉ chọn/tách riêng trang 3 rồi áp dụng Layout > Orientation > Landscape; các trang còn lại giữ Portrait.");
             }

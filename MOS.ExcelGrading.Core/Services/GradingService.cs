@@ -1079,7 +1079,7 @@ namespace MOS.ExcelGrading.Core.Services
             foreach (var task in result.TaskResults)
             {
                 task.Errors = NormalizeSingleFeedbackLine(task.Errors);
-                task.FixActions = NormalizeSingleFeedbackLine(task.FixActions);
+                task.FixActions = new SingleFixActionList(NormalizeSingleFeedbackLine(task.FixActions));
             }
         }
 

@@ -645,7 +645,7 @@ namespace MOS.ExcelGrading.Core.Services
                         MaxScore = (decimal)task.MaxScore,
                         Details = task.Details ?? new List<string>(),
                         Errors = task.Errors ?? new List<string>(),
-                        FixActions = task.FixActions ?? new List<string>()
+                        FixActions = new SingleFixActionList(task.FixActions)
                     })
                     .ToList();
             }

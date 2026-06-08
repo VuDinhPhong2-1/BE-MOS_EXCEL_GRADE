@@ -24,39 +24,49 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 var ws = P06GraderHelpers.GetSheet(studentSheet, "Summary");
                 if (ws == null)
                 {
-                    result.Errors.Add("Không tìm thấy sheet 'Summary'.");
+                    TaskResultIssueHelper.AddIssue(result, "Khong tim thay sheet 'Summary'.");
                     return result;
                 }
 
                 var targetRule = ws.ConditionalFormatting.FirstOrDefault(cf =>
                     cf.Type == OfficeOpenXml.ConditionalFormatting.eExcelConditionalFormattingRuleType.GreaterThan &&
                     P06GraderHelpers.NormalizeAddress(cf.Address.Address) == "F4:F11");
+
                 if (targetRule == null)
                 {
-                    result.Errors.Add("Không tìm thấy rule Conditional Formatting đúng cho F4:F11 với điều kiện Greater Than.");
+                    TaskResultIssueHelper.AddIssue(
+                        result,
+                        "Khong tim thay rule Conditional Formatting dung cho F4:F11 voi dieu kien Greater Than.",
+                        "Tao Conditional Formatting cho vung F4:F11 voi quy tac Greater Than 5000000.");
                     return result;
                 }
 
-                decimal score = 1m; // Tim thay rule dung range + operator.
-                result.Details.Add("Đã tìm thấy rule Conditional Formatting tại F4:F11.");
+                decimal score = 1m;
+                result.Details.Add("Da tim thay rule Conditional Formatting tai F4:F11.");
 
                 var formula = targetRule.GetType().GetProperty("Formula")?.GetValue(targetRule)?.ToString() ?? string.Empty;
                 var formulaNormalized = P06GraderHelpers.NormalizeFormula(formula);
                 if (formulaNormalized == "5000000")
                 {
                     score += 1m;
-                    result.Details.Add("Điều kiện so sánh đúng ngưỡng 5,000,000.");
+                    result.Details.Add("Dieu kien so sanh dung nguong 5,000,000.");
                 }
                 else
                 {
-                    result.Errors.Add($"Ngưỡng Greater Than chưa đúng. Hiện tại: '{formula}'.");
+                    TaskResultIssueHelper.AddIssue(
+                        result,
+                        $"Nguong Greater Than chua dung. Hien tai: '{formula}'.",
+                        "Sua lai Conditional Formatting rule thanh Greater Than 5000000 cho vung F4:F11.");
                 }
 
                 var fontColor = targetRule.Style.Font.Color.Color;
                 var bgColor = targetRule.Style.Fill.BackgroundColor.Color;
                 if (!fontColor.HasValue || !bgColor.HasValue)
                 {
-                    result.Errors.Add("Không đọc được style màu của Conditional Formatting.");
+                    TaskResultIssueHelper.AddIssue(
+                        result,
+                        "Khong doc duoc style mau cua Conditional Formatting.",
+                        "Mo lai rule Conditional Formatting va chon dung mau chu Dark Yellow cung nen Yellow.");
                     result.Score = Math.Min(MaxScore, score);
                     return result;
                 }
@@ -67,33 +77,37 @@ namespace MOS.ExcelGrading.Core.Graders.Project06
                 if (fontArgb == unchecked((int)0xFF9C5700))
                 {
                     score += 1m;
-                    result.Details.Add("Màu chữ dùng Dark Yellow (FF9C5700).");
+                    result.Details.Add("Mau chu dung Dark Yellow (FF9C5700).");
                 }
                 else
                 {
-                    result.Errors.Add($"Màu chữ chưa đúng Dark Yellow. Hiện tại: ARGB {fontArgb:X8}.");
+                    TaskResultIssueHelper.AddIssue(
+                        result,
+                        $"Mau chu chua dung Dark Yellow. Hien tai: ARGB {fontArgb:X8}.",
+                        "Trong Conditional Formatting, doi Font Color thanh Dark Yellow.");
                 }
 
                 if (bgArgb == unchecked((int)0xFFFFEB9C))
                 {
                     score += 1m;
-                    result.Details.Add("Màu nền dùng Yellow (FFFFEB9C).");
+                    result.Details.Add("Mau nen dung Yellow (FFFFEB9C).");
                 }
                 else
                 {
-                    result.Errors.Add($"Màu nền chưa đúng Yellow. Hiện tại: ARGB {bgArgb:X8}.");
+                    TaskResultIssueHelper.AddIssue(
+                        result,
+                        $"Mau nen chua dung Yellow. Hien tai: ARGB {bgArgb:X8}.",
+                        "Trong Conditional Formatting, doi Fill/Background thanh Yellow.");
                 }
 
                 result.Score = Math.Min(MaxScore, score);
             }
             catch (Exception ex)
             {
-                result.Errors.Add($"Lỗi: {ex.Message}");
+                TaskResultIssueHelper.AddIssue(result, $"Loi: {ex.Message}");
             }
 
             return result;
         }
     }
 }
-
-// minor-sync: non-functional graders update

@@ -28,7 +28,7 @@ namespace MOS.ExcelGrading.Api.UnitTests
                 .ReturnsAsync(new GradingResult { ProjectId = "word07", TotalScore = 1, MaxScore = 1 });
 
             analytics
-                .Setup(a => a.SaveGradingAttemptAsync(It.IsAny<GradingResult>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<bool>() ))
+                .Setup(a => a.SaveGradingAttemptAsync(It.IsAny<GradingResult>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<string?>(), It.IsAny<bool>() ))
                 .Returns(Task.CompletedTask);
 
             var controller = new GradingController(gradingService.Object, analytics.Object, logger.Object);

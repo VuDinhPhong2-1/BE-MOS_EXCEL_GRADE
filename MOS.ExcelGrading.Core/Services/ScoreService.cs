@@ -93,26 +93,7 @@ namespace MOS.ExcelGrading.Core.Services
                 foreach (var score in scores)
                 {
                     var assignment = await _assignments.Find(a => a.Id == score.AssignmentId).FirstOrDefaultAsync();
-
-                    var graderName = await ResolveGraderNameAsync(score.GradedBy);
-
-                    result.Add(new ScoreResponse
-                    {
-                        Id = score.Id,
-                        StudentId = score.StudentId,
-                        StudentFirstName = student?.FirstName ?? "",
-                        StudentMiddleName = student?.MiddleName ?? "",
-                        StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
-                        AssignmentId = score.AssignmentId,
-                        AssignmentName = assignment?.Name ?? "",
-                        ScoreValue = score.ScoreValue,
-                        Feedback = score.Feedback,
-                        AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
-                        AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
-                        GradedAt = score.GradedAt,
-                        GradedBy = score.GradedBy,
-                        GradedByName = graderName
-                    });
+                    result.Add(await BuildScoreResponseAsync(score, student, assignment?.Name ?? ""));
                 }
 
                 return result.OrderByDescending(r => r.GradedAt).ToList();
@@ -339,9 +320,9 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
-        public async Task<List<Score>> BulkCreateOrUpdateScoresAsync(BulkScoreRequest request, string gradedBy)
+        public async Task<List<ScoreResponse>> BulkCreateOrUpdateScoresAsync(BulkScoreRequest request, string gradedBy)
         {
-            var results = new List<Score>();
+            var savedScores = new List<Score>();
 
             try
             {
@@ -367,13 +348,14 @@ namespace MOS.ExcelGrading.Core.Services
                     };
 
                     var score = await CreateOrUpdateScoreAsync(scoreRequest, gradedBy);
-                    results.Add(score);
+                    savedScores.Add(score);
                 }
 
                 _logger.LogInformation("✅ Bulk scores updated: {Count} scores by {GradedBy}",
-                    results.Count, gradedBy);
+                    savedScores.Count, gradedBy);
 
-                return results;
+                var assignment = await SafeGetAssignmentAsync(request.AssignmentId.Trim());
+                return await BuildScoreResponsesAsync(savedScores, assignment);
             }
             catch (InvalidOperationException)
             {
@@ -559,15 +541,29 @@ namespace MOS.ExcelGrading.Core.Services
                 .ToList();
         }
 
-        private static List<string> NormalizeSingleTaskFeedbackLine(List<string>? lines)
+        private static List<string> NormalizeTaskFeedbackLines(List<string>? lines) =>
+            NormalizeAutoGradingErrors(lines);
+
+        private static List<AutoGradingDisplayIssueRequest> NormalizeDisplayIssues(
+            List<AutoGradingDisplayIssueRequest>? displayIssues)
         {
-            var normalizedLines = NormalizeAutoGradingErrors(lines);
-            if (normalizedLines.Count <= 1)
+            if (displayIssues == null || displayIssues.Count == 0)
             {
-                return normalizedLines;
+                return new List<AutoGradingDisplayIssueRequest>();
             }
 
-            return new List<string> { normalizedLines[0] };
+            return displayIssues
+                .Where(item => item != null)
+                .Select(item => new AutoGradingDisplayIssueRequest
+                {
+                    Heading = (item.Heading ?? string.Empty).Trim(),
+                    Message = (item.Message ?? string.Empty).Trim(),
+                    FixAction = (item.FixAction ?? string.Empty).Trim()
+                })
+                .Where(item => !string.IsNullOrWhiteSpace(item.Heading) && !string.IsNullOrWhiteSpace(item.Message))
+                .DistinctBy(item => $"{item.Heading}\n{item.Message}\n{item.FixAction}", StringComparer.OrdinalIgnoreCase)
+                .Take(100)
+                .ToList();
         }
 
         private static List<AutoGradingTaskResultRequest> NormalizeAutoGradingTaskResults(
@@ -600,6 +596,8 @@ namespace MOS.ExcelGrading.Core.Services
                     taskName = taskId;
                 }
 
+                taskName = TaskNameFormatter.Format(taskId, taskName);
+
                 var normalizedMaxScore = double.IsFinite(item.MaxScore) && item.MaxScore > 0
                     ? Math.Round(item.MaxScore, 4, MidpointRounding.AwayFromZero)
                     : 1d;
@@ -617,9 +615,10 @@ namespace MOS.ExcelGrading.Core.Services
                     normalizedScore = 0d;
                 }
 
-                var normalizedErrors = NormalizeSingleTaskFeedbackLine(item.Errors);
+                var normalizedErrors = NormalizeTaskFeedbackLines(item.Errors);
                 var normalizedDetails = NormalizeAutoGradingErrors(item.Details);
-                var normalizedFixActions = NormalizeSingleTaskFeedbackLine(item.FixActions);
+                var normalizedFixActions = NormalizeTaskFeedbackLines(item.FixActions);
+                var normalizedDisplayIssues = NormalizeDisplayIssues(item.DisplayIssues);
 
                 normalized.Add(new AutoGradingTaskResultRequest
                 {
@@ -630,7 +629,8 @@ namespace MOS.ExcelGrading.Core.Services
                     IsPassed = item.IsPassed,
                     Details = normalizedDetails,
                     Errors = normalizedErrors,
-                    FixActions = normalizedFixActions
+                    FixActions = normalizedFixActions,
+                    DisplayIssues = normalizedDisplayIssues
                 });
             }
 
@@ -650,7 +650,8 @@ namespace MOS.ExcelGrading.Core.Services
                         MaxScore = (decimal)task.MaxScore,
                         Details = task.Details ?? new List<string>(),
                         Errors = task.Errors ?? new List<string>(),
-                        FixActions = new SingleFixActionList(task.FixActions)
+                        FixActions = new SingleFixActionList(task.FixActions),
+                        DisplayIssues = MapDisplayIssues(task.DisplayIssues)
                     })
                     .ToList();
             }
@@ -703,7 +704,7 @@ namespace MOS.ExcelGrading.Core.Services
                 .Select(taskId => new TaskResult
                 {
                     TaskId = taskId,
-                    TaskName = taskNames[taskId],
+                    TaskName = TaskNameFormatter.Format(taskId, taskNames[taskId]),
                     Score = 0m,
                     MaxScore = 1m,
                     Details = new List<string>(),
@@ -723,13 +724,14 @@ namespace MOS.ExcelGrading.Core.Services
             return taskResults.Select(task => new ScoreTaskResult
             {
                 TaskId = task.TaskId,
-                TaskName = task.TaskName,
+                TaskName = TaskNameFormatter.Format(task.TaskId, task.TaskName),
                 Score = task.Score,
                 MaxScore = task.MaxScore,
                 IsPassed = task.IsPassed,
                 Details = task.Details ?? new List<string>(),
                 Errors = task.Errors ?? new List<string>(),
-                FixActions = task.FixActions ?? new List<string>()
+                FixActions = task.FixActions ?? new List<string>(),
+                DisplayIssues = MapScoreDisplayIssues(task.DisplayIssues)
             }).ToList();
         }
 
@@ -744,13 +746,59 @@ namespace MOS.ExcelGrading.Core.Services
             return taskResults.Select(task => new AutoGradingTaskResultRequest
             {
                 TaskId = task.TaskId,
-                TaskName = task.TaskName,
+                TaskName = TaskNameFormatter.Format(task.TaskId, task.TaskName),
                 Score = task.Score,
                 MaxScore = task.MaxScore,
                 IsPassed = task.IsPassed,
                 Details = task.Details ?? new List<string>(),
                 Errors = task.Errors ?? new List<string>(),
-                FixActions = task.FixActions ?? new List<string>()
+                FixActions = task.FixActions ?? new List<string>(),
+                DisplayIssues = MapAutoDisplayIssues(task.DisplayIssues)
+            }).ToList();
+        }
+
+        private static List<TaskDisplayIssue> MapDisplayIssues(List<AutoGradingDisplayIssueRequest>? displayIssues)
+        {
+            if (displayIssues == null || displayIssues.Count == 0)
+            {
+                return new List<TaskDisplayIssue>();
+            }
+
+            return displayIssues.Select(item => new TaskDisplayIssue
+            {
+                Heading = item.Heading,
+                Message = item.Message,
+                FixAction = item.FixAction
+            }).ToList();
+        }
+
+        private static List<ScoreTaskDisplayIssue> MapScoreDisplayIssues(List<AutoGradingDisplayIssueRequest>? displayIssues)
+        {
+            if (displayIssues == null || displayIssues.Count == 0)
+            {
+                return new List<ScoreTaskDisplayIssue>();
+            }
+
+            return displayIssues.Select(item => new ScoreTaskDisplayIssue
+            {
+                Heading = item.Heading,
+                Message = item.Message,
+                FixAction = item.FixAction
+            }).ToList();
+        }
+
+        private static List<AutoGradingDisplayIssueRequest> MapAutoDisplayIssues(List<ScoreTaskDisplayIssue>? displayIssues)
+        {
+            if (displayIssues == null || displayIssues.Count == 0)
+            {
+                return new List<AutoGradingDisplayIssueRequest>();
+            }
+
+            return displayIssues.Select(item => new AutoGradingDisplayIssueRequest
+            {
+                Heading = item.Heading,
+                Message = item.Message,
+                FixAction = item.FixAction
             }).ToList();
         }
 
@@ -779,6 +827,32 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
+        private async Task<ScoreResponse> BuildScoreResponseAsync(
+            Score score,
+            Student? student,
+            string assignmentName)
+        {
+            var graderName = await ResolveGraderNameAsync(score.GradedBy);
+
+            return new ScoreResponse
+            {
+                Id = score.Id,
+                StudentId = score.StudentId,
+                StudentFirstName = student?.FirstName ?? "",
+                StudentMiddleName = student?.MiddleName ?? "",
+                StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
+                AssignmentId = score.AssignmentId,
+                AssignmentName = assignmentName,
+                ScoreValue = score.ScoreValue,
+                Feedback = score.Feedback,
+                AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
+                GradedAt = score.GradedAt,
+                GradedBy = score.GradedBy,
+                GradedByName = graderName
+            };
+        }
+
         private async Task<List<ScoreResponse>> BuildScoreResponsesAsync(List<Score> scores, Assignment? assignment)
         {
             var result = new List<ScoreResponse>();
@@ -786,25 +860,7 @@ namespace MOS.ExcelGrading.Core.Services
             foreach (var score in scores)
             {
                 var student = await SafeGetStudentAsync(score.StudentId);
-                var graderName = await ResolveGraderNameAsync(score.GradedBy);
-
-                result.Add(new ScoreResponse
-                {
-                    Id = score.Id,
-                    StudentId = score.StudentId,
-                    StudentFirstName = student?.FirstName ?? "",
-                    StudentMiddleName = student?.MiddleName ?? "",
-                    StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
-                    AssignmentId = score.AssignmentId,
-                    AssignmentName = assignment?.Name ?? "",
-                    ScoreValue = score.ScoreValue,
-                    Feedback = score.Feedback,
-                    AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
-                    AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
-                    GradedAt = score.GradedAt,
-                    GradedBy = score.GradedBy,
-                    GradedByName = graderName
-                });
+                result.Add(await BuildScoreResponseAsync(score, student, assignment?.Name ?? ""));
             }
 
             return result.OrderBy(r => r.StudentFullName).ToList();
@@ -825,25 +881,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 studentsById.TryGetValue(score.StudentId, out var student);
                 assignmentsById.TryGetValue(score.AssignmentId, out var assignment);
-                var graderName = await ResolveGraderNameAsync(score.GradedBy);
-
-                result.Add(new ScoreResponse
-                {
-                    Id = score.Id,
-                    StudentId = score.StudentId,
-                    StudentFirstName = student?.FirstName ?? "",
-                    StudentMiddleName = student?.MiddleName ?? "",
-                    StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
-                    AssignmentId = score.AssignmentId,
-                    AssignmentName = assignment?.Name ?? "",
-                    ScoreValue = score.ScoreValue,
-                    Feedback = score.Feedback,
-                    AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
-                    AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
-                    GradedAt = score.GradedAt,
-                    GradedBy = score.GradedBy,
-                    GradedByName = graderName
-                });
+                result.Add(await BuildScoreResponseAsync(score, student, assignment?.Name ?? ""));
             }
 
             return result.OrderBy(r => r.StudentFullName).ToList();
@@ -866,33 +904,17 @@ namespace MOS.ExcelGrading.Core.Services
                 if (!TryMapScoreDocument(document, out var score))
                 {
                     var documentId = ReadString(document, "_id") ?? "(unknown)";
+                    var problems = InspectScoreDocumentShape(document);
                     _logger.LogWarning(
-                        "⚠️ Skipping malformed score document {ScoreId} for assignment {AssignmentId}",
+                        "⚠️ Skipping malformed score document {ScoreId} for assignment {AssignmentId}: {Problems}",
                         documentId,
-                        assignmentId);
+                        assignmentId,
+                        problems.Count == 0 ? "Không xác định được lỗi schema cụ thể." : string.Join("; ", problems));
                     continue;
                 }
 
                 var student = await SafeGetStudentAsync(score.StudentId);
-                var graderName = await ResolveGraderNameAsync(score.GradedBy);
-
-                result.Add(new ScoreResponse
-                {
-                    Id = score.Id,
-                    StudentId = score.StudentId,
-                    StudentFirstName = student?.FirstName ?? "",
-                    StudentMiddleName = student?.MiddleName ?? "",
-                    StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
-                    AssignmentId = score.AssignmentId,
-                    AssignmentName = assignment?.Name ?? "",
-                    ScoreValue = score.ScoreValue,
-                    Feedback = score.Feedback,
-                    AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
-                    AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
-                    GradedAt = score.GradedAt,
-                    GradedBy = score.GradedBy,
-                    GradedByName = graderName
-                });
+                result.Add(await BuildScoreResponseAsync(score, student, assignment?.Name ?? ""));
             }
 
             return result.OrderBy(r => r.StudentFullName).ToList();
@@ -920,34 +942,18 @@ namespace MOS.ExcelGrading.Core.Services
                 if (!TryMapScoreDocument(document, out var score))
                 {
                     var documentId = ReadString(document, "_id") ?? "(unknown)";
+                    var problems = InspectScoreDocumentShape(document);
                     _logger.LogWarning(
-                        "⚠️ Skipping malformed score document {ScoreId} for class {ClassId}",
+                        "⚠️ Skipping malformed score document {ScoreId} for class {ClassId}: {Problems}",
                         documentId,
-                        classId);
+                        classId,
+                        problems.Count == 0 ? "Không xác định được lỗi schema cụ thể." : string.Join("; ", problems));
                     continue;
                 }
 
                 studentsById.TryGetValue(score.StudentId, out var student);
                 assignmentsById.TryGetValue(score.AssignmentId, out var assignment);
-                var graderName = await ResolveGraderNameAsync(score.GradedBy);
-
-                result.Add(new ScoreResponse
-                {
-                    Id = score.Id,
-                    StudentId = score.StudentId,
-                    StudentFirstName = student?.FirstName ?? "",
-                    StudentMiddleName = student?.MiddleName ?? "",
-                    StudentFullName = $"{student?.MiddleName} {student?.FirstName}".Trim(),
-                    AssignmentId = score.AssignmentId,
-                    AssignmentName = assignment?.Name ?? "",
-                    ScoreValue = score.ScoreValue,
-                    Feedback = score.Feedback,
-                    AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
-                    AutoGradingTaskResults = MapAutoGradingTaskResults(score.AutoGradingTaskResults),
-                    GradedAt = score.GradedAt,
-                    GradedBy = score.GradedBy,
-                    GradedByName = graderName
-                });
+                result.Add(await BuildScoreResponseAsync(score, student, assignment?.Name ?? ""));
             }
 
             return result.OrderBy(r => r.StudentFullName).ToList();
@@ -1090,6 +1096,7 @@ namespace MOS.ExcelGrading.Core.Services
             ValidateOptionalNumericField(score, "scoreValue", problems);
             ValidateOptionalStringField(score, "feedback", problems);
             ValidateOptionalStringArrayField(score, "autoGradingErrors", problems);
+            ValidateOptionalTaskResultArrayField(score, "autoGradingTaskResults", problems);
             ValidateOptionalDateField(score, "gradedAt", problems);
             ValidateOptionalDateField(score, "createdAt", problems);
             ValidateOptionalDateField(score, "updatedAt", problems);
@@ -1211,6 +1218,160 @@ namespace MOS.ExcelGrading.Core.Services
             problems.Add($"{fieldName} có kiểu {DescribeBsonValue(value)}");
         }
 
+        private static void ValidateOptionalTaskResultArrayField(BsonDocument document, string fieldName, List<string> problems)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType != BsonType.Array)
+            {
+                problems.Add($"{fieldName} có kiểu {DescribeBsonValue(value)}");
+                return;
+            }
+
+            for (var index = 0; index < value.AsBsonArray.Count; index++)
+            {
+                var item = value.AsBsonArray[index];
+                if (item.IsBsonNull)
+                {
+                    continue;
+                }
+
+                if (item.BsonType != BsonType.Document)
+                {
+                    problems.Add($"{fieldName}[{index}] có kiểu {DescribeBsonValue(item)}");
+                    continue;
+                }
+
+                ValidateTaskResultDocument(item.AsBsonDocument, $"{fieldName}[{index}]", problems);
+            }
+        }
+
+        private static void ValidateTaskResultDocument(BsonDocument document, string prefix, List<string> problems)
+        {
+            ValidateOptionalStringField(document, "taskId", problems, prefix);
+            ValidateOptionalStringField(document, "taskName", problems, prefix);
+            ValidateOptionalNumericField(document, "score", problems, prefix);
+            ValidateOptionalNumericField(document, "maxScore", problems, prefix);
+            ValidateOptionalBooleanField(document, "isPassed", problems, prefix);
+            ValidateOptionalStringArrayField(document, "details", problems, prefix);
+            ValidateOptionalStringArrayField(document, "errors", problems, prefix);
+            ValidateOptionalStringArrayField(document, "fixActions", problems, prefix);
+            ValidateOptionalDisplayIssueArrayField(document, "displayIssues", problems, prefix);
+        }
+
+        private static void ValidateOptionalBooleanField(BsonDocument document, string fieldName, List<string> problems, string? prefix = null)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType is BsonType.Boolean)
+            {
+                return;
+            }
+
+            if (value.BsonType == BsonType.String && bool.TryParse(value.AsString, out _))
+            {
+                return;
+            }
+
+            problems.Add(FormatFieldName(prefix, fieldName) + $" có kiểu {DescribeBsonValue(value)}");
+        }
+
+        private static void ValidateOptionalDisplayIssueArrayField(BsonDocument document, string fieldName, List<string> problems, string? prefix = null)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType != BsonType.Array)
+            {
+                problems.Add(FormatFieldName(prefix, fieldName) + $" có kiểu {DescribeBsonValue(value)}");
+                return;
+            }
+
+            for (var index = 0; index < value.AsBsonArray.Count; index++)
+            {
+                var item = value.AsBsonArray[index];
+                if (item.IsBsonNull)
+                {
+                    continue;
+                }
+
+                if (item.BsonType != BsonType.Document)
+                {
+                    problems.Add($"{FormatFieldName(prefix, fieldName)}[{index}] có kiểu {DescribeBsonValue(item)}");
+                    continue;
+                }
+
+                var issue = item.AsBsonDocument;
+                ValidateOptionalStringField(issue, "heading", problems, $"{FormatFieldName(prefix, fieldName)}[{index}]");
+                ValidateOptionalStringField(issue, "message", problems, $"{FormatFieldName(prefix, fieldName)}[{index}]");
+                ValidateOptionalStringField(issue, "fixAction", problems, $"{FormatFieldName(prefix, fieldName)}[{index}]");
+            }
+        }
+
+        private static string FormatFieldName(string? prefix, string fieldName) =>
+            string.IsNullOrWhiteSpace(prefix) ? fieldName : $"{prefix}.{fieldName}";
+
+        private static void ValidateOptionalNumericField(BsonDocument document, string fieldName, List<string> problems, string? prefix)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType is BsonType.Double or BsonType.Int32 or BsonType.Int64 or BsonType.Decimal128)
+            {
+                return;
+            }
+
+            if (value.BsonType == BsonType.String && double.TryParse(value.AsString, out _))
+            {
+                return;
+            }
+
+            problems.Add(FormatFieldName(prefix, fieldName) + $" có kiểu {DescribeBsonValue(value)}");
+        }
+
+        private static void ValidateOptionalStringField(BsonDocument document, string fieldName, List<string> problems, string? prefix)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType != BsonType.String)
+            {
+                problems.Add(FormatFieldName(prefix, fieldName) + $" có kiểu {DescribeBsonValue(value)}");
+            }
+        }
+
+        private static void ValidateOptionalStringArrayField(BsonDocument document, string fieldName, List<string> problems, string? prefix)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return;
+            }
+
+            if (value.BsonType != BsonType.Array)
+            {
+                problems.Add(FormatFieldName(prefix, fieldName) + $" có kiểu {DescribeBsonValue(value)}");
+                return;
+            }
+
+            var invalidElement = value.AsBsonArray.FirstOrDefault(item => item is { IsBsonNull: false, BsonType: not BsonType.String });
+            if (invalidElement != null)
+            {
+                problems.Add(FormatFieldName(prefix, fieldName) + $" chứa phần tử kiểu {DescribeBsonValue(invalidElement)}");
+            }
+        }
+
         private static string SummarizeScoreFieldTypes(List<BsonDocument> rawScores)
         {
             var fields = new[]
@@ -1222,6 +1383,7 @@ namespace MOS.ExcelGrading.Core.Services
                 "scoreValue",
                 "feedback",
                 "autoGradingErrors",
+                "autoGradingTaskResults",
                 "gradedAt",
                 "gradedBy",
                 "createdAt",
@@ -1384,6 +1546,23 @@ namespace MOS.ExcelGrading.Core.Services
             };
         }
 
+        private static bool ReadBoolean(BsonDocument document, string fieldName, bool defaultValue = false)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
+            {
+                return defaultValue;
+            }
+
+            return value.BsonType switch
+            {
+                BsonType.Boolean => value.AsBoolean,
+                BsonType.String when bool.TryParse(value.AsString, out var parsed) => parsed,
+                BsonType.Int32 => value.AsInt32 != 0,
+                BsonType.Int64 => value.AsInt64 != 0,
+                _ => defaultValue
+            };
+        }
+
         private static List<string> ReadStringList(BsonDocument document, string fieldName)
         {
             if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull)
@@ -1404,6 +1583,25 @@ namespace MOS.ExcelGrading.Core.Services
                 .ToList();
         }
 
+        private static List<ScoreTaskDisplayIssue> ReadDisplayIssues(BsonDocument document, string fieldName)
+        {
+            if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull || value.BsonType != BsonType.Array)
+            {
+                return new List<ScoreTaskDisplayIssue>();
+            }
+
+            return value.AsBsonArray
+                .OfType<BsonDocument>()
+                .Select(item => new ScoreTaskDisplayIssue
+                {
+                    Heading = ReadString(item, "heading") ?? string.Empty,
+                    Message = ReadString(item, "message") ?? string.Empty,
+                    FixAction = ReadString(item, "fixAction") ?? string.Empty
+                })
+                .Where(item => !string.IsNullOrWhiteSpace(item.Heading) && !string.IsNullOrWhiteSpace(item.Message))
+                .ToList();
+        }
+
         private static List<ScoreTaskResult> ReadTaskResults(BsonDocument document, string fieldName)
         {
             if (!document.TryGetValue(fieldName, out var value) || value.IsBsonNull || value.BsonType != BsonType.Array)
@@ -1419,10 +1617,11 @@ namespace MOS.ExcelGrading.Core.Services
                     TaskName = ReadString(item, "taskName") ?? string.Empty,
                     Score = ReadDouble(item, "score") ?? 0,
                     MaxScore = ReadDouble(item, "maxScore") ?? 0,
-                    IsPassed = item.TryGetValue("isPassed", out var isPassedValue) && isPassedValue.ToBoolean(),
+                    IsPassed = ReadBoolean(item, "isPassed"),
                     Details = ReadStringList(item, "details"),
                     Errors = ReadStringList(item, "errors"),
-                    FixActions = ReadStringList(item, "fixActions")
+                    FixActions = ReadStringList(item, "fixActions"),
+                    DisplayIssues = ReadDisplayIssues(item, "displayIssues")
                 })
                 .Where(item => !string.IsNullOrWhiteSpace(item.TaskId) || !string.IsNullOrWhiteSpace(item.TaskName))
                 .ToList();

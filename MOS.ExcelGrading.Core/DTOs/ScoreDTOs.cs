@@ -46,6 +46,14 @@ namespace MOS.ExcelGrading.Core.DTOs
         public List<string>? Details { get; set; }
         public List<string>? Errors { get; set; }
         public List<string>? FixActions { get; set; }
+        public List<AutoGradingDisplayIssueRequest>? DisplayIssues { get; set; }
+    }
+
+    public class AutoGradingDisplayIssueRequest
+    {
+        public string Heading { get; set; } = string.Empty;
+        public string Message { get; set; } = string.Empty;
+        public string FixAction { get; set; } = string.Empty;
     }
 
     public class ScoreResponse

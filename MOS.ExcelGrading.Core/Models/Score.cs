@@ -88,5 +88,20 @@ namespace MOS.ExcelGrading.Core.Models
 
         [BsonElement("fixActions")]
         public List<string> FixActions { get; set; } = new();
+
+        [BsonElement("displayIssues")]
+        public List<ScoreTaskDisplayIssue> DisplayIssues { get; set; } = new();
+    }
+
+    public class ScoreTaskDisplayIssue
+    {
+        [BsonElement("heading")]
+        public string Heading { get; set; } = string.Empty;
+
+        [BsonElement("message")]
+        public string Message { get; set; } = string.Empty;
+
+        [BsonElement("fixAction")]
+        public string FixAction { get; set; } = string.Empty;
     }
 }

@@ -257,6 +257,14 @@ namespace MOS.ExcelGrading.Core.Services
             return MapBootstrap(projects[session.CurrentProjectIndex]);
         }
 
+        public async Task<ExamSessionProjectBootstrapDto?> GetCurrentProjectBootstrapAsync(
+            string publicationToken,
+            string sessionId)
+        {
+            await EnsureSessionBelongsToPublicationAsync(publicationToken, sessionId);
+            return await GetCurrentProjectBootstrapAsync(sessionId);
+        }
+
         public async Task UploadScoreAsync(string sessionId, string projectCode, ScoreUploadRequest request)
         {
             request ??= new ScoreUploadRequest();
@@ -494,6 +502,31 @@ namespace MOS.ExcelGrading.Core.Services
                 throw;
             }
         }
+
+        public async Task UploadScoreAsync(
+            string publicationToken,
+            string sessionId,
+            string projectCode,
+            ScoreUploadRequest request)
+        {
+            await EnsureSessionBelongsToPublicationAsync(publicationToken, sessionId);
+            await UploadScoreAsync(sessionId, projectCode, request);
+        }
+
+        public async Task<AdvanceExamSessionResponse> AdvanceAsync(string publicationToken, string sessionId)
+        {
+            await EnsureSessionBelongsToPublicationAsync(publicationToken, sessionId);
+            return await AdvanceAsync(sessionId);
+        }
+
+        public async Task<RestartCurrentProjectResponse> RestartCurrentProjectAsync(
+            string publicationToken,
+            string sessionId)
+        {
+            await EnsureSessionBelongsToPublicationAsync(publicationToken, sessionId);
+            return await RestartCurrentProjectAsync(sessionId);
+        }
+
         private async Task<ExamPublication> GetPublicationOrThrow(string publicationId)
         {
             var publication = await _examPublications
@@ -604,6 +637,25 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return gradedScores.Sum();
+        }
+
+        private async Task EnsureSessionBelongsToPublicationAsync(string publicationToken, string sessionId)
+        {
+            if (string.IsNullOrWhiteSpace(publicationToken))
+            {
+                throw new ArgumentException("Publication token lÃ  báº¯t buá»™c.");
+            }
+
+            EnsureObjectId(sessionId, "SessionId");
+
+            var sessionExists = await _examSessions
+                .Find(x => x.Id == sessionId && x.PublicationToken == publicationToken)
+                .AnyAsync();
+
+            if (!sessionExists)
+            {
+                throw new ArgumentException("KhÃ´ng tÃ¬m tháº¥y phiÃªn thi phÃ¹ há»£p vá»›i publication token.");
+            }
         }
 
         private async Task ReplaceSessionWithOptimisticConcurrencyAsync(ExamSession session)

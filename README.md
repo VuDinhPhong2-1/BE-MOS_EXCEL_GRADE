@@ -34,7 +34,7 @@ dotnet build MOS.ExcelGrading.sln
 Required values:
 
 ```powershell
-$env:AppMode="local"
+$env:AppMode="local" # use "deploy" on Render production
 $env:MongoDbSettings__ConnectionString="mongodb://localhost:27017"
 $env:MongoDbSettings__DatabaseName="MOS"
 $env:JwtSettings__SecretKey="<set-a-strong-secret>"
@@ -54,6 +54,11 @@ $env:Redis__ConnectionString="<redis-connection-string>"
 ```
 
 Do not commit real secrets, service account JSON, tokens, or production connection strings.
+
+Current production domains:
+
+- Frontend: `https://mos-grader-app.info.vn`
+- Backend: `https://api.mos-grader-app.info.vn`
 
 ## Run API locally
 

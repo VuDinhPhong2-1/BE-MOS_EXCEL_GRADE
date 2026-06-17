@@ -159,25 +159,44 @@ if (allowedOrigins.Length == 0)
         .Get<string[]>() ?? Array.Empty<string>();
 }
 
+// builder.Services.AddCors(options =>
+// {
+//     options.AddPolicy("AllowConfiguredOrigins", policy =>
+//     {
+//         if (allowedOrigins.Length == 0)
+//         {
+//             policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
+//                   .AllowAnyMethod()
+//                   .AllowAnyHeader();
+//         }
+//         else
+//         {
+//             policy.WithOrigins(allowedOrigins)
+//                   .AllowAnyMethod()
+//                   .AllowAnyHeader();
+//         }
+//     });
+// });
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowConfiguredOrigins", policy =>
     {
-        if (allowedOrigins.Length == 0)
+        if (appMode == "local")
         {
-            policy.WithOrigins("http://localhost:5173", "https://localhost:5173")
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
+            policy
+                .SetIsOriginAllowed(_ => true)
+                .AllowAnyMethod()
+                .AllowAnyHeader();
         }
         else
         {
-            policy.WithOrigins(allowedOrigins)
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
+            policy
+                .WithOrigins(allowedOrigins)
+                .AllowAnyMethod()
+                .AllowAnyHeader();
         }
     });
 });
-
 // ========== CẤU HÌNH CONTROLLERS ==========
 builder.Services.AddControllers();
 

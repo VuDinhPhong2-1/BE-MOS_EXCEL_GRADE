@@ -2,6 +2,7 @@
 using Google.Apis.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using MongoDB.Bson;
 using MongoDB.Driver;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
@@ -40,13 +41,9 @@ namespace MOS.ExcelGrading.Core.Services
                     Builders<User>.IndexKeys.Ascending(u => u.Email),
                     new CreateIndexOptions { Unique = true });
 
-                var googleIdIndex = new CreateIndexModel<User>(
-                    Builders<User>.IndexKeys.Ascending(u => u.GoogleId),
-                    new CreateIndexOptions { Unique = true, Sparse = true });
-
                 _users.Indexes.CreateOne(usernameIndex);
                 _users.Indexes.CreateOne(emailIndex);
-                _users.Indexes.CreateOne(googleIdIndex);
+                EnsureGoogleIdUniqueIndex();
             }
 
             _jwtSecretKey = configuration["JwtSettings:SecretKey"] ?? throw new ArgumentNullException("JWT SecretKey");
@@ -378,6 +375,43 @@ namespace MOS.ExcelGrading.Core.Services
             using var rng = RandomNumberGenerator.Create();
             rng.GetBytes(randomNumber);
             return Convert.ToBase64String(randomNumber);
+        }
+
+        private void EnsureGoogleIdUniqueIndex()
+        {
+            const string googleIdIndexName = "GoogleId_1";
+
+            var existingGoogleIdIndex = _users.Indexes
+                .List()
+                .ToList()
+                .FirstOrDefault(index =>
+                    string.Equals(index["name"].AsString, googleIdIndexName, StringComparison.Ordinal));
+
+            var usesStringOnlyPartialFilter = existingGoogleIdIndex != null &&
+                existingGoogleIdIndex.TryGetValue("partialFilterExpression", out var partialFilterExpression) &&
+                partialFilterExpression.IsBsonDocument &&
+                partialFilterExpression.AsBsonDocument.TryGetValue(nameof(User.GoogleId), out var googleIdFilter) &&
+                googleIdFilter.IsBsonDocument &&
+                googleIdFilter.AsBsonDocument.TryGetValue("$type", out var typeValue) &&
+                string.Equals(typeValue.AsString, "string", StringComparison.OrdinalIgnoreCase);
+
+            if (existingGoogleIdIndex != null && !usesStringOnlyPartialFilter)
+            {
+                _users.Indexes.DropOne(googleIdIndexName);
+            }
+
+            var googleIdIndex = new CreateIndexModel<User>(
+                Builders<User>.IndexKeys.Ascending(u => u.GoogleId),
+                new CreateIndexOptions<User>
+                {
+                    Name = googleIdIndexName,
+                    Unique = true,
+                    PartialFilterExpression = new BsonDocument(
+                        nameof(User.GoogleId),
+                        new BsonDocument("$type", "string"))
+                });
+
+            _users.Indexes.CreateOne(googleIdIndex);
         }
     }
 }

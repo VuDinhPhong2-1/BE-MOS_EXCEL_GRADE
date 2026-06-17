@@ -35,6 +35,7 @@ namespace MOS.ExcelGrading.Core.Models
         public string? FullName { get; set; }
         public string? PhoneNumber { get; set; }
         public string? Avatar { get; set; }
+        [BsonIgnoreIfNull]
         public string? GoogleId { get; set; }
         public string AuthProvider { get; set; } = "Local";
 

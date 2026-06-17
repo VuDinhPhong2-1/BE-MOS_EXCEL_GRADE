@@ -1,10 +1,12 @@
 ﻿// API/Middlewares/RequestLoggingMiddleware.cs
 using System.Diagnostics;
+using System.Text;
 
 namespace MOS.ExcelGrading.API.Middlewares
 {
     public class RequestLoggingMiddleware
     {
+        private static readonly UTF8Encoding Utf8NoBom = new(false);
         private readonly RequestDelegate _next;
         private readonly ILogger<RequestLoggingMiddleware> _logger;
 
@@ -99,7 +101,11 @@ namespace MOS.ExcelGrading.API.Middlewares
 
             // ✅ ĐỌC RESPONSE BODY
             response.Body.Seek(0, SeekOrigin.Begin);
-            var responseBody = await new StreamReader(response.Body).ReadToEndAsync();
+            var responseBody = await new StreamReader(
+                response.Body,
+                Utf8NoBom,
+                detectEncodingFromByteOrderMarks: true,
+                leaveOpen: true).ReadToEndAsync();
             response.Body.Seek(0, SeekOrigin.Begin);
 
             // ✅ TRUNCATE BODY NẾU QUÁ DÀI

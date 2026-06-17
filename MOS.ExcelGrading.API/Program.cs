@@ -5,9 +5,12 @@ using MOS.ExcelGrading.API.Middlewares;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
 using MongoDB.Driver;
+
+Console.OutputEncoding = Encoding.UTF8;
 
 var builder = WebApplication.CreateBuilder(args);
 var appMode = NormalizeAppMode(builder.Configuration["AppMode"], builder.Environment);
@@ -87,6 +90,8 @@ builder.Services.AddScoped<IScheduleService, ScheduleService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<IGoogleSheetAttendanceSyncService, GoogleSheetAttendanceSyncService>();
 builder.Services.AddScoped<IComputerRoomService, ComputerRoomService>();
+builder.Services.AddScoped<IExamPublicationService, ExamPublicationService>();
+builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
 // ========== CẤU HÌNH JWT AUTHENTICATION ==========
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"] ?? throw new ArgumentNullException("JWT SecretKey không được để trống");
@@ -109,6 +114,26 @@ builder.Services.AddAuthentication(options =>
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey)),
         ClockSkew = TimeSpan.Zero
     };
+});
+
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AgentApiAccess", policy =>
+    {
+        policy.RequireAssertion(context =>
+        {
+            var allowAnonymousInDevelopment = builder.Environment.IsDevelopment()
+                && builder.Configuration.GetValue<bool>("AgentApi:AllowAnonymousInDevelopment");
+
+            if (allowAnonymousInDevelopment)
+            {
+                return true;
+            }
+
+            return context.User.IsInRole(UserRoles.Teacher)
+                || context.User.IsInRole(UserRoles.Admin);
+        });
+    });
 });
 
 // ========== TĂNG GIỚI HẠN UPLOAD LÊN 500MB ==========

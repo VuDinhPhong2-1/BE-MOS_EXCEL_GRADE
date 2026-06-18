@@ -40,6 +40,15 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("gradingApiEndpoint")]
         public string? GradingApiEndpoint { get; set; }
 
+        [BsonElement("subject")]
+        public string Subject { get; set; } = AssignmentFileSubjects.Excel;
+
+        [BsonElement("examType")]
+        public string ExamType { get; set; } = AssignmentExamTypes.OTTH;
+
+        [BsonElement("projectCode")]
+        public string? ProjectCode { get; set; }
+
         /// <summary>
         /// Loại bài tập: "auto" (tự động chấm), "manual" (chấm thủ công)
         /// </summary>
@@ -77,6 +86,9 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonRepresentation(BsonType.ObjectId)]
         [BsonElement("updatedBy")]
         public string? UpdatedBy { get; set; }
+
+        [BsonIgnore]
+        public bool IsLockedForPublication { get; set; }
     }
 
     // ========== ĐỊNH NGHĨA GRADING TYPES ==========
@@ -84,6 +96,22 @@ namespace MOS.ExcelGrading.Core.Models
     {
         public const string Auto = "auto";
         public const string Manual = "manual";
+    }
+
+    public static class AssignmentExamTypes
+    {
+        public const string OTTH = "otth";
+        public const string OnThi = "onthi";
+        public const string GMetrix = "gmetrix";
+
+        public static string Normalize(string? value) =>
+            (value ?? string.Empty).Trim().ToLowerInvariant();
+
+        public static bool IsValid(string? value)
+        {
+            var normalized = Normalize(value);
+            return normalized == OTTH || normalized == OnThi || normalized == GMetrix;
+        }
     }
 
     // ========== NHÓM MÔN CHẤM ==========
@@ -161,6 +189,12 @@ namespace MOS.ExcelGrading.Core.Models
         {
             return ResolveByProjectNumber(projectNumber).ScorePerProject;
         }
+    }
+
+    public static class AssignmentTemplateRules
+    {
+        public static readonly int[] OnThiExcelProjectNumbers = { 2, 4, 6, 8, 10, 12, 14, 16, 18, 20, 22 };
+        public static readonly int[] OnThiWordProjectNumbers = { 1, 3, 5, 7, 9, 11, 13, 15, 17, 19, 21, 23, 20, 22 };
     }
 
     // ========== ĐỊNH NGHĨA GRADING API ENDPOINTS ==========
@@ -293,6 +327,20 @@ namespace MOS.ExcelGrading.Core.Models
             }
 
             return int.TryParse(match.Groups["number"].Value, out projectNumber);
+        }
+
+        public static bool TryExtractSubject(string? endpoint, out string subject)
+        {
+            subject = string.Empty;
+            var normalized = NormalizeEndpoint(endpoint);
+            var match = SubjectProjectRegex.Match(normalized);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            subject = AssignmentFileSubjects.Normalize(match.Groups["subject"].Value);
+            return AssignmentFileSubjects.IsValid(subject);
         }
     }
 }

@@ -77,6 +77,29 @@ namespace MOS.ExcelGrading.API.Controllers
             return Ok(endpoints);
         }
 
+        [HttpGet("templates")]
+        public async Task<IActionResult> GetAssignmentTemplates(
+            [FromQuery] string classId,
+            [FromQuery] string subject,
+            [FromQuery] string examType)
+        {
+            try
+            {
+                var templates = await _assignmentService.GetAssignmentTemplatesAsync(classId, subject, examType);
+                return Ok(templates);
+            }
+            catch (ArgumentException ex)
+            {
+                _logger.LogWarning(ex, "Validation error while getting assignment templates");
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting assignment templates");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
+            }
+        }
+
         private static GradingEndpointInfo BuildSubjectEndpointInfo(string subject, int projectNumber, string baseDescription, double rawMaxScore)
         {
             var endpoint = GradingApiEndpoints.ToProjectEndpoint(subject, projectNumber);

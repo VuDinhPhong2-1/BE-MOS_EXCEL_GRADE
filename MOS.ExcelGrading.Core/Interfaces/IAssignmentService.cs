@@ -13,5 +13,6 @@ namespace MOS.ExcelGrading.Core.Interfaces
         Task<Assignment?> UpdateAssignmentAsync(string id, UpdateAssignmentRequest request, string userId);
         Task<bool> DeleteAssignmentAsync(string id, string userId);
         Task<bool> CanUserAccessAssignment(string assignmentId, string userId);
+        Task<List<AssignmentTemplateResponse>> GetAssignmentTemplatesAsync(string classId, string subject, string examType);
     }
 }

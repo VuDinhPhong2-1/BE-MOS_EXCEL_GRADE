@@ -11,6 +11,8 @@ namespace MOS.ExcelGrading.Core.Services
     {
         private readonly IMongoCollection<ExamPublication> _examPublications;
         private readonly IMongoCollection<Student> _students;
+        private readonly IMongoCollection<Assignment> _assignments;
+        private readonly IMongoCollection<AssignmentFile> _assignmentFiles;
         private readonly ILogger<ExamPublicationService> _logger;
 
         public ExamPublicationService(
@@ -19,6 +21,8 @@ namespace MOS.ExcelGrading.Core.Services
         {
             _examPublications = database.GetCollection<ExamPublication>("examPublications");
             _students = database.GetCollection<Student>("students");
+            _assignments = database.GetCollection<Assignment>("assignments");
+            _assignmentFiles = database.GetCollection<AssignmentFile>("assignment_files");
             _logger = logger;
         }
 
@@ -32,11 +36,13 @@ namespace MOS.ExcelGrading.Core.Services
                 }
 
                 request.StudentIds ??= new List<string>();
+                request.AssignmentIds ??= new List<string>();
                 request.ProjectSequence ??= new List<CreateExamPublicationProjectRequest>();
                 request.TaskSnapshot ??= new List<ExamPublicationTaskSnapshotItemDto>();
 
                 EnsureValidOptionalObjectId(request.ClassId, "Mã lớp");
                 EnsureValidObjectIds(request.StudentIds, "StudentIds");
+                EnsureValidObjectIds(request.AssignmentIds, "AssignmentIds");
 
                 if (request.DurationMinutes.HasValue && request.DurationMinutes <= 0)
                 {
@@ -48,7 +54,7 @@ namespace MOS.ExcelGrading.Core.Services
                     throw new ArgumentException("EndsAt phải lớn hơn hoặc bằng StartsAt.");
                 }
 
-                var normalizedProjectSequence = NormalizeProjectSequence(request);
+                var normalizedProjectSequence = await NormalizeProjectSequenceAsync(request);
                 if (normalizedProjectSequence.Count == 0)
                 {
                     throw new ArgumentException("Cần ít nhất một project trong projectSequence.");
@@ -68,6 +74,11 @@ namespace MOS.ExcelGrading.Core.Services
                     StartsAt = NormalizeUtcDateTime(request.StartsAt),
                     EndsAt = NormalizeUtcDateTime(request.EndsAt),
                     DurationMinutes = request.DurationMinutes,
+                    AssignmentIds = normalizedProjectSequence
+                        .Select(item => item.SourceAssignmentId)
+                        .Where(id => !string.IsNullOrWhiteSpace(id))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList()!,
                     ProjectSequence = normalizedProjectSequence,
                     CreatedBy = userId,
                     CreatedAt = DateTime.UtcNow
@@ -178,8 +189,13 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
-        private static List<ExamPublicationProject> NormalizeProjectSequence(CreateExamPublicationRequest request)
+        private async Task<List<ExamPublicationProject>> NormalizeProjectSequenceAsync(CreateExamPublicationRequest request)
         {
+            if (request.AssignmentIds.Count > 0)
+            {
+                return await NormalizeProjectSequenceFromAssignmentsAsync(request);
+            }
+
             var requestedProjects = (request.ProjectSequence ?? new List<CreateExamPublicationProjectRequest>())
                 .Where(item => item != null)
                 .ToList();
@@ -240,6 +256,7 @@ namespace MOS.ExcelGrading.Core.Services
                 normalizedProjects.Add(new ExamPublicationProject
                 {
                     Order = item.Order.GetValueOrDefault(index + 1),
+                    SourceAssignmentId = NormalizeNullable(item.SourceAssignmentId),
                     ProjectCode = NormalizeProjectCode(item.ProjectCode, normalizedSubject, projectNumber),
                     Subject = normalizedSubject,
                     TemplateFileName = NormalizeNullable(item.TemplateFileName),
@@ -268,6 +285,80 @@ namespace MOS.ExcelGrading.Core.Services
             return normalizedProjects
                 .OrderBy(item => item.Order)
                 .ToList();
+        }
+
+        private async Task<List<ExamPublicationProject>> NormalizeProjectSequenceFromAssignmentsAsync(CreateExamPublicationRequest request)
+        {
+            var assignmentIds = request.AssignmentIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => id.Trim())
+                .ToList();
+
+            var assignments = await _assignments
+                .Find(item => assignmentIds.Contains(item.Id) && item.IsActive)
+                .ToListAsync();
+
+            if (assignments.Count != assignmentIds.Count)
+            {
+                throw new ArgumentException("Danh sách assignment chứa bài tập không tồn tại hoặc đã ngừng hoạt động.");
+            }
+
+            var assignmentById = assignments.ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase);
+            var orderedAssignments = assignmentIds.Select(id => assignmentById[id]).ToList();
+
+            if (!string.IsNullOrWhiteSpace(request.ClassId) &&
+                orderedAssignments.Any(item => !string.Equals(item.ClassId, request.ClassId, StringComparison.OrdinalIgnoreCase)))
+            {
+                throw new ArgumentException("Tất cả assignment phải thuộc đúng lớp được chọn.");
+            }
+
+            var templateIds = orderedAssignments
+                .Where(item => !string.IsNullOrWhiteSpace(item.CurrentTemplateFileId))
+                .Select(item => item.CurrentTemplateFileId!)
+                .ToList();
+
+            var templateFiles = templateIds.Count == 0
+                ? new Dictionary<string, AssignmentFile>(StringComparer.OrdinalIgnoreCase)
+                : (await _assignmentFiles.Find(file => templateIds.Contains(file.Id)).ToListAsync())
+                    .ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase);
+
+            var result = new List<ExamPublicationProject>();
+            for (var index = 0; index < orderedAssignments.Count; index++)
+            {
+                var assignment = orderedAssignments[index];
+                var route = ResolveAssignmentRoute(assignment);
+
+                if (string.Equals(route.ExamType, AssignmentExamTypes.GMetrix, StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new ArgumentException($"Assignment '{assignment.Name}' thuộc loại GMetrix và chưa được hỗ trợ trong lịch thi/runtime hiện tại.");
+                }
+
+                if (!route.IsRuntimeSupported)
+                {
+                    throw new ArgumentException($"Assignment '{assignment.Name}' chưa có grader runtime được hỗ trợ.");
+                }
+
+                if (assignment.GradingType != GradingTypes.Auto || string.IsNullOrWhiteSpace(route.GradingApiEndpoint))
+                {
+                    throw new ArgumentException($"Assignment '{assignment.Name}' chưa có grading endpoint tự động hợp lệ.");
+                }
+
+                templateFiles.TryGetValue(assignment.CurrentTemplateFileId ?? string.Empty, out var templateFile);
+
+                result.Add(new ExamPublicationProject
+                {
+                    Order = index + 1,
+                    SourceAssignmentId = assignment.Id,
+                    ProjectCode = route.ProjectCode,
+                    Subject = route.Subject,
+                    TemplateFileName = templateFile?.OriginalName,
+                    GradingApiEndpoint = route.GradingApiEndpoint ?? string.Empty,
+                    TaskSnapshot = new List<ExamPublicationTaskSnapshotItem>(),
+                    ModeRules = BuildDefaultModeRules(request.Mode)
+                });
+            }
+
+            return result;
         }
 
         private static bool TryInferSubject(string normalizedEndpoint, out string subject)
@@ -363,6 +454,35 @@ namespace MOS.ExcelGrading.Core.Services
                     throw new ArgumentException($"{fieldLabel} chứa ObjectId không hợp lệ: {value}");
                 }
             }
+        }
+
+        private static GraderRouteDescriptor ResolveAssignmentRoute(Assignment assignment)
+        {
+            if (!GraderRouteRegistry.TryResolve(
+                    assignment.ExamType,
+                    assignment.Subject,
+                    assignment.ProjectCode,
+                    assignment.GradingApiEndpoint,
+                    out var route))
+            {
+                throw new ArgumentException($"Assignment '{assignment.Name}' có grading route không hợp lệ.");
+            }
+
+            return route;
+        }
+
+        private static ExamPublicationModeRules BuildDefaultModeRules(string? mode)
+        {
+            var normalizedMode = NormalizeNullable(mode) ?? "Testing";
+            var isTraining = string.Equals(normalizedMode, "Training", StringComparison.OrdinalIgnoreCase);
+
+            return new ExamPublicationModeRules
+            {
+                Mode = normalizedMode,
+                ShowFeedback = isTraining,
+                AllowRestart = true,
+                AllowNextProject = true
+            };
         }
     }
 }

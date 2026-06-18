@@ -6,6 +6,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string? Description { get; set; }
         public string? ClassId { get; set; }
         public List<string> StudentIds { get; set; } = new();
+        public List<string> AssignmentIds { get; set; } = new();
         public string? Mode { get; set; }
         public DateTime? StartsAt { get; set; }
         public DateTime? EndsAt { get; set; }
@@ -24,6 +25,7 @@ namespace MOS.ExcelGrading.Core.DTOs
     public class CreateExamPublicationProjectRequest
     {
         public int? Order { get; set; }
+        public string? SourceAssignmentId { get; set; }
         public string? ProjectCode { get; set; }
         public string? Subject { get; set; }
         public string? TemplateFileName { get; set; }

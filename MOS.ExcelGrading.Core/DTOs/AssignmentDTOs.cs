@@ -9,6 +9,9 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string? Description { get; set; }
         public string ClassId { get; set; } = string.Empty;
         public double MaxScore { get; set; } = 10;
+        public string Subject { get; set; } = AssignmentFileSubjects.Excel;
+        public string ExamType { get; set; } = AssignmentExamTypes.OTTH;
+        public string? ProjectCode { get; set; }
 
         // ========== THÊM MỚI ==========
         /// <summary>
@@ -29,6 +32,9 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string? Description { get; set; }
         public double? MaxScore { get; set; }
         public bool? IsActive { get; set; }
+        public string? Subject { get; set; }
+        public string? ExamType { get; set; }
+        public string? ProjectCode { get; set; }
 
         // ========== THÊM MỚI ==========
         public string? GradingType { get; set; }
@@ -42,8 +48,12 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string? Description { get; set; }
         public string ClassId { get; set; } = string.Empty;
         public double MaxScore { get; set; }
+        public string Subject { get; set; } = AssignmentFileSubjects.Excel;
+        public string ExamType { get; set; } = AssignmentExamTypes.OTTH;
+        public string? ProjectCode { get; set; }
         public DateTime CreatedAt { get; set; }
         public bool IsActive { get; set; }
+        public bool IsLockedForPublication { get; set; }
         public string? CreatedBy { get; set; }
         public string? CreatedByName { get; set; }
         public DateTime? UpdatedAt { get; set; }
@@ -75,6 +85,20 @@ namespace MOS.ExcelGrading.Core.DTOs
         public int PracticeTotalScore { get; set; } = PracticeScoring.PracticeTotalScore;
         public int PracticeProjectCount { get; set; }
         public string ApiPath { get; set; } = string.Empty;
+    }
+
+    public class AssignmentTemplateResponse
+    {
+        public string SuggestedName { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public string Subject { get; set; } = AssignmentFileSubjects.Excel;
+        public string ExamType { get; set; } = AssignmentExamTypes.OTTH;
+        public string ProjectCode { get; set; } = string.Empty;
+        public string GradingType { get; set; } = GradingTypes.Auto;
+        public string? GradingApiEndpoint { get; set; }
+        public double MaxScore { get; set; }
+        public string PracticeCode { get; set; } = string.Empty;
+        public string PracticeName { get; set; } = string.Empty;
     }
 
 }

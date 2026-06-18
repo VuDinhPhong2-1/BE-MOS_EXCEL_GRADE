@@ -46,6 +46,10 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("projectSequence")]
         public List<ExamPublicationProject> ProjectSequence { get; set; } = new();
 
+        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonElement("assignmentIds")]
+        public List<string> AssignmentIds { get; set; } = new();
+
         [BsonElement("isActive")]
         public bool IsActive { get; set; } = true;
 
@@ -71,6 +75,10 @@ namespace MOS.ExcelGrading.Core.Models
 
         [BsonElement("projectCode")]
         public string ProjectCode { get; set; } = string.Empty;
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonElement("sourceAssignmentId")]
+        public string? SourceAssignmentId { get; set; }
 
         [BsonElement("subject")]
         public string Subject { get; set; } = AssignmentFileSubjects.Excel;

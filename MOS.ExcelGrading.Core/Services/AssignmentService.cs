@@ -16,6 +16,7 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly IMongoCollection<Score> _scores;
         private readonly IMongoCollection<Student> _students;
         private readonly IMongoCollection<User> _users;
+        private readonly IMongoCollection<ExamPublication> _examPublications;
         private readonly ILogger<AssignmentService> _logger;
 
         public AssignmentService(
@@ -27,6 +28,7 @@ namespace MOS.ExcelGrading.Core.Services
             _scores = database.GetCollection<Score>("scores");
             _students = database.GetCollection<Student>("students");
             _users = database.GetCollection<User>("users");
+            _examPublications = database.GetCollection<ExamPublication>("examPublications");
             _logger = logger;
         }
 
@@ -42,9 +44,11 @@ namespace MOS.ExcelGrading.Core.Services
                     filter &= Builders<Assignment>.Filter.Eq(a => a.IsActive, true);
                 }
 
-                return await _assignments.Find(filter)
+                var assignments = await _assignments.Find(filter)
                     .SortByDescending(a => a.CreatedAt)
                     .ToListAsync();
+                await ApplyPublicationLocksAsync(assignments);
+                return assignments;
             }
             catch (BsonSerializationException ex)
             {
@@ -103,9 +107,11 @@ namespace MOS.ExcelGrading.Core.Services
                     classId);
             }
 
-            return assignments
+            var normalizedAssignments = assignments
                 .OrderByDescending(a => a.CreatedAt)
                 .ToList();
+            await ApplyPublicationLocksAsync(normalizedAssignments);
+            return normalizedAssignments;
         }
 
         private static bool TryMapAssignmentDocument(BsonDocument document, out Assignment assignment)
@@ -134,6 +140,15 @@ namespace MOS.ExcelGrading.Core.Services
                     MaxScore = ReadDouble(document, "maxScore") ?? 10d,
                     GradingApiEndpoint = ReadString(document, "gradingApiEndpoint"),
                     GradingType = ReadString(document, "gradingType") ?? GradingTypes.Manual,
+                    Subject = AssignmentFileSubjects.Normalize(ReadString(document, "subject")) switch
+                    {
+                        var normalized when AssignmentFileSubjects.IsValid(normalized) => normalized,
+                        _ => AssignmentFileSubjects.Excel
+                    },
+                    ExamType = AssignmentExamTypes.IsValid(ReadString(document, "examType"))
+                        ? AssignmentExamTypes.Normalize(ReadString(document, "examType"))
+                        : AssignmentExamTypes.OTTH,
+                    ProjectCode = ReadString(document, "projectCode"),
                     CurrentTemplateFileId = ReadString(document, "currentTemplateFileId"),
                     CurrentAnswerFileId = ReadString(document, "currentAnswerFileId"),
                     IsActive = ReadBool(document, "isActive") ?? true,
@@ -264,8 +279,12 @@ namespace MOS.ExcelGrading.Core.Services
                         Description = assignment.Description,
                         ClassId = assignment.ClassId,
                         MaxScore = assignment.MaxScore,
+                        Subject = assignment.Subject,
+                        ExamType = assignment.ExamType,
+                        ProjectCode = assignment.ProjectCode,
                         CreatedAt = assignment.CreatedAt,
                         IsActive = assignment.IsActive,
+                        IsLockedForPublication = assignment.IsLockedForPublication,
                         CreatedBy = assignment.CreatedBy,
                         CreatedByName = creatorName,
                         UpdatedAt = assignment.UpdatedAt,
@@ -291,7 +310,13 @@ namespace MOS.ExcelGrading.Core.Services
         {
             try
             {
-                return await _assignments.Find(a => a.Id == id).FirstOrDefaultAsync();
+                var assignment = await _assignments.Find(a => a.Id == id).FirstOrDefaultAsync();
+                if (assignment != null)
+                {
+                    await ApplyPublicationLocksAsync(new List<Assignment> { assignment });
+                }
+
+                return assignment;
             }
             catch (Exception ex)
             {
@@ -330,9 +355,53 @@ namespace MOS.ExcelGrading.Core.Services
                     throw new ArgumentException($"GradingApiEndpoint không hợp lệ: {request.GradingApiEndpoint}");
                 }
 
+                var existingAssignment = await _assignments.Find(a => a.Id == id).FirstOrDefaultAsync();
+                if (existingAssignment == null)
+                {
+                    return null;
+                }
+
+                var assignmentUsedInPublication = await IsAssignmentUsedInPublicationAsync(id);
+                var nextGradingType = string.IsNullOrWhiteSpace(request.GradingType)
+                    ? existingAssignment.GradingType
+                    : request.GradingType.Trim().ToLowerInvariant();
                 var normalizedEndpoint = string.IsNullOrWhiteSpace(request.GradingApiEndpoint)
-                    ? null
+                    ? existingAssignment.GradingApiEndpoint
                     : GradingApiEndpoints.NormalizeEndpoint(request.GradingApiEndpoint);
+                var nextExamType = string.IsNullOrWhiteSpace(request.ExamType)
+                    ? existingAssignment.ExamType
+                    : AssignmentExamTypes.Normalize(request.ExamType);
+                var nextSubject = string.IsNullOrWhiteSpace(request.Subject)
+                    ? existingAssignment.Subject
+                    : AssignmentFileSubjects.Normalize(request.Subject);
+                var nextProjectCode = string.IsNullOrWhiteSpace(request.ProjectCode)
+                    ? existingAssignment.ProjectCode
+                    : request.ProjectCode.Trim().ToUpperInvariant();
+
+                if (!AssignmentExamTypes.IsValid(nextExamType))
+                {
+                    throw new ArgumentException("ExamType không hợp lệ. Chỉ chấp nhận: OTTH, OnThi, GMetrix.");
+                }
+
+                if (!AssignmentFileSubjects.IsValid(nextSubject))
+                {
+                    throw new ArgumentException("Subject không hợp lệ. Chỉ chấp nhận: excel, word, ppt.");
+                }
+
+                if (assignmentUsedInPublication &&
+                    (nextGradingType != existingAssignment.GradingType ||
+                     !string.Equals(normalizedEndpoint, existingAssignment.GradingApiEndpoint, StringComparison.OrdinalIgnoreCase) ||
+                     !string.Equals(nextExamType, existingAssignment.ExamType, StringComparison.OrdinalIgnoreCase) ||
+                     !string.Equals(nextSubject, existingAssignment.Subject, StringComparison.OrdinalIgnoreCase) ||
+                     !string.Equals(nextProjectCode, existingAssignment.ProjectCode, StringComparison.OrdinalIgnoreCase)))
+                {
+                    throw new ArgumentException("Bài tập đã được dùng để tạo lịch thi nên không thể sửa các trường lõi (loại đề, môn, project, grading endpoint).");
+                }
+
+                var route = ResolveRouteOrThrow(nextExamType, nextSubject, nextProjectCode, nextGradingType == GradingTypes.Auto ? normalizedEndpoint : null);
+                normalizedEndpoint = nextGradingType == GradingTypes.Auto ? route.GradingApiEndpoint : null;
+                nextSubject = route.Subject;
+                nextProjectCode = route.ProjectCode;
 
                 var updateDefinitions = new List<UpdateDefinition<Assignment>>();
                 var builder = Builders<Assignment>.Update;
@@ -351,6 +420,15 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (request.GradingApiEndpoint != null)
                     updateDefinitions.Add(builder.Set(a => a.GradingApiEndpoint, normalizedEndpoint));
+
+                if (request.Subject != null)
+                    updateDefinitions.Add(builder.Set(a => a.Subject, nextSubject));
+
+                if (request.ExamType != null)
+                    updateDefinitions.Add(builder.Set(a => a.ExamType, nextExamType));
+
+                if (request.ProjectCode != null)
+                    updateDefinitions.Add(builder.Set(a => a.ProjectCode, nextProjectCode));
 
                 // If switching to manual grading, clear endpoint.
                 if (request.GradingType == GradingTypes.Manual)
@@ -371,6 +449,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (result != null)
                 {
+                    result.IsLockedForPublication = assignmentUsedInPublication;
                     _logger.LogInformation("✅ Assignment updated: {Id} by user {UserId}", id, userId);
                 }
 
@@ -452,6 +531,17 @@ namespace MOS.ExcelGrading.Core.Services
                     throw new ArgumentException("GradingType phải là 'auto' hoặc 'manual'");
                 }
 
+                if (!AssignmentExamTypes.IsValid(request.ExamType))
+                {
+                    throw new ArgumentException("ExamType không hợp lệ. Chỉ chấp nhận: OTTH, OnThi, GMetrix.");
+                }
+
+                var normalizedSubject = AssignmentFileSubjects.Normalize(request.Subject);
+                if (!AssignmentFileSubjects.IsValid(normalizedSubject))
+                {
+                    throw new ArgumentException("Subject không hợp lệ. Chỉ chấp nhận: excel, word, ppt.");
+                }
+
                 // ✅ VALIDATE GRADING API ENDPOINT
                 if (request.GradingType == GradingTypes.Auto)
                 {
@@ -472,6 +562,12 @@ namespace MOS.ExcelGrading.Core.Services
                     request.GradingApiEndpoint = null;
                 }
 
+                var route = ResolveRouteOrThrow(
+                    request.ExamType,
+                    normalizedSubject,
+                    request.ProjectCode,
+                    request.GradingType == GradingTypes.Auto ? request.GradingApiEndpoint : null);
+
                 var assignment = new Assignment
                 {
                     Name = request.Name,
@@ -479,7 +575,10 @@ namespace MOS.ExcelGrading.Core.Services
                     ClassId = request.ClassId,
                     MaxScore = request.MaxScore,
                     GradingType = request.GradingType,
-                    GradingApiEndpoint = request.GradingApiEndpoint,
+                    GradingApiEndpoint = route.GradingApiEndpoint,
+                    Subject = route.Subject,
+                    ExamType = route.ExamType,
+                    ProjectCode = route.ProjectCode,
                     CreatedBy = userId,
                     CreatedAt = DateTime.UtcNow
                 };
@@ -500,6 +599,116 @@ namespace MOS.ExcelGrading.Core.Services
                 throw;
             }
         }
+
+        public Task<List<AssignmentTemplateResponse>> GetAssignmentTemplatesAsync(string classId, string subject, string examType)
+        {
+            EnsureValidObjectId(classId, "Mã lớp");
+
+            var normalizedSubject = AssignmentFileSubjects.Normalize(subject);
+            var normalizedExamType = AssignmentExamTypes.Normalize(examType);
+
+            if (!AssignmentFileSubjects.IsValid(normalizedSubject))
+            {
+                throw new ArgumentException("Subject không hợp lệ. Chỉ chấp nhận: excel, word, ppt.");
+            }
+
+            if (!AssignmentExamTypes.IsValid(normalizedExamType))
+            {
+                throw new ArgumentException("ExamType không hợp lệ. Chỉ chấp nhận: OTTH, OnThi, GMetrix.");
+            }
+
+            if (normalizedExamType != AssignmentExamTypes.OnThi)
+            {
+                return Task.FromResult(new List<AssignmentTemplateResponse>());
+            }
+
+            var projectNumbers = normalizedSubject switch
+            {
+                AssignmentFileSubjects.Excel => AssignmentTemplateRules.OnThiExcelProjectNumbers,
+                AssignmentFileSubjects.Word => AssignmentTemplateRules.OnThiWordProjectNumbers,
+                _ => Array.Empty<int>()
+            };
+
+            return Task.FromResult(projectNumbers
+                .Select(projectNumber =>
+                {
+                    var endpoint = GradingApiEndpoints.ToProjectEndpoint(normalizedSubject, projectNumber);
+                    var practice = PracticeScoring.ResolveByProjectNumber(projectNumber);
+                    var route = ResolveRouteOrThrow(normalizedExamType, normalizedSubject, null, endpoint);
+
+                    return new AssignmentTemplateResponse
+                    {
+                        SuggestedName = $"Ôn thi - Project {projectNumber:00} - {GetSubjectDisplayName(normalizedSubject)}",
+                        Description = $"Bài ôn thi dùng grader OTTH cho Project {projectNumber:00}.",
+                        Subject = route.Subject,
+                        ExamType = normalizedExamType,
+                        ProjectCode = route.ProjectCode,
+                        GradingType = GradingTypes.Auto,
+                        GradingApiEndpoint = route.GradingApiEndpoint,
+                        MaxScore = (double)PracticeScoring.CalculateProjectMaxScore(projectNumber),
+                        PracticeCode = practice.Code,
+                        PracticeName = practice.Name
+                    };
+                })
+                .ToList());
+        }
+
+        private async Task ApplyPublicationLocksAsync(List<Assignment> assignments)
+        {
+            if (assignments.Count == 0)
+            {
+                return;
+            }
+
+            var assignmentIds = assignments
+                .Where(item => !string.IsNullOrWhiteSpace(item.Id))
+                .Select(item => item.Id)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var publications = await _examPublications.Find(_ => true).ToListAsync();
+            var lockedIds = publications
+                .SelectMany(publication => publication.ProjectSequence ?? new List<ExamPublicationProject>())
+                .Select(item => item.SourceAssignmentId)
+                .Where(id => !string.IsNullOrWhiteSpace(id) && assignmentIds.Contains(id))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var assignment in assignments)
+            {
+                assignment.IsLockedForPublication = !string.IsNullOrWhiteSpace(assignment.Id) &&
+                                                   lockedIds.Contains(assignment.Id);
+            }
+        }
+
+        private async Task<bool> IsAssignmentUsedInPublicationAsync(string assignmentId)
+        {
+            var filter = Builders<ExamPublication>.Filter.ElemMatch(
+                publication => publication.ProjectSequence,
+                project => project.SourceAssignmentId == assignmentId);
+
+            return await _examPublications.Find(filter).AnyAsync();
+        }
+
+        private static GraderRouteDescriptor ResolveRouteOrThrow(
+            string examType,
+            string subject,
+            string? projectCode,
+            string? gradingApiEndpoint)
+        {
+            if (!GraderRouteRegistry.TryResolve(examType, subject, projectCode, gradingApiEndpoint, out var route))
+            {
+                throw new ArgumentException("Không thể xác định grading route hợp lệ cho assignment.");
+            }
+
+            return route;
+        }
+
+        private static string GetSubjectDisplayName(string subject) =>
+            AssignmentFileSubjects.Normalize(subject) switch
+            {
+                AssignmentFileSubjects.Word => "Word",
+                AssignmentFileSubjects.Ppt => "PowerPoint",
+                _ => "Excel"
+            };
 
     }
 }

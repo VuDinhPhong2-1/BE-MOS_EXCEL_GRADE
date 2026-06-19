@@ -1,9 +1,11 @@
-﻿using MOS.ExcelGrading.Core.Models;
+using MOS.ExcelGrading.Core.DTOs;
+using MOS.ExcelGrading.Core.Models;
 
 namespace MOS.ExcelGrading.Core.Interfaces
 {
     public interface IGradingService
     {
+        List<ExamPublicationTaskSnapshotItemDto> GetTaskSnapshotForEndpoint(string gradingApiEndpoint);
         Task<GradingResult> GradeProject01Async(Stream studentFile);
         Task<GradingResult> GradeProject02Async(Stream studentFile);
         Task<GradingResult> GradeProject03Async(Stream studentFile);

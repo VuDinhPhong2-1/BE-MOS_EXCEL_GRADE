@@ -23,6 +23,7 @@ using MOS.ExcelGrading.Core.Graders.OTTH.Excel.Project16;
 using MOS.ExcelGrading.Core.Graders.OTTH.Excel.Project18;
 using MOS.ExcelGrading.Core.Graders.OTTH.Excel.Project20;
 using MOS.ExcelGrading.Core.Graders.OTTH.Excel.Project22;
+using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 using MOS.ExcelGrading.Core.Graders.OTTH.Word.Project03;
@@ -346,6 +347,91 @@ namespace MOS.ExcelGrading.Core.Services
                 new WP13T5Grader($"W{projectNumber:00}-T05"),
                 new WP13T6Grader($"W{projectNumber:00}-T06")
             };
+        }
+
+        public List<ExamPublicationTaskSnapshotItemDto> GetTaskSnapshotForEndpoint(string gradingApiEndpoint)
+        {
+            if (string.IsNullOrWhiteSpace(gradingApiEndpoint))
+            {
+                return new List<ExamPublicationTaskSnapshotItemDto>();
+            }
+
+            var normalizedEndpoint = GradingApiEndpoints.NormalizeEndpoint(gradingApiEndpoint);
+            if (!GradingApiEndpoints.TryExtractSubject(normalizedEndpoint, out var subject) ||
+                !GradingApiEndpoints.TryExtractProjectNumber(normalizedEndpoint, out var projectNumber))
+            {
+                return new List<ExamPublicationTaskSnapshotItemDto>();
+            }
+
+            if (string.Equals(subject, AssignmentFileSubjects.Word, StringComparison.OrdinalIgnoreCase))
+            {
+                return _wordProjectGraders.TryGetValue(projectNumber, out var wordGraders)
+                    ? MapTaskSnapshot(wordGraders)
+                    : new List<ExamPublicationTaskSnapshotItemDto>();
+            }
+
+            if (!string.Equals(subject, AssignmentFileSubjects.Excel, StringComparison.OrdinalIgnoreCase))
+            {
+                return new List<ExamPublicationTaskSnapshotItemDto>();
+            }
+
+            return GetExcelTaskSnapshot(projectNumber);
+        }
+
+        private List<ExamPublicationTaskSnapshotItemDto> GetExcelTaskSnapshot(int projectNumber)
+        {
+            return projectNumber switch
+            {
+                1 => MapTaskSnapshot(_project01Graders),
+                2 => MapTaskSnapshot(_project02Graders),
+                3 => MapTaskSnapshot(_project03Graders),
+                4 => MapTaskSnapshot(_project04Graders),
+                5 => MapTaskSnapshot(_project05Graders),
+                6 => MapTaskSnapshot(_project06Graders),
+                7 => MapTaskSnapshot(_project07Graders),
+                8 => MapTaskSnapshot(_project08Graders),
+                9 => MapTaskSnapshot(_project09Graders),
+                10 => MapTaskSnapshot(_project10Graders),
+                11 => MapTaskSnapshot(_project11Graders),
+                12 => MapTaskSnapshot(_project12Graders),
+                13 => MapTaskSnapshot(_project13Graders),
+                14 => MapTaskSnapshot(_project14Graders),
+                15 => MapTaskSnapshot(_project15Graders),
+                16 => MapTaskSnapshot(_project16Graders),
+                18 => MapTaskSnapshot(_project18Graders),
+                20 => MapTaskSnapshot(_project20Graders),
+                22 => MapTaskSnapshot(_project22Graders),
+                _ => new List<ExamPublicationTaskSnapshotItemDto>()
+            };
+        }
+
+        private static List<ExamPublicationTaskSnapshotItemDto> MapTaskSnapshot(IEnumerable<ITaskGrader> graders)
+        {
+            return graders
+                .Select(grader => new ExamPublicationTaskSnapshotItemDto
+                {
+                    TaskId = NormalizeTaskValue(grader.TaskId),
+                    TaskName = NormalizeTaskValue(TaskNameFormatter.RemovePrefix(grader.TaskName)),
+                    MaxScore = (double)grader.MaxScore
+                })
+                .ToList();
+        }
+
+        private static List<ExamPublicationTaskSnapshotItemDto> MapTaskSnapshot(IEnumerable<IWordTaskGrader> graders)
+        {
+            return graders
+                .Select(grader => new ExamPublicationTaskSnapshotItemDto
+                {
+                    TaskId = NormalizeTaskValue(grader.TaskId),
+                    TaskName = NormalizeTaskValue(TaskNameFormatter.RemovePrefix(grader.TaskName)),
+                    MaxScore = (double)grader.MaxScore
+                })
+                .ToList();
+        }
+
+        private static string? NormalizeTaskValue(string? value)
+        {
+            return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
         }
 
         public async Task<GradingResult> GradeProject01Async(Stream studentFile)

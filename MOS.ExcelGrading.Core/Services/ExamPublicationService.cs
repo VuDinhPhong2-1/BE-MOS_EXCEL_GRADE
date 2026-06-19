@@ -15,10 +15,12 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly IMongoCollection<Assignment> _assignments;
         private readonly IMongoCollection<AssignmentFile> _assignmentFiles;
         private readonly GridFSBucket _bucket;
+        private readonly IGradingService _gradingService;
         private readonly ILogger<ExamPublicationService> _logger;
 
         public ExamPublicationService(
             IMongoDatabase database,
+            IGradingService gradingService,
             ILogger<ExamPublicationService> logger)
         {
             _examPublications = database.GetCollection<ExamPublication>("examPublications");
@@ -29,6 +31,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 BucketName = "assignmentFiles"
             });
+            _gradingService = gradingService;
             _logger = logger;
         }
 
@@ -422,7 +425,10 @@ namespace MOS.ExcelGrading.Core.Services
                     HelpFileName = helpFile?.OriginalName,
                     HelpText = await ReadOptionalTextFileAsync(helpFile),
                     GradingApiEndpoint = route.GradingApiEndpoint ?? string.Empty,
-                    TaskSnapshot = new List<ExamPublicationTaskSnapshotItem>(),
+                    TaskSnapshot = _gradingService
+                        .GetTaskSnapshotForEndpoint(route.GradingApiEndpoint ?? string.Empty)
+                        .Select(MapTaskSnapshot)
+                        .ToList(),
                     ModeRules = BuildDefaultModeRules(request.Mode)
                 });
             }

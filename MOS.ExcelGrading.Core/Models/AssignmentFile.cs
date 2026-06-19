@@ -91,6 +91,8 @@ namespace MOS.ExcelGrading.Core.Models
     {
         public const string Template = "template";
         public const string Answer = "answer";
+        public const string Instructions = "instructions";
+        public const string Help = "help";
 
         public static string Normalize(string? value) =>
             (value ?? string.Empty).Trim().ToLowerInvariant();
@@ -98,7 +100,10 @@ namespace MOS.ExcelGrading.Core.Models
         public static bool IsValid(string? value)
         {
             var normalized = Normalize(value);
-            return normalized == Template || normalized == Answer;
+            return normalized == Template ||
+                normalized == Answer ||
+                normalized == Instructions ||
+                normalized == Help;
         }
     }
 }

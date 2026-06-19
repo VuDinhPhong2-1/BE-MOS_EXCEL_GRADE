@@ -29,6 +29,11 @@ namespace MOS.ExcelGrading.Core.Services
             ".pptx", ".ppt"
         };
 
+        private static readonly HashSet<string> TextExtensions = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ".txt"
+        };
+
         private readonly IMongoCollection<AssignmentFile> _assignmentFiles;
         private readonly IMongoCollection<Assignment> _assignments;
         private readonly GridFSBucket _bucket;
@@ -91,7 +96,7 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            ValidateExtension(normalizedSubject, extension);
+            ValidateExtension(normalizedSubject, normalizedKind, extension);
 
             await using var inMemory = new MemoryStream();
             await file.CopyToAsync(inMemory);
@@ -197,6 +202,16 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 assignmentUpdates.Add(
                     Builders<Assignment>.Update.Set(a => a.CurrentAnswerFileId, uploadedFile.Id));
+            }
+            else if (normalizedKind == AssignmentFileKinds.Instructions)
+            {
+                assignmentUpdates.Add(
+                    Builders<Assignment>.Update.Set(a => a.CurrentInstructionsFileId, uploadedFile.Id));
+            }
+            else if (normalizedKind == AssignmentFileKinds.Help)
+            {
+                assignmentUpdates.Add(
+                    Builders<Assignment>.Update.Set(a => a.CurrentHelpFileId, uploadedFile.Id));
             }
 
             await _assignments.UpdateOneAsync(
@@ -304,6 +319,14 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 assignmentUpdates.Add(Builders<Assignment>.Update.Set(a => a.CurrentAnswerFileId, null));
             }
+            else if (file.Kind == AssignmentFileKinds.Instructions)
+            {
+                assignmentUpdates.Add(Builders<Assignment>.Update.Set(a => a.CurrentInstructionsFileId, null));
+            }
+            else if (file.Kind == AssignmentFileKinds.Help)
+            {
+                assignmentUpdates.Add(Builders<Assignment>.Update.Set(a => a.CurrentHelpFileId, null));
+            }
 
             await _assignments.UpdateOneAsync(
                 a => a.Id == file.AssignmentId,
@@ -341,8 +364,19 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
-        private static void ValidateExtension(string subject, string extension)
+        private static void ValidateExtension(string subject, string kind, string extension)
         {
+            if (kind == AssignmentFileKinds.Instructions || kind == AssignmentFileKinds.Help)
+            {
+                if (!TextExtensions.Contains(extension))
+                {
+                    throw new ArgumentException(
+                        $"Dinh dang file '{extension}' khong hop le cho loai '{kind}'. Chi chap nhan file .txt.");
+                }
+
+                return;
+            }
+
             var allowed = subject switch
             {
                 AssignmentFileSubjects.Excel => ExcelExtensions,

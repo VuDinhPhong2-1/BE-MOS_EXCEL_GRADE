@@ -42,6 +42,10 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string ProjectCode { get; set; } = string.Empty;
         public string Subject { get; set; } = string.Empty;
         public string? TemplateFileName { get; set; }
+        public string? InstructionsFileName { get; set; }
+        public string? InstructionsText { get; set; }
+        public string? HelpFileName { get; set; }
+        public string? HelpText { get; set; }
         public string GradingApiEndpoint { get; set; } = string.Empty;
         public List<ExamPublicationTaskSnapshotItemDto> TaskSnapshot { get; set; } = new();
         public ExamPublicationModeRulesDto? ModeRules { get; set; }

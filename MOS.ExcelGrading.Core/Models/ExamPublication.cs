@@ -86,6 +86,18 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("templateFileName")]
         public string? TemplateFileName { get; set; }
 
+        [BsonElement("instructionsFileName")]
+        public string? InstructionsFileName { get; set; }
+
+        [BsonElement("instructionsText")]
+        public string? InstructionsText { get; set; }
+
+        [BsonElement("helpFileName")]
+        public string? HelpFileName { get; set; }
+
+        [BsonElement("helpText")]
+        public string? HelpText { get; set; }
+
         [BsonElement("gradingApiEndpoint")]
         public string GradingApiEndpoint { get; set; } = string.Empty;
 

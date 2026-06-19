@@ -54,6 +54,8 @@ namespace MOS.ExcelGrading.Core.DTOs
         public DateTime CreatedAt { get; set; }
         public bool IsActive { get; set; }
         public bool IsLockedForPublication { get; set; }
+        public bool IsPublishable { get; set; }
+        public string? PublishBlockReason { get; set; }
         public string? CreatedBy { get; set; }
         public string? CreatedByName { get; set; }
         public DateTime? UpdatedAt { get; set; }

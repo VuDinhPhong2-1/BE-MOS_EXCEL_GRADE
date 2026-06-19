@@ -604,6 +604,10 @@ namespace MOS.ExcelGrading.Core.Services
                 ProjectCode = project.ProjectCode,
                 Subject = project.Subject,
                 TemplateFileName = project.TemplateFileName,
+                InstructionsFileName = project.InstructionsFileName,
+                InstructionsText = project.InstructionsText,
+                HelpFileName = project.HelpFileName,
+                HelpText = project.HelpText,
                 GradingApiEndpoint = project.GradingApiEndpoint,
                 TaskSnapshot = project.TaskSnapshot.Select(x => new ExamPublicationTaskSnapshotItemDto
                 {

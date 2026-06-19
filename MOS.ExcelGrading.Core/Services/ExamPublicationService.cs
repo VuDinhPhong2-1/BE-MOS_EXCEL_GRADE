@@ -1,6 +1,7 @@
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Driver;
+using MongoDB.Driver.GridFS;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -13,6 +14,7 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly IMongoCollection<Student> _students;
         private readonly IMongoCollection<Assignment> _assignments;
         private readonly IMongoCollection<AssignmentFile> _assignmentFiles;
+        private readonly GridFSBucket _bucket;
         private readonly ILogger<ExamPublicationService> _logger;
 
         public ExamPublicationService(
@@ -23,6 +25,10 @@ namespace MOS.ExcelGrading.Core.Services
             _students = database.GetCollection<Student>("students");
             _assignments = database.GetCollection<Assignment>("assignments");
             _assignmentFiles = database.GetCollection<AssignmentFile>("assignment_files");
+            _bucket = new GridFSBucket(database, new GridFSBucketOptions
+            {
+                BucketName = "assignmentFiles"
+            });
             _logger = logger;
         }
 
@@ -57,7 +63,7 @@ namespace MOS.ExcelGrading.Core.Services
                 var normalizedProjectSequence = await NormalizeProjectSequenceAsync(request);
                 if (normalizedProjectSequence.Count == 0)
                 {
-                    throw new ArgumentException("Cần ít nhất một project trong projectSequence.");
+                    throw new ArgumentException("Cần ít nhất một project trong lịch thi.");
                 }
 
                 var publication = new ExamPublication
@@ -155,13 +161,13 @@ namespace MOS.ExcelGrading.Core.Services
                     var studentLookup = matchedStudents
                         .Where(student => !string.IsNullOrWhiteSpace(student.Id))
                         .ToDictionary(
-                        student => student.Id!,
-                        student => new PublicExamStudentDto
-                        {
-                            Id = student.Id ?? string.Empty,
-                            FullName = $"{student.MiddleName} {student.FirstName}".Trim()
-                        },
-                        StringComparer.OrdinalIgnoreCase);
+                            student => student.Id!,
+                            student => new PublicExamStudentDto
+                            {
+                                Id = student.Id ?? string.Empty,
+                                FullName = $"{student.MiddleName} {student.FirstName}".Trim()
+                            },
+                            StringComparer.OrdinalIgnoreCase);
 
                     students = studentIds
                         .Where(studentLookup.ContainsKey)
@@ -260,6 +266,10 @@ namespace MOS.ExcelGrading.Core.Services
                     ProjectCode = NormalizeProjectCode(item.ProjectCode, normalizedSubject, projectNumber),
                     Subject = normalizedSubject,
                     TemplateFileName = NormalizeNullable(item.TemplateFileName),
+                    InstructionsFileName = NormalizeNullable(item.InstructionsFileName),
+                    InstructionsText = NormalizeLongText(item.InstructionsText),
+                    HelpFileName = NormalizeNullable(item.HelpFileName),
+                    HelpText = NormalizeLongText(item.HelpText),
                     GradingApiEndpoint = normalizedEndpoint,
                     TaskSnapshot = (item.TaskSnapshot ?? new List<ExamPublicationTaskSnapshotItemDto>())
                         .Select(MapTaskSnapshot)
@@ -294,6 +304,11 @@ namespace MOS.ExcelGrading.Core.Services
                 .Select(id => id.Trim())
                 .ToList();
 
+            if (assignmentIds.Count != assignmentIds.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+            {
+                throw new ArgumentException("Không được chọn trùng assignment trong cùng một lịch thi.");
+            }
+
             var assignments = await _assignments
                 .Find(item => assignmentIds.Contains(item.Id) && item.IsActive)
                 .ToListAsync();
@@ -312,20 +327,68 @@ namespace MOS.ExcelGrading.Core.Services
                 throw new ArgumentException("Tất cả assignment phải thuộc đúng lớp được chọn.");
             }
 
+            var distinctClassIds = orderedAssignments
+                .Select(item => item.ClassId)
+                .Where(classId => !string.IsNullOrWhiteSpace(classId))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (distinctClassIds.Count > 1)
+            {
+                throw new ArgumentException("Các assignment được chọn phải cùng thuộc một lớp.");
+            }
+
+            if (string.IsNullOrWhiteSpace(request.ClassId) && distinctClassIds.Count == 1)
+            {
+                request.ClassId = distinctClassIds[0];
+            }
+
             var templateIds = orderedAssignments
                 .Where(item => !string.IsNullOrWhiteSpace(item.CurrentTemplateFileId))
                 .Select(item => item.CurrentTemplateFileId!)
                 .ToList();
 
-            var templateFiles = templateIds.Count == 0
+            var instructionsIds = orderedAssignments
+                .Where(item => !string.IsNullOrWhiteSpace(item.CurrentInstructionsFileId))
+                .Select(item => item.CurrentInstructionsFileId!)
+                .ToList();
+
+            var helpIds = orderedAssignments
+                .Where(item => !string.IsNullOrWhiteSpace(item.CurrentHelpFileId))
+                .Select(item => item.CurrentHelpFileId!)
+                .ToList();
+
+            var fileIds = templateIds
+                .Concat(instructionsIds)
+                .Concat(helpIds)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            var filesById = fileIds.Count == 0
                 ? new Dictionary<string, AssignmentFile>(StringComparer.OrdinalIgnoreCase)
-                : (await _assignmentFiles.Find(file => templateIds.Contains(file.Id)).ToListAsync())
+                : (await _assignmentFiles.Find(file => fileIds.Contains(file.Id)).ToListAsync())
                     .ToDictionary(item => item.Id, StringComparer.OrdinalIgnoreCase);
 
             var result = new List<ExamPublicationProject>();
             for (var index = 0; index < orderedAssignments.Count; index++)
             {
                 var assignment = orderedAssignments[index];
+
+                if (string.IsNullOrWhiteSpace(assignment.ExamType) ||
+                    string.IsNullOrWhiteSpace(assignment.Subject) ||
+                    string.IsNullOrWhiteSpace(assignment.ProjectCode))
+                {
+                    throw new ArgumentException(
+                        $"Assignment '{assignment.Name}' là dữ liệu cũ và đang thiếu metadata chấm điểm. Vui lòng cập nhật exam type, subject và project code trước khi tạo lịch thi.");
+                }
+
+                var (isPublishable, publishBlockReason) = AssignmentService.EvaluatePublicationEligibility(assignment);
+                if (!isPublishable)
+                {
+                    throw new ArgumentException(
+                        $"Assignment '{assignment.Name}' không thể dùng để tạo lịch thi. {publishBlockReason}");
+                }
+
                 var route = ResolveAssignmentRoute(assignment);
 
                 if (string.Equals(route.ExamType, AssignmentExamTypes.GMetrix, StringComparison.OrdinalIgnoreCase))
@@ -343,7 +406,9 @@ namespace MOS.ExcelGrading.Core.Services
                     throw new ArgumentException($"Assignment '{assignment.Name}' chưa có grading endpoint tự động hợp lệ.");
                 }
 
-                templateFiles.TryGetValue(assignment.CurrentTemplateFileId ?? string.Empty, out var templateFile);
+                filesById.TryGetValue(assignment.CurrentTemplateFileId ?? string.Empty, out var templateFile);
+                filesById.TryGetValue(assignment.CurrentInstructionsFileId ?? string.Empty, out var instructionsFile);
+                filesById.TryGetValue(assignment.CurrentHelpFileId ?? string.Empty, out var helpFile);
 
                 result.Add(new ExamPublicationProject
                 {
@@ -352,6 +417,10 @@ namespace MOS.ExcelGrading.Core.Services
                     ProjectCode = route.ProjectCode,
                     Subject = route.Subject,
                     TemplateFileName = templateFile?.OriginalName,
+                    InstructionsFileName = instructionsFile?.OriginalName,
+                    InstructionsText = await ReadOptionalTextFileAsync(instructionsFile),
+                    HelpFileName = helpFile?.OriginalName,
+                    HelpText = await ReadOptionalTextFileAsync(helpFile),
                     GradingApiEndpoint = route.GradingApiEndpoint ?? string.Empty,
                     TaskSnapshot = new List<ExamPublicationTaskSnapshotItem>(),
                     ModeRules = BuildDefaultModeRules(request.Mode)
@@ -393,6 +462,34 @@ namespace MOS.ExcelGrading.Core.Services
                 MaxScore = item.MaxScore,
                 Instructions = NormalizeNullable(item.Instructions)
             };
+        }
+
+        private async Task<string?> ReadOptionalTextFileAsync(AssignmentFile? file)
+        {
+            if (file == null || string.IsNullOrWhiteSpace(file.GridFsFileId))
+            {
+                return null;
+            }
+
+            if (!ObjectId.TryParse(file.GridFsFileId, out var gridFsObjectId))
+            {
+                return null;
+            }
+
+            await using var stream = await _bucket.OpenDownloadStreamAsync(gridFsObjectId);
+            using var reader = new StreamReader(stream, detectEncodingFromByteOrderMarks: true);
+            var content = await reader.ReadToEndAsync();
+            return NormalizeLongText(content);
+        }
+
+        private static string? NormalizeLongText(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            return value.Replace("\r\n", "\n", StringComparison.Ordinal).Trim();
         }
 
         private static ExamPublicationModeRules? MapModeRules(ExamPublicationModeRulesDto? item)

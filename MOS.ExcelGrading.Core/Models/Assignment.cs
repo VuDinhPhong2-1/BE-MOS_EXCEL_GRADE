@@ -69,6 +69,14 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("currentAnswerFileId")]
         public string? CurrentAnswerFileId { get; set; }
 
+        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonElement("currentInstructionsFileId")]
+        public string? CurrentInstructionsFileId { get; set; }
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonElement("currentHelpFileId")]
+        public string? CurrentHelpFileId { get; set; }
+
         [BsonElement("isActive")]
         public bool IsActive { get; set; } = true;
 
@@ -89,6 +97,12 @@ namespace MOS.ExcelGrading.Core.Models
 
         [BsonIgnore]
         public bool IsLockedForPublication { get; set; }
+
+        [BsonIgnore]
+        public bool IsPublishable { get; set; }
+
+        [BsonIgnore]
+        public string? PublishBlockReason { get; set; }
     }
 
     // ========== ĐỊNH NGHĨA GRADING TYPES ==========

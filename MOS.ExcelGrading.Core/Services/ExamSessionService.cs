@@ -166,29 +166,6 @@ namespace MOS.ExcelGrading.Core.Services
                 : request.StudentId.Trim();
             var normalizedStudentName = request.StudentName.Trim();
 
-            if (!string.IsNullOrWhiteSpace(normalizedStudentId))
-            {
-                var existingSession = await _examSessions
-                    .Find(x =>
-                        x.PublicationId == publication.Id &&
-                        x.StudentId == normalizedStudentId &&
-                        x.Status == ExamSessionStatuses.InProgress)
-                    .SortByDescending(x => x.StartedAt)
-                    .FirstOrDefaultAsync();
-
-                if (existingSession != null)
-                {
-                    if (!string.Equals(existingSession.StudentName, normalizedStudentName, StringComparison.Ordinal))
-                    {
-                        existingSession.StudentName = normalizedStudentName;
-                        existingSession.UpdatedAt = now;
-                        await ReplaceSessionWithOptimisticConcurrencyAsync(existingSession);
-                    }
-
-                    return existingSession;
-                }
-            }
-
             var firstProject = publication.ProjectSequence.OrderBy(x => x.Order).First();
 
             var session = new ExamSession

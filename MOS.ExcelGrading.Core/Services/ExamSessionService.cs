@@ -3,6 +3,7 @@ using MongoDB.Driver;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
+using System.Text;
 
 namespace MOS.ExcelGrading.Core.Services
 {
@@ -10,6 +11,11 @@ namespace MOS.ExcelGrading.Core.Services
     {
         private readonly IMongoCollection<ExamPublication> _examPublications;
         private readonly IMongoCollection<ExamSession> _examSessions;
+
+        static ExamSessionService()
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        }
 
         public ExamSessionService(IMongoDatabase database)
         {
@@ -605,9 +611,9 @@ namespace MOS.ExcelGrading.Core.Services
                 Subject = project.Subject,
                 TemplateFileName = project.TemplateFileName,
                 InstructionsFileName = project.InstructionsFileName,
-                InstructionsText = project.InstructionsText,
+                InstructionsText = RepairMojibakeIfNeeded(project.InstructionsText),
                 HelpFileName = project.HelpFileName,
-                HelpText = project.HelpText,
+                HelpText = RepairMojibakeIfNeeded(project.HelpText),
                 GradingApiEndpoint = project.GradingApiEndpoint,
                 TaskSnapshot = project.TaskSnapshot.Select(x => new ExamPublicationTaskSnapshotItemDto
                 {
@@ -716,6 +722,32 @@ namespace MOS.ExcelGrading.Core.Services
         private static string? NormalizeNullable(string? value)
         {
             return string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+        }
+
+        private static string? RepairMojibakeIfNeeded(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value) || !LooksLikeUtf8ReadAsWindows1252(value))
+            {
+                return value;
+            }
+
+            try
+            {
+                return Encoding.UTF8.GetString(Encoding.GetEncoding(1252).GetBytes(value));
+            }
+            catch
+            {
+                return value;
+            }
+        }
+
+        private static bool LooksLikeUtf8ReadAsWindows1252(string value)
+        {
+            return value.Contains('Ã') ||
+                value.Contains('Ä') ||
+                value.Contains('Æ') ||
+                value.Contains("áº", StringComparison.Ordinal) ||
+                value.Contains("á»", StringComparison.Ordinal);
         }
     }
 }

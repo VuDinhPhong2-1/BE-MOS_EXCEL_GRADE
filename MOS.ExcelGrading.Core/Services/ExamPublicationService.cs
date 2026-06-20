@@ -5,11 +5,16 @@ using MongoDB.Driver.GridFS;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
+using System.Text;
 
 namespace MOS.ExcelGrading.Core.Services
 {
     public class ExamPublicationService : IExamPublicationService
     {
+        private static readonly Encoding Utf8Strict = new UTF8Encoding(
+            encoderShouldEmitUTF8Identifier: false,
+            throwOnInvalidBytes: true);
+
         private readonly IMongoCollection<ExamPublication> _examPublications;
         private readonly IMongoCollection<Student> _students;
         private readonly IMongoCollection<Assignment> _assignments;
@@ -17,6 +22,11 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly GridFSBucket _bucket;
         private readonly IGradingService _gradingService;
         private readonly ILogger<ExamPublicationService> _logger;
+
+        static ExamPublicationService()
+        {
+            Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
+        }
 
         public ExamPublicationService(
             IMongoDatabase database,
@@ -483,9 +493,125 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             await using var stream = await _bucket.OpenDownloadStreamAsync(gridFsObjectId);
-            using var reader = new StreamReader(stream, detectEncodingFromByteOrderMarks: true);
-            var content = await reader.ReadToEndAsync();
+            using var memoryStream = new MemoryStream();
+            await stream.CopyToAsync(memoryStream);
+
+            var content = DecodeTextFile(memoryStream.ToArray());
             return NormalizeLongText(content);
+        }
+
+        private static string DecodeTextFile(byte[] bytes)
+        {
+            if (bytes.Length == 0)
+            {
+                return string.Empty;
+            }
+
+            var encoding = DetectEncodingFromBom(bytes);
+            if (encoding != null)
+            {
+                return RepairMojibakeIfNeeded(encoding.GetString(RemoveBom(bytes)));
+            }
+
+            try
+            {
+                return RepairMojibakeIfNeeded(Utf8Strict.GetString(bytes));
+            }
+            catch (DecoderFallbackException)
+            {
+                return RepairMojibakeIfNeeded(Encoding.GetEncoding(1258).GetString(bytes));
+            }
+        }
+
+        private static string RepairMojibakeIfNeeded(string value)
+        {
+            if (!LooksLikeUtf8ReadAsWindows1252(value))
+            {
+                return value;
+            }
+
+            try
+            {
+                return Encoding.UTF8.GetString(Encoding.GetEncoding(1252).GetBytes(value));
+            }
+            catch
+            {
+                return value;
+            }
+        }
+
+        private static bool LooksLikeUtf8ReadAsWindows1252(string value)
+        {
+            return value.Contains('Ã') ||
+                value.Contains('Ä') ||
+                value.Contains('Æ') ||
+                value.Contains("áº", StringComparison.Ordinal) ||
+                value.Contains("á»", StringComparison.Ordinal);
+        }
+
+        private static Encoding? DetectEncodingFromBom(byte[] bytes)
+        {
+            if (bytes.Length >= 3 &&
+                bytes[0] == 0xEF &&
+                bytes[1] == 0xBB &&
+                bytes[2] == 0xBF)
+            {
+                return Encoding.UTF8;
+            }
+
+            if (bytes.Length >= 4 &&
+                bytes[0] == 0xFF &&
+                bytes[1] == 0xFE &&
+                bytes[2] == 0x00 &&
+                bytes[3] == 0x00)
+            {
+                return Encoding.UTF32;
+            }
+
+            if (bytes.Length >= 2 &&
+                bytes[0] == 0xFF &&
+                bytes[1] == 0xFE)
+            {
+                return Encoding.Unicode;
+            }
+
+            if (bytes.Length >= 2 &&
+                bytes[0] == 0xFE &&
+                bytes[1] == 0xFF)
+            {
+                return Encoding.BigEndianUnicode;
+            }
+
+            return null;
+        }
+
+        private static byte[] RemoveBom(byte[] bytes)
+        {
+            if (bytes.Length >= 3 &&
+                bytes[0] == 0xEF &&
+                bytes[1] == 0xBB &&
+                bytes[2] == 0xBF)
+            {
+                return bytes[3..];
+            }
+
+            if (bytes.Length >= 4 &&
+                bytes[0] == 0xFF &&
+                bytes[1] == 0xFE &&
+                bytes[2] == 0x00 &&
+                bytes[3] == 0x00)
+            {
+                return bytes[4..];
+            }
+
+            if (bytes.Length >= 2 &&
+                ((bytes[0] == 0xFF && bytes[1] == 0xFE) ||
+                 (bytes[0] == 0xFE && bytes[1] == 0xFF)))
+            {
+                return bytes[2..];
+            }
+
+            return bytes;
         }
 
         private static string? NormalizeLongText(string? value)

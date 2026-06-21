@@ -136,5 +136,8 @@ namespace MOS.ExcelGrading.Core.Models
 
         [BsonElement("allowNextProject")]
         public bool? AllowNextProject { get; set; }
+
+        [BsonElement("allowHelp")]
+        public bool? AllowHelp { get; set; }
     }
 }

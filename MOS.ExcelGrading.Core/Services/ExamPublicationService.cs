@@ -636,7 +636,8 @@ namespace MOS.ExcelGrading.Core.Services
                 Mode = NormalizeNullable(item.Mode),
                 ShowFeedback = item.ShowFeedback,
                 AllowRestart = item.AllowRestart,
-                AllowNextProject = item.AllowNextProject
+                AllowNextProject = item.AllowNextProject,
+                AllowHelp = item.AllowHelp
             };
         }
 
@@ -710,7 +711,8 @@ namespace MOS.ExcelGrading.Core.Services
                 Mode = normalizedMode,
                 ShowFeedback = isTraining,
                 AllowRestart = true,
-                AllowNextProject = true
+                AllowNextProject = true,
+                AllowHelp = isTraining
             };
         }
     }

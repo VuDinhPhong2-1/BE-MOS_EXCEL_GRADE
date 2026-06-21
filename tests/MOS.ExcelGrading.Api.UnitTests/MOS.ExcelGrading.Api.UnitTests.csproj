@@ -16,7 +16,6 @@
   <ItemGroup>
     <ProjectReference Include="..\..\MOS.ExcelGrading.API\MOS.ExcelGrading.API.csproj" />
     <ProjectReference Include="..\..\..\MOS.ExcelGrading.LocalAgent\MOS.ExcelGrading.LocalAgent.csproj" />
-    <ProjectReference Include="..\..\..\MOS.ExcelGrading.MockAgent\MOS.ExcelGrading.MockAgent.csproj" />
-  </ItemGroup>
+    </ItemGroup>
 
 </Project>

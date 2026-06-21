@@ -52,6 +52,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public bool? ShowFeedback { get; set; }
         public bool? AllowRestart { get; set; }
         public bool? AllowNextProject { get; set; }
+        public bool? AllowHelp { get; set; }
     }
 
     public class PublicExamStudentDto

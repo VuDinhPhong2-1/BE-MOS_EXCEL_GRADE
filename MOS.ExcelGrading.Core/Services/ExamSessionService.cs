@@ -606,7 +606,8 @@ namespace MOS.ExcelGrading.Core.Services
                         Mode = project.ModeRules.Mode,
                         ShowFeedback = project.ModeRules.ShowFeedback,
                         AllowRestart = project.ModeRules.AllowRestart,
-                        AllowNextProject = project.ModeRules.AllowNextProject
+                        AllowNextProject = project.ModeRules.AllowNextProject,
+                        AllowHelp = project.ModeRules.AllowHelp
                     }
             };
         }

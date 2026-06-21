@@ -60,25 +60,23 @@ namespace MOS.ExcelGrading.Core.Services
             if (existingUser != null)
                 return null;
 
-            var userRole = role ?? UserRoles.Teacher;
-            if (!UserRoles.IsValidRole(userRole))
-                userRole = UserRoles.Teacher;
-
             var passwordHash = BCrypt.Net.BCrypt.HashPassword(password);
-
-            var permissions = Permissions.GetRolePermissions().ContainsKey(userRole)
-                ? Permissions.GetRolePermissions()[userRole]
-                : new List<string>();
+            var now = DateTime.UtcNow;
 
             var newUser = new User
             {
                 Email = email,
                 Username = username,
                 PasswordHash = passwordHash,
-                Role = userRole,
-                Permissions = permissions,
+                Role = UserRoles.PendingTeacher,
+                Permissions = new List<string>(),
+                TeacherApprovalStatus = TeacherApprovalStatuses.Pending,
+                TeacherApprovalRequestedAt = now,
+                TeacherApprovalReviewedAt = null,
+                TeacherApprovalReviewedBy = null,
+                TeacherApprovalNote = null,
                 FullName = fullName,
-                CreatedAt = DateTime.UtcNow,
+                CreatedAt = now,
                 IsActive = true,
                 AuthProvider = "Local"
             };
@@ -124,21 +122,26 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (user == null)
             {
-                var role = UserRoles.Teacher;
+                var now = DateTime.UtcNow;
                 var newUser = new User
                 {
                     Email = payload.Email,
                     Username = await GenerateUniqueUsernameAsync(payload.Email),
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N")),
-                    Role = role,
-                    Permissions = Permissions.GetRolePermissions()[role],
+                    Role = UserRoles.PendingTeacher,
+                    Permissions = new List<string>(),
+                    TeacherApprovalStatus = TeacherApprovalStatuses.Pending,
+                    TeacherApprovalRequestedAt = now,
+                    TeacherApprovalReviewedAt = null,
+                    TeacherApprovalReviewedBy = null,
+                    TeacherApprovalNote = null,
                     FullName = payload.Name,
                     Avatar = payload.Picture,
                     GoogleId = payload.Subject,
                     AuthProvider = "Google",
                     IsActive = true,
                     IsEmailVerified = true,
-                    CreatedAt = DateTime.UtcNow
+                    CreatedAt = now
                 };
 
                 await _users.InsertOneAsync(newUser);
@@ -196,7 +199,12 @@ namespace MOS.ExcelGrading.Core.Services
                 Role = user.Role,
                 Permissions = user.Permissions,
                 FullName = user.FullName,
-                Avatar = user.Avatar
+                Avatar = user.Avatar,
+                TeacherApprovalStatus = user.TeacherApprovalStatus,
+                TeacherApprovalRequestedAt = user.TeacherApprovalRequestedAt,
+                TeacherApprovalReviewedAt = user.TeacherApprovalReviewedAt,
+                TeacherApprovalReviewedBy = user.TeacherApprovalReviewedBy,
+                TeacherApprovalNote = user.TeacherApprovalNote
             };
         }
 
@@ -231,6 +239,86 @@ namespace MOS.ExcelGrading.Core.Services
             return await _users.Find(filter).ToListAsync();
         }
 
+        public async Task<List<User>> GetTeacherRequestsAsync(string status = "pending")
+        {
+            var normalizedStatus = string.IsNullOrWhiteSpace(status)
+                ? "pending"
+                : status.Trim().ToLowerInvariant();
+
+            var filterBuilder = Builders<User>.Filter;
+            var teacherRequestFilter = filterBuilder.Or(
+                filterBuilder.Eq(u => u.Role, UserRoles.PendingTeacher),
+                filterBuilder.Exists(u => u.TeacherApprovalStatus, true));
+
+            var statusFilter = normalizedStatus switch
+            {
+                "pending" => filterBuilder.Eq(u => u.TeacherApprovalStatus, TeacherApprovalStatuses.Pending),
+                "approved" => filterBuilder.Eq(u => u.TeacherApprovalStatus, TeacherApprovalStatuses.Approved),
+                "rejected" => filterBuilder.Eq(u => u.TeacherApprovalStatus, TeacherApprovalStatuses.Rejected),
+                "all" => filterBuilder.Empty,
+                _ => filterBuilder.Eq(u => u.TeacherApprovalStatus, TeacherApprovalStatuses.Pending)
+            };
+
+            var filter = teacherRequestFilter & statusFilter;
+
+            return await _users
+                .Find(filter)
+                .SortByDescending(u => u.TeacherApprovalRequestedAt)
+                .ThenByDescending(u => u.CreatedAt)
+                .ToListAsync();
+        }
+
+        public async Task<User?> DecideTeacherRequestAsync(string userId, string decision, string? note, string reviewedBy)
+        {
+            if (string.IsNullOrWhiteSpace(userId) || string.IsNullOrWhiteSpace(decision))
+                return null;
+
+            var normalizedDecision = decision.Trim().ToLowerInvariant();
+            var now = DateTime.UtcNow;
+            var normalizedNote = string.IsNullOrWhiteSpace(note) ? null : note.Trim();
+
+            UpdateDefinition<User> update;
+            if (normalizedDecision == "approve")
+            {
+                var defaultPermissions = Permissions.GetRolePermissions()[UserRoles.Teacher]
+                    .Distinct(StringComparer.Ordinal)
+                    .OrderBy(permission => permission, StringComparer.Ordinal)
+                    .ToList();
+
+                update = Builders<User>.Update
+                    .Set(u => u.Role, UserRoles.Teacher)
+                    .Set(u => u.Permissions, defaultPermissions)
+                    .Set(u => u.TeacherApprovalStatus, TeacherApprovalStatuses.Approved)
+                    .Set(u => u.TeacherApprovalReviewedAt, now)
+                    .Set(u => u.TeacherApprovalReviewedBy, reviewedBy)
+                    .Set(u => u.TeacherApprovalNote, normalizedNote);
+            }
+            else if (normalizedDecision == "reject")
+            {
+                update = Builders<User>.Update
+                    .Set(u => u.Role, UserRoles.PendingTeacher)
+                    .Set(u => u.Permissions, new List<string>())
+                    .Set(u => u.TeacherApprovalStatus, TeacherApprovalStatuses.Rejected)
+                    .Set(u => u.TeacherApprovalReviewedAt, now)
+                    .Set(u => u.TeacherApprovalReviewedBy, reviewedBy)
+                    .Set(u => u.TeacherApprovalNote, normalizedNote);
+            }
+            else
+            {
+                return null;
+            }
+
+            return await _users.FindOneAndUpdateAsync(
+                filter: user => user.Id == userId &&
+                    user.IsActive &&
+                    (user.Role == UserRoles.PendingTeacher || user.Role == UserRoles.Teacher),
+                update: update,
+                options: new FindOneAndUpdateOptions<User>
+                {
+                    ReturnDocument = ReturnDocument.After
+                });
+        }
+
         public async Task<User?> UpdateTeacherPermissionsAsync(string teacherId, IReadOnlyCollection<string> permissions)
         {
             if (string.IsNullOrWhiteSpace(teacherId))
@@ -250,7 +338,9 @@ namespace MOS.ExcelGrading.Core.Services
                 .ToList();
 
             return await _users.FindOneAndUpdateAsync(
-                filter: user => user.Id == teacherId && user.Role == UserRoles.Teacher,
+                filter: user => user.Id == teacherId &&
+                    user.Role == UserRoles.Teacher &&
+                    user.TeacherApprovalStatus == TeacherApprovalStatuses.Approved,
                 update: Builders<User>.Update.Set(user => user.Permissions, normalizedPermissions),
                 options: new FindOneAndUpdateOptions<User>
                 {
@@ -332,7 +422,12 @@ namespace MOS.ExcelGrading.Core.Services
                 Role = user.Role,
                 Permissions = user.Permissions,
                 FullName = user.FullName,
-                Avatar = user.Avatar
+                Avatar = user.Avatar,
+                TeacherApprovalStatus = user.TeacherApprovalStatus,
+                TeacherApprovalRequestedAt = user.TeacherApprovalRequestedAt,
+                TeacherApprovalReviewedAt = user.TeacherApprovalReviewedAt,
+                TeacherApprovalReviewedBy = user.TeacherApprovalReviewedBy,
+                TeacherApprovalNote = user.TeacherApprovalNote
             };
         }
 

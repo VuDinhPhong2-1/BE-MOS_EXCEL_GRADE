@@ -10,7 +10,7 @@ namespace MOS.ExcelGrading.API.Controllers
 {
     [ApiController]
     [Route("api/grading-test")]
-    [Authorize] // Chỉ cần đăng nhập, không yêu cầu permission chấm điểm.
+    [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
     public class GradingTestController : ControllerBase
     {
         private static readonly Regex ProjectCodeRegex = new(

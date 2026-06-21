@@ -28,8 +28,19 @@ namespace MOS.ExcelGrading.Core.Models
 
         // ========== PHÂN QUYỀN ==========
         [Required]
-        public string Role { get; set; } = UserRoles.Teacher;
+        public string Role { get; set; } = UserRoles.PendingTeacher;
         public List<string> Permissions { get; set; } = new List<string>();
+
+        // ========== DUYỆT GIÁO VIÊN ==========
+        public string TeacherApprovalStatus { get; set; } = TeacherApprovalStatuses.Pending;
+        public DateTime? TeacherApprovalRequestedAt { get; set; }
+        public DateTime? TeacherApprovalReviewedAt { get; set; }
+
+        [BsonRepresentation(BsonType.ObjectId)]
+        [BsonIgnoreIfNull]
+        public string? TeacherApprovalReviewedBy { get; set; }
+
+        public string? TeacherApprovalNote { get; set; }
 
         // ========== THÔNG TIN BỔ SUNG ==========
         public string? FullName { get; set; }
@@ -55,10 +66,22 @@ namespace MOS.ExcelGrading.Core.Models
     {
         public const string Admin = "Admin";
         public const string Teacher = "Teacher";
+        public const string PendingTeacher = "PendingTeacher";
         public const string Student = "Student";
 
-        public static List<string> GetAllRoles() => new List<string> { Admin, Teacher, Student };
+        public static List<string> GetAllRoles() => new List<string> { Admin, Teacher, PendingTeacher, Student };
         public static bool IsValidRole(string role) => GetAllRoles().Contains(role);
+    }
+
+    // ========== TRẠNG THÁI DUYỆT GIÁO VIÊN ==========
+    public static class TeacherApprovalStatuses
+    {
+        public const string Pending = "Pending";
+        public const string Approved = "Approved";
+        public const string Rejected = "Rejected";
+
+        public static List<string> GetAllStatuses() => new List<string> { Pending, Approved, Rejected };
+        public static bool IsValidStatus(string status) => GetAllStatuses().Contains(status);
     }
 
     // ========== ĐỊNH NGHĨA PERMISSIONS ==========
@@ -118,6 +141,7 @@ namespace MOS.ExcelGrading.Core.Models
                 ViewProjects, CreateProjects, EditProjects,
                 ViewSchools, CreateSchools, EditSchools
             },
+            [UserRoles.PendingTeacher] = new List<string>(),
             [UserRoles.Student] = new List<string>
             {
                 ViewGrades, ViewProjects, ViewSchools

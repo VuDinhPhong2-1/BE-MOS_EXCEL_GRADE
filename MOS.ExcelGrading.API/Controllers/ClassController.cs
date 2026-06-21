@@ -12,7 +12,7 @@ namespace MOS.ExcelGrading.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
     public class ClassController : ControllerBase
     {
         private readonly IClassService _classService;

@@ -66,7 +66,9 @@ namespace MOS.ExcelGrading.API.Controllers
                     username = user.Username,
                     email = user.Email,
                     role = user.Role,
-                    permissions = user.Permissions
+                    permissions = user.Permissions,
+                    teacherApprovalStatus = user.TeacherApprovalStatus,
+                    teacherApprovalRequestedAt = user.TeacherApprovalRequestedAt
                 });
             }
             catch (Exception ex)
@@ -211,7 +213,12 @@ namespace MOS.ExcelGrading.API.Controllers
                     avatar = user.Avatar,
                     createdAt = user.CreatedAt,
                     lastLogin = user.LastLogin,
-                    isActive = user.IsActive
+                    isActive = user.IsActive,
+                    teacherApprovalStatus = user.TeacherApprovalStatus,
+                    teacherApprovalRequestedAt = user.TeacherApprovalRequestedAt,
+                    teacherApprovalReviewedAt = user.TeacherApprovalReviewedAt,
+                    teacherApprovalReviewedBy = user.TeacherApprovalReviewedBy,
+                    teacherApprovalNote = user.TeacherApprovalNote
                 });
             }
             catch (Exception ex)
@@ -275,7 +282,12 @@ namespace MOS.ExcelGrading.API.Controllers
                     Email = t.Email ?? string.Empty,
                     Role = t.Role ?? string.Empty,
                     Permissions = t.Permissions ?? new List<string>(),
-                    IsActive = t.IsActive
+                    IsActive = t.IsActive,
+                    TeacherApprovalStatus = t.TeacherApprovalStatus,
+                    TeacherApprovalRequestedAt = t.TeacherApprovalRequestedAt,
+                    TeacherApprovalReviewedAt = t.TeacherApprovalReviewedAt,
+                    TeacherApprovalReviewedBy = t.TeacherApprovalReviewedBy,
+                    TeacherApprovalNote = t.TeacherApprovalNote
                 }).ToList();
 
                 if (_redisSettings.Enabled)
@@ -305,6 +317,95 @@ namespace MOS.ExcelGrading.API.Controllers
             {
                 _logger.LogError(ex, "Lỗi khi lấy danh sách giáo viên");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách giáo viên" });
+            }
+        }
+
+        /// <summary>
+        /// Admin lấy danh sách yêu cầu duyệt giáo viên
+        /// </summary>
+        [HttpGet("teacher-requests")]
+        [Authorize(Roles = $"{UserRoles.Admin}")]
+        public async Task<IActionResult> GetTeacherRequests([FromQuery] string status = "pending")
+        {
+            try
+            {
+                var adminUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "unknown";
+                var adminUsername = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.ViewUsers);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {adminUsername} (ID: {adminUserId}) không có quyền {Permissions.ViewUsers}");
+                    return Forbid();
+                }
+
+                var requests = await _userService.GetTeacherRequestsAsync(status);
+                return Ok(requests.Select(MapTeacherApprovalResponse).ToList());
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi lấy danh sách yêu cầu duyệt giáo viên");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi lấy danh sách yêu cầu giáo viên" });
+            }
+        }
+
+        /// <summary>
+        /// Admin duyệt hoặc từ chối yêu cầu giáo viên
+        /// </summary>
+        [HttpPut("teacher-requests/{userId}/decision")]
+        [Authorize(Roles = $"{UserRoles.Admin}")]
+        public async Task<IActionResult> DecideTeacherRequest(string userId, [FromBody] TeacherApprovalDecisionRequest request)
+        {
+            try
+            {
+                var adminUserId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
+                var adminUsername = User.FindFirst(ClaimTypes.Name)?.Value ?? "unknown";
+
+                var hasPermission = User.Claims.Any(c =>
+                    c.Type == "permission" && c.Value == Permissions.EditUsers);
+
+                if (!hasPermission)
+                {
+                    _logger.LogWarning($"User {adminUsername} (ID: {adminUserId}) không có quyền {Permissions.EditUsers}");
+                    return Forbid();
+                }
+
+                if (string.IsNullOrWhiteSpace(userId))
+                    return BadRequest(new { message = "UserId là bắt buộc" });
+
+                if (request == null || string.IsNullOrWhiteSpace(request.Decision))
+                    return BadRequest(new { message = "Decision là bắt buộc" });
+
+                var normalizedDecision = request.Decision.Trim().ToLowerInvariant();
+                if (normalizedDecision != "approve" && normalizedDecision != "reject")
+                    return BadRequest(new { message = "Decision chỉ nhận approve hoặc reject" });
+
+                var updatedUser = await _userService.DecideTeacherRequestAsync(
+                    userId,
+                    normalizedDecision,
+                    request.Note,
+                    adminUserId);
+
+                if (updatedUser == null)
+                    return NotFound(new { message = "Không tìm thấy yêu cầu giáo viên phù hợp" });
+
+                await InvalidateTeacherListCacheAsync();
+
+                _logger.LogInformation(
+                    "[TEACHER APPROVAL] Admin {AdminUsername} (ID: {AdminUserId}) {Decision} user {UserId}",
+                    adminUsername,
+                    adminUserId,
+                    normalizedDecision,
+                    userId);
+
+                return Ok(MapTeacherApprovalResponse(updatedUser));
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi xử lý yêu cầu duyệt giáo viên");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi xử lý yêu cầu giáo viên" });
             }
         }
 
@@ -363,6 +464,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 if (updatedTeacher == null)
                     return NotFound(new { message = "Không tìm thấy giáo viên để cập nhật quyền" });
 
+                await InvalidateTeacherListCacheAsync();
+
                 _logger.LogInformation(
                     "[UPDATE TEACHER PERMISSIONS] Admin {AdminUsername} (ID: {AdminUserId}) cập nhật quyền cho teacher {TeacherId}",
                     adminUsername,
@@ -417,13 +520,53 @@ namespace MOS.ExcelGrading.API.Controllers
                     avatar = updatedUser.Avatar,
                     role = updatedUser.Role,
                     permissions = updatedUser.Permissions,
-                    isActive = updatedUser.IsActive
+                    isActive = updatedUser.IsActive,
+                    teacherApprovalStatus = updatedUser.TeacherApprovalStatus,
+                    teacherApprovalRequestedAt = updatedUser.TeacherApprovalRequestedAt,
+                    teacherApprovalReviewedAt = updatedUser.TeacherApprovalReviewedAt,
+                    teacherApprovalReviewedBy = updatedUser.TeacherApprovalReviewedBy,
+                    teacherApprovalNote = updatedUser.TeacherApprovalNote
                 });
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Lỗi khi cập nhật hồ sơ người dùng");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật thông tin tài khoản" });
+            }
+        }
+
+        private static TeacherApprovalResponse MapTeacherApprovalResponse(User user)
+        {
+            return new TeacherApprovalResponse
+            {
+                UserId = user.Id ?? string.Empty,
+                Username = user.Username ?? string.Empty,
+                FullName = user.FullName,
+                Email = user.Email ?? string.Empty,
+                Role = user.Role ?? string.Empty,
+                Permissions = user.Permissions ?? new List<string>(),
+                IsActive = user.IsActive,
+                TeacherApprovalStatus = user.TeacherApprovalStatus,
+                TeacherApprovalRequestedAt = user.TeacherApprovalRequestedAt,
+                TeacherApprovalReviewedAt = user.TeacherApprovalReviewedAt,
+                TeacherApprovalReviewedBy = user.TeacherApprovalReviewedBy,
+                TeacherApprovalNote = user.TeacherApprovalNote
+            };
+        }
+
+        private async Task InvalidateTeacherListCacheAsync()
+        {
+            if (!_redisSettings.Enabled)
+                return;
+
+            try
+            {
+                await _cache.RemoveAsync("teachers:list:v1");
+                _logger.LogInformation("[CACHE INVALIDATE] teachers list cache invalidation requested");
+            }
+            catch (Exception cacheEx)
+            {
+                _logger.LogWarning(cacheEx, "[CACHE] Không thể xóa cache danh sách giáo viên");
             }
         }
 
@@ -442,8 +585,12 @@ namespace MOS.ExcelGrading.API.Controllers
             public string Role { get; init; } = string.Empty;
             public List<string> Permissions { get; init; } = new();
             public bool IsActive { get; init; }
+            public string? TeacherApprovalStatus { get; init; }
+            public DateTime? TeacherApprovalRequestedAt { get; init; }
+            public DateTime? TeacherApprovalReviewedAt { get; init; }
+            public string? TeacherApprovalReviewedBy { get; init; }
+            public string? TeacherApprovalNote { get; init; }
         }
     }
 }
-
 

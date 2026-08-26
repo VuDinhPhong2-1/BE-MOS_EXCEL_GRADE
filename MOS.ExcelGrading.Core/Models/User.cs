@@ -115,6 +115,7 @@ namespace MOS.ExcelGrading.Core.Models
         // System
         public const string ViewSystemLogs = "system.logs.view";
         public const string ManageSettings = "system.settings.manage";
+        public const string ManageGradingConfigs = "grading.configs.manage";
 
         // Student Management
         public const string ViewStudents = "students.view";
@@ -132,7 +133,7 @@ namespace MOS.ExcelGrading.Core.Models
                 ViewGrades, CreateGrades, EditGrades, DeleteGrades, ExportGrades,
                 ViewProjects, CreateProjects, EditProjects, DeleteProjects,
                 ViewSchools, CreateSchools, EditSchools, DeleteSchools,
-                ViewSystemLogs, ManageSettings
+                ViewSystemLogs, ManageSettings, ManageGradingConfigs
             },
             [UserRoles.Teacher] = new List<string>
             {

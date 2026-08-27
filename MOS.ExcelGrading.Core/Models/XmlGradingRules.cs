@@ -95,9 +95,8 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("sourceFile")]
         public string SourceFile { get; set; } = string.Empty;
 
-        [JsonPropertyName("expectedValue")]
-        [JsonConverter(typeof(ExpectedValueJsonConverter))]
-        [BsonElement("expectedValue")]
+        [JsonPropertyName("expectedValues")]
+        [BsonElement("expectedValues")]
         public List<string> ExpectedValues { get; set; } = new();
 
         [BsonElement("compareMode")]
@@ -112,7 +111,6 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("stopTaskIfFailed")]
         public bool StopTaskIfFailed { get; set; } = false;
     }
-
     public class ConditionFeedback
     {
         [BsonElement("successDetail")]

@@ -77,6 +77,7 @@ builder.Services.AddSingleton<IMongoDatabase>(sp =>
 
 // ========== ĐĂNG KÝ SERVICES ==========
 builder.Services.AddScoped<IGradingService, GradingService>();
+builder.Services.AddScoped<IXmlGradingRuleService, XmlGradingRuleService>();
 builder.Services.AddScoped<IAnalyticsService, AnalyticsService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ISchoolService, SchoolService>();

@@ -922,45 +922,34 @@ namespace MOS.ExcelGrading.Core.Services
 
         private static void ApplyProjectScoringModel(GradingResult result)
         {
-            var gradableTasks = result.TaskResults.Where(task => task.MaxScore > 0m).ToList();
+            var gradableTasks = result.TaskResults
+                .Where(task => task.MaxScore > 0m)
+                .ToList();
+
             if (gradableTasks.Count == 0)
             {
-                result.MaxScore = StandardProjectMaxScore;
+                result.MaxScore = 0m;
                 result.TotalScore = 0m;
                 return;
             }
 
-            var totalSourceMax = gradableTasks.Sum(task => task.MaxScore);
-            var allocatedMax = 0m;
+            // MaxScore của bài = tổng MaxScore do người tạo
+            // cấu hình cho từng Task.
+            result.MaxScore = gradableTasks.Sum(task => task.MaxScore);
 
-            for (var i = 0; i < gradableTasks.Count; i++)
-            {
-                var task = gradableTasks[i];
-                var sourceMax = task.MaxScore;
-                var isLastTask = i == gradableTasks.Count - 1;
+            // Điểm thực tế = tổng điểm các Task đạt được.
+            result.TotalScore = Math.Round(
+                gradableTasks.Sum(task => task.Score),
+                2,
+                MidpointRounding.AwayFromZero
+            );
 
-                var scaledMax = isLastTask
-                    ? StandardProjectMaxScore - allocatedMax
-                    : Math.Round(StandardProjectMaxScore * sourceMax / totalSourceMax, 2, MidpointRounding.AwayFromZero);
-
-                allocatedMax += scaledMax;
-
-                var completionRatio = task.MaxScore > 0m
-                    ? Math.Clamp(task.Score / task.MaxScore, 0m, 1m)
-                    : 0m;
-
-                task.MaxScore = scaledMax;
-                task.Score = Math.Round(scaledMax * completionRatio, 2, MidpointRounding.AwayFromZero);
-            }
-
-            result.MaxScore = StandardProjectMaxScore;
-            result.TotalScore = Math.Round(gradableTasks.Sum(task => task.Score), 2, MidpointRounding.AwayFromZero);
-            if (result.TotalScore > result.MaxScore)
-            {
-                result.TotalScore = result.MaxScore;
-            }
+            // Không cho vượt quá điểm tối đa.
+            result.TotalScore = Math.Min(
+                result.TotalScore,
+                result.MaxScore
+            );
         }
-
         private static GradingRuleSet BuildProject22Task1RuleSet()
         {
             return new GradingRuleSet

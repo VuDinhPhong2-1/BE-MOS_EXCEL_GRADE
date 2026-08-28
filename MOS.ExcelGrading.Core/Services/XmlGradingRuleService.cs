@@ -6,7 +6,7 @@ using System.Security;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
-
+using System.Text.RegularExpressions;
 namespace MOS.ExcelGrading.Core.Services
 {
     public class XmlGradingRuleService : IXmlGradingRuleService
@@ -616,31 +616,75 @@ namespace MOS.ExcelGrading.Core.Services
             return result;
         }
 
-        private static ExpectedMatchResult MatchExpected(string actualXml, string expectedValue, string compareMode)
+        private static ExpectedMatchResult MatchExpected(
+    string actualXml,
+    string expectedValue,
+    string compareMode)
         {
             var mode = string.IsNullOrWhiteSpace(compareMode)
                 ? XmlGradingCompareModes.XmlContainsNormalized
                 : compareMode.Trim();
 
-            return mode switch
+            if (string.Equals(
+                mode,
+                XmlGradingCompareModes.ExactStringContains,
+                StringComparison.OrdinalIgnoreCase))
             {
-                var value when string.Equals(value, XmlGradingCompareModes.ExactStringContains, StringComparison.OrdinalIgnoreCase) =>
-                    RawContains(actualXml, expectedValue, trim: false),
+                return RawContains(
+                    actualXml,
+                    expectedValue,
+                    trim: false);
+            }
 
-                var value when string.Equals(value, XmlGradingCompareModes.XmlContains, StringComparison.OrdinalIgnoreCase) =>
-                    RawContains(actualXml, expectedValue, trim: true),
+            if (string.Equals(
+                mode,
+                XmlGradingCompareModes.XmlContains,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return RawContains(
+                    actualXml,
+                    expectedValue,
+                    trim: true);
+            }
 
-                var value when string.Equals(value, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase) =>
-                    XmlEquivalentWholeFile(actualXml, expectedValue),
+            if (string.Equals(
+                mode,
+                XmlGradingCompareModes.XmlEquivalentWholeFile,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return XmlEquivalentWholeFile(
+                    actualXml,
+                    expectedValue);
+            }
 
-                _ => XmlContainsNormalized(actualXml, expectedValue)
+            if (string.Equals(
+                mode,
+                XmlGradingCompareModes.XmlContainsNormalized,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return XmlContainsNormalized(
+                    actualXml,
+                    expectedValue);
+            }
+
+            // Không nên âm thầm coi mode lạ là normalized
+            return new ExpectedMatchResult
+            {
+                ExpectedValue = expectedValue,
+                IsMatched = false,
+                MatchIndex = null
             };
         }
-
         private static ExpectedMatchResult RawContains(string actualXml, string expectedValue, bool trim)
         {
-            var expected = trim ? expectedValue.Trim() : expectedValue;
-            var index = actualXml.IndexOf(expected, StringComparison.Ordinal);
+            var expected = trim
+                ? expectedValue.Trim()
+                : expectedValue;
+
+            var index = actualXml.IndexOf(
+                expected,
+                StringComparison.Ordinal);
+
             return new ExpectedMatchResult
             {
                 ExpectedValue = expectedValue,
@@ -651,24 +695,51 @@ namespace MOS.ExcelGrading.Core.Services
 
         private static ExpectedMatchResult XmlContainsNormalized(string actualXml, string expectedValue)
         {
-            try
+            var normalizedActual =
+                NormalizeXmlForComparison(actualXml);
+
+            var normalizedExpected =
+                NormalizeXmlForComparison(expectedValue);
+
+            var index = normalizedActual.IndexOf(
+                normalizedExpected,
+                StringComparison.Ordinal);
+
+            return new ExpectedMatchResult
             {
-                var normalizedActual = NormalizeXmlFragment(actualXml);
-                var normalizedExpected = NormalizeXmlFragment(expectedValue);
-                var index = normalizedActual.IndexOf(normalizedExpected, StringComparison.Ordinal);
-                return new ExpectedMatchResult
-                {
-                    ExpectedValue = expectedValue,
-                    IsMatched = index >= 0,
-                    MatchIndex = index >= 0 ? index : null
-                };
-            }
-            catch (XmlException)
-            {
-                return RawContains(actualXml, expectedValue, trim: true);
-            }
+                ExpectedValue = expectedValue,
+                IsMatched = index >= 0,
+                MatchIndex = index >= 0 ? index : null
+            };
         }
 
+        private static string NormalizeXmlForComparison(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+                return string.Empty;
+
+            var text = value.Trim();
+
+            // Chuẩn hóa khoảng trắng
+            text = Regex.Replace(
+                text,
+                @"\s+",
+                " ");
+
+            // Chuẩn hóa khoảng trắng quanh dấu =
+            text = Regex.Replace(
+                text,
+                @"\s*=\s*",
+                "=");
+
+            // Chuẩn hóa khoảng trắng trước />
+            text = Regex.Replace(
+                text,
+                @"\s*/>",
+                "/>");
+
+            return text.Trim();
+        }
         private static ExpectedMatchResult XmlEquivalentWholeFile(string actualXml, string expectedValue)
         {
             try

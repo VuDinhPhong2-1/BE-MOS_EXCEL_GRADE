@@ -7,18 +7,26 @@ namespace MOS.ExcelGrading.Core.Models
 {
     public static class XmlGradingCompareModes
     {
-        public const string XmlContains = "xmlContains";
+        // Bỏ qua khác biệt format/whitespace của XML
         public const string XmlContainsNormalized = "xmlContainsNormalized";
+
+        // So chuỗi XML nguyên văn, chỉ Trim đầu/cuối expected
+        public const string XmlContains = "xmlContains";
+
+        // So sánh tương đương toàn bộ XML
         public const string XmlEquivalentWholeFile = "xmlEquivalentWholeFile";
+
+        // Tìm chuỗi tuyệt đối trong raw XML
         public const string ExactStringContains = "exactStringContains";
 
-        public static readonly HashSet<string> Supported = new(StringComparer.OrdinalIgnoreCase)
-        {
-            XmlContains,
+        public static readonly HashSet<string> Supported =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
             XmlContainsNormalized,
+            XmlContains,
             XmlEquivalentWholeFile,
             ExactStringContains
-        };
+            };
     }
 
     public static class XmlGradingMatchPolicies

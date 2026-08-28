@@ -904,10 +904,29 @@ namespace MOS.ExcelGrading.Core.Services
         private static bool IsSafeSourceFile(string sourceFile)
         {
             var normalized = NormalizeSourceFile(sourceFile);
-            return !string.IsNullOrWhiteSpace(normalized) &&
-                   !normalized.Contains("..", StringComparison.Ordinal) &&
-                   !Path.IsPathRooted(normalized) &&
-                   normalized.EndsWith(".xml", StringComparison.OrdinalIgnoreCase);
+
+            if (string.IsNullOrWhiteSpace(normalized))
+                return false;
+
+            // Chỉ cho phép đường dẫn tương đối bên trong Office ZIP package.
+            if (normalized.StartsWith("/", StringComparison.Ordinal))
+                return false;
+
+            if (Path.IsPathRooted(normalized))
+                return false;
+
+            // Chặn ".." như một path segment thực sự.
+            var segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+
+            if (segments.Any(segment =>
+                string.Equals(segment, "..", StringComparison.Ordinal)))
+            {
+                return false;
+            }
+
+            return normalized.EndsWith(
+                ".xml",
+                StringComparison.OrdinalIgnoreCase);
         }
 
         private static string NormalizeSourceFile(string sourceFile)

@@ -554,17 +554,32 @@ namespace MOS.ExcelGrading.Core.Services
                 studentFile.Position = 0;
             }
 
-            using var archive = new ZipArchive(studentFile, ZipArchiveMode.Read, leaveOpen: true);
-            var parts = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            using var archive = new ZipArchive(
+                studentFile,
+                ZipArchiveMode.Read,
+                leaveOpen: true);
+
+            var parts = new Dictionary<string, string>(
+                StringComparer.OrdinalIgnoreCase);
 
             foreach (var entry in archive.Entries)
             {
-                if (entry.FullName.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                var normalizedPath = NormalizeSourceFile(entry.FullName);
+
+                if (!normalizedPath.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+                    && !normalizedPath.EndsWith(".rels", StringComparison.OrdinalIgnoreCase))
                 {
-                    using var entryStream = entry.Open();
-                    using var reader = new StreamReader(entryStream, Encoding.UTF8, detectEncodingFromByteOrderMarks: true);
-                    parts[NormalizeSourceFile(entry.FullName)] = reader.ReadToEnd();
+                    continue;
                 }
+
+                using var entryStream = entry.Open();
+
+                using var reader = new StreamReader(
+                    entryStream,
+                    Encoding.UTF8,
+                    detectEncodingFromByteOrderMarks: true);
+
+                parts[normalizedPath] = reader.ReadToEnd();
             }
 
             return parts;
@@ -979,30 +994,55 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.IsNullOrWhiteSpace(normalized))
                 return false;
 
-            // Chỉ cho phép đường dẫn tương đối bên trong Office ZIP package.
-            if (normalized.StartsWith("/", StringComparison.Ordinal))
-                return false;
-
+            // Phải là đường dẫn tương đối trong Office ZIP package
             if (Path.IsPathRooted(normalized))
                 return false;
 
-            // Chặn ".." như một path segment thực sự.
-            var segments = normalized.Split('/', StringSplitOptions.RemoveEmptyEntries);
+            // Không được bắt đầu bằng /
+            if (normalized.StartsWith("/", StringComparison.Ordinal))
+                return false;
+
+            // Không cho phép path traversal
+            var segments = normalized.Split(
+                '/',
+                StringSplitOptions.RemoveEmptyEntries);
 
             if (segments.Any(segment =>
-                string.Equals(segment, "..", StringComparison.Ordinal)))
+                segment == ".."))
             {
                 return false;
             }
 
-            return normalized.EndsWith(
-                ".xml",
-                StringComparison.OrdinalIgnoreCase);
-        }
+            // Không cho phép segment rỗng bất thường
+            if (segments.Any(segment =>
+                segment == "."))
+            {
+                return false;
+            }
 
+            // Chỉ cho phép XML hoặc RELS
+            return normalized.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+                || normalized.EndsWith(".rels", StringComparison.OrdinalIgnoreCase);
+        }
         private static string NormalizeSourceFile(string sourceFile)
         {
-            return (sourceFile ?? string.Empty).Trim().Replace('\\', '/').TrimStart('/');
+            if (string.IsNullOrWhiteSpace(sourceFile))
+                return string.Empty;
+
+            var normalized = sourceFile
+                .Trim()
+                .Replace('\\', '/');
+
+            // Loại bỏ ./ ở đầu
+            while (normalized.StartsWith("./", StringComparison.Ordinal))
+            {
+                normalized = normalized[2..];
+            }
+
+            // Không cho phép / ở đầu
+            normalized = normalized.TrimStart('/');
+
+            return normalized;
         }
 
         private static string NormalizeKey(string value)

@@ -7,6 +7,7 @@ using System.Text;
 using System.Xml;
 using System.Xml.Linq;
 using System.Text.RegularExpressions;
+using MOS.ExcelGrading.Core.Utilities;
 namespace MOS.ExcelGrading.Core.Services
 {
     public class XmlGradingRuleService : IXmlGradingRuleService
@@ -511,7 +512,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                     task.SpecialCondition.Config.ImageHash = string.IsNullOrWhiteSpace(task.SpecialCondition.Config.ImageHash)
                         ? null
-                        : NormalizeHash(task.SpecialCondition.Config.ImageHash);
+                        : ImageHashUtility.NormalizeHash(task.SpecialCondition.Config.ImageHash);
                 }
             }
         }
@@ -801,7 +802,7 @@ namespace MOS.ExcelGrading.Core.Services
                 var numberingDocument = XDocument.Parse(numberingXml);
                 var relsDocument = XDocument.Parse(relsXml);
 
-                var expectedHash = NormalizeHash(config.ImageHash);
+                var expectedHash = ImageHashUtility.NormalizeHash(config.ImageHash);
 
                 // Duyệt toàn bộ paragraph trong document.xml, tìm bất kỳ paragraph nào
                 // dùng picture bullet ở đúng Level (nếu có chỉ định) mà ảnh khớp expectedHash.
@@ -912,7 +913,7 @@ namespace MOS.ExcelGrading.Core.Services
                         continue;
                     }
 
-                    var actualHash = ComputeSha256(imageBytes);
+                    var actualHash = ImageHashUtility.ComputeSha256(imageBytes);
 
                     if (string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
                     {
@@ -973,18 +974,6 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return string.Join("/", stack.Reverse());
-        }
-
-        private static string ComputeSha256(byte[] bytes)
-        {
-            using var sha256 = System.Security.Cryptography.SHA256.Create();
-            var hash = sha256.ComputeHash(bytes);
-            return Convert.ToHexString(hash).ToLowerInvariant();
-        }
-
-        private static string NormalizeHash(string hash)
-        {
-            return (hash ?? string.Empty).Trim().Replace("-", "").Replace(" ", "").ToLowerInvariant();
         }
 
         private static ExpectedMatchResult MatchExpected(

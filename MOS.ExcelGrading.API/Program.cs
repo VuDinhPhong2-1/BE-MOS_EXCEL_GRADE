@@ -93,6 +93,7 @@ builder.Services.AddScoped<IGoogleSheetAttendanceSyncService, GoogleSheetAttenda
 builder.Services.AddScoped<IComputerRoomService, ComputerRoomService>();
 builder.Services.AddScoped<IExamPublicationService, ExamPublicationService>();
 builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
+builder.Services.AddScoped<IPictureBulletAssetService, PictureBulletAssetService>();
 // ========== CẤU HÌNH JWT AUTHENTICATION ==========
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
 var secretKey = jwtSettings["SecretKey"] ?? throw new ArgumentNullException("JWT SecretKey không được để trống");

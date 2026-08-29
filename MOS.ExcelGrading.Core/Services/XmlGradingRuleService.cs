@@ -514,38 +514,85 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
-        private static void ValidateConditionShell(XmlGradingCondition condition)
+        private static void ValidateCondition(XmlGradingCondition condition, string taskPrefix, XmlRuleValidationResult result)
+{
+    var conditionPrefix = string.IsNullOrWhiteSpace(condition.ConditionId)
+        ? $"{taskPrefix}.condition"
+        : $"{taskPrefix}.{condition.ConditionId}";
+
+    if (string.IsNullOrWhiteSpace(condition.ConditionId))
+    {
+        result.Errors.Add($"{taskPrefix}.conditionId không được rỗng.");
+    }
+
+    if (condition.Score <= 0)
+    {
+        result.Errors.Add($"{conditionPrefix}.score phải lớn hơn 0.");
+    }
+
+    var hasSpecialCondition = condition.SpecialCondition != null
+        && condition.SpecialCondition.Type != SpecialConditionType.None;
+
+    // sourceFile: nếu có special condition mà không có expectedValues,
+    // sourceFile là tùy chọn (special condition tự quản lý documentPart riêng)
+    var hasNormalXmlCheck = condition.ExpectedValues.Count > 0;
+
+    if (hasNormalXmlCheck || !hasSpecialCondition)
+    {
+        if (string.IsNullOrWhiteSpace(condition.SourceFile))
         {
-            if (string.IsNullOrWhiteSpace(condition.ConditionId))
-            {
-                throw new InvalidOperationException("ConditionId là bắt buộc.");
-            }
+            result.Errors.Add($"{conditionPrefix}.sourceFile không được rỗng.");
+        }
+        else if (!IsSafeSourceFile(condition.SourceFile))
+        {
+            result.Errors.Add($"{conditionPrefix}.sourceFile không hợp lệ hoặc có path traversal.");
+        }
 
-            if (condition.Score <= 0)
+        if (condition.ExpectedValues.Count == 0 || condition.ExpectedValues.Any(string.IsNullOrWhiteSpace))
+        {
+            // Chỉ bắt buộc expectedValues khi KHÔNG có special condition thay thế
+            if (!hasSpecialCondition)
             {
-                throw new InvalidOperationException("Condition score phải lớn hơn 0.");
-            }
-
-            if (!IsSafeSourceFile(condition.SourceFile))
-            {
-                throw new InvalidOperationException("sourceFile phải là đường dẫn XML an toàn trong Office package.");
-            }
-
-            if (condition.ExpectedValues.Count == 0)
-            {
-                throw new InvalidOperationException("expectedValue là bắt buộc.");
-            }
-
-            if (!XmlGradingCompareModes.Supported.Contains(condition.CompareMode))
-            {
-                throw new InvalidOperationException($"compareMode không hỗ trợ: {condition.CompareMode}.");
-            }
-
-            if (!XmlGradingMatchPolicies.Supported.Contains(condition.MatchPolicy))
-            {
-                throw new InvalidOperationException($"matchPolicy không hỗ trợ: {condition.MatchPolicy}.");
+                result.Errors.Add($"{conditionPrefix}.expectedValue phải là string không rỗng hoặc array string không rỗng.");
             }
         }
+    }
+
+    if (string.IsNullOrWhiteSpace(condition.CompareMode))
+    {
+        condition.CompareMode = XmlGradingCompareModes.XmlContainsNormalized;
+    }
+
+    if (!XmlGradingCompareModes.Supported.Contains(condition.CompareMode))
+    {
+        result.Errors.Add($"{conditionPrefix}.compareMode không được hỗ trợ: {condition.CompareMode}.");
+    }
+
+    if (string.IsNullOrWhiteSpace(condition.MatchPolicy))
+    {
+        condition.MatchPolicy = XmlGradingMatchPolicies.All;
+    }
+
+    if (!XmlGradingMatchPolicies.Supported.Contains(condition.MatchPolicy))
+    {
+        result.Errors.Add($"{conditionPrefix}.matchPolicy không được hỗ trợ: {condition.MatchPolicy}.");
+    }
+
+    if (string.Equals(condition.CompareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase) &&
+        condition.ExpectedValues.Count != 1)
+    {
+        result.Errors.Add($"{conditionPrefix}.xmlEquivalentWholeFile chỉ hỗ trợ đúng 1 expectedValue.");
+    }
+
+    ValidateSpecialCondition(condition.SpecialCondition, conditionPrefix, result);
+
+    if (!hasSpecialCondition && condition.ExpectedValues.Count == 0)
+    {
+        result.Errors.Add($"{conditionPrefix} phải có expectedValues hoặc specialCondition.");
+    }
+}
+
+
         private sealed class OfficePackage
         {
             public Dictionary<string, string> XmlParts { get; } =
@@ -612,73 +659,43 @@ private static bool IsSupportedImage(string path)
         || path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
 }
 
-        private static XmlConditionEvaluationResult EvaluateCondition(
-    XmlGradingCondition condition,
-    OfficePackage package)
+        // ===== SPECIAL CONDITION =====
+if (condition.SpecialCondition != null
+    && condition.SpecialCondition.Type != SpecialConditionType.None)
 {
-    var compareMode = string.IsNullOrWhiteSpace(condition.CompareMode)
-        ? XmlGradingCompareModes.XmlContainsNormalized
-        : condition.CompareMode.Trim();
+    var specialResult = EvaluateSpecialCondition(condition.SpecialCondition, package);
+    result.SpecialConditionResult = specialResult;
 
-    var matchPolicy = string.IsNullOrWhiteSpace(condition.MatchPolicy)
-        ? XmlGradingMatchPolicies.All
-        : condition.MatchPolicy.Trim();
-
-    var result = new XmlConditionEvaluationResult
+    if (!specialResult.IsPassed)
     {
-        ConditionId = condition.ConditionId,
-        SourceFile = NormalizeSourceFile(condition.SourceFile),
-        CompareMode = compareMode,
-        MatchPolicy = matchPolicy,
-        MaxConditionScore = condition.Score,
-        Feedback = condition.Feedback ?? new ConditionFeedback()
-    };
+        result.IsPassed = false;
+        result.ScoreAwarded = 0m;
 
-    // ===== SPECIAL CONDITION (bổ sung, không thay thế XML condition) =====
-    if (condition.SpecialCondition != null
-        && condition.SpecialCondition.Type != SpecialConditionType.None)
-    {
-        var specialResult = EvaluateSpecialCondition(condition.SpecialCondition, package);
-        result.SpecialConditionResult = specialResult;
-
-        if (!specialResult.IsPassed)
-        {
-            result.IsPassed = false;
-            result.ScoreAwarded = 0m;
-
-            if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
-            {
-                result.Feedback.ErrorMessage = specialResult.Message;
-            }
-
-            return result;
-        }
-    }
-
-    // ===== NORMAL XML CONDITION =====
-    if (!package.XmlParts.TryGetValue(result.SourceFile, out var actualXml))
-    {
-        result.MissingExpectedValues.AddRange(condition.ExpectedValues);
         if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
         {
-            result.Feedback.ErrorMessage = $"Không tìm thấy XML part {result.SourceFile} trong file học sinh.";
+            result.Feedback.ErrorMessage = specialResult.Message;
         }
 
         return result;
     }
 
-    var matches = condition.ExpectedValues
-        .Select(expected => MatchExpected(actualXml, expected, compareMode))
-        .ToList();
+    // 👇 THÊM: nếu condition này KHÔNG có normal XML check đi kèm,
+    // Special Condition PASS là đủ để condition PASS — không cần xét XmlParts.
+    if (condition.ExpectedValues.Count == 0)
+    {
+        result.IsPassed = true;
+        result.ScoreAwarded = condition.Score;
 
-    var isPassed = ApplyMatchPolicy(matches, matchPolicy);
-    result.IsPassed = isPassed;
-    result.ScoreAwarded = isPassed ? condition.Score : 0m;
-    result.MatchedExpectedValues = matches.Where(m => m.IsMatched).Select(m => m.ExpectedValue).ToList();
-    result.MissingExpectedValues = matches.Where(m => !m.IsMatched).Select(m => m.ExpectedValue).ToList();
+        if (string.IsNullOrWhiteSpace(result.Feedback.SuccessDetail))
+        {
+            result.Feedback.SuccessDetail = specialResult.Message;
+        }
 
-    return result;
+        return result;
+    }
 }
+
+// ===== NORMAL XML CONDITION ===== (giữ nguyên như cũ)
 
     private static SpecialConditionEvaluationResult EvaluateSpecialCondition(
     SpecialCondition specialCondition,

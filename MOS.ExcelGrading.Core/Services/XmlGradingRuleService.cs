@@ -659,41 +659,89 @@ private static bool IsSupportedImage(string path)
         || path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
 }
 
-        // ===== SPECIAL CONDITION =====
-if (condition.SpecialCondition != null
-    && condition.SpecialCondition.Type != SpecialConditionType.None)
-{
-    var specialResult = EvaluateSpecialCondition(condition.SpecialCondition, package);
-    result.SpecialConditionResult = specialResult;
-
-    if (!specialResult.IsPassed)
-    {
-        result.IsPassed = false;
-        result.ScoreAwarded = 0m;
-
-        if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
+                private static XmlConditionEvaluationResult EvaluateCondition(
+            XmlGradingCondition condition,
+            OfficePackage package)
         {
-            result.Feedback.ErrorMessage = specialResult.Message;
+            var compareMode = string.IsNullOrWhiteSpace(condition.CompareMode)
+                ? XmlGradingCompareModes.XmlContainsNormalized
+                : condition.CompareMode.Trim();
+
+            var matchPolicy = string.IsNullOrWhiteSpace(condition.MatchPolicy)
+                ? XmlGradingMatchPolicies.All
+                : condition.MatchPolicy.Trim();
+
+            var result = new XmlConditionEvaluationResult
+            {
+                ConditionId = condition.ConditionId,
+                SourceFile = NormalizeSourceFile(condition.SourceFile),
+                CompareMode = compareMode,
+                MatchPolicy = matchPolicy,
+                MaxConditionScore = condition.Score,
+                Feedback = condition.Feedback ?? new ConditionFeedback()
+            };
+
+            // ===== SPECIAL CONDITION =====
+            if (condition.SpecialCondition != null
+                && condition.SpecialCondition.Type != SpecialConditionType.None)
+            {
+                var specialResult = EvaluateSpecialCondition(condition.SpecialCondition, package);
+                result.SpecialConditionResult = specialResult;
+
+                if (!specialResult.IsPassed)
+                {
+                    result.IsPassed = false;
+                    result.ScoreAwarded = 0m;
+
+                    if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
+                    {
+                        result.Feedback.ErrorMessage = specialResult.Message;
+                    }
+
+                    return result;
+                }
+
+                // Không có normal XML check đi kèm -> Special Condition PASS là đủ
+                if (condition.ExpectedValues.Count == 0)
+                {
+                    result.IsPassed = true;
+                    result.ScoreAwarded = condition.Score;
+
+                    if (string.IsNullOrWhiteSpace(result.Feedback.SuccessDetail))
+                    {
+                        result.Feedback.SuccessDetail = specialResult.Message;
+                    }
+
+                    return result;
+                }
+            }
+
+            // ===== NORMAL XML CONDITION =====
+            if (!package.XmlParts.TryGetValue(result.SourceFile, out var actualXml))
+            {
+                result.MissingExpectedValues.AddRange(condition.ExpectedValues);
+                if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
+                {
+                    result.Feedback.ErrorMessage = $"Không tìm thấy XML part {result.SourceFile} trong file học sinh.";
+                }
+
+                return result;
+            }
+
+            var matches = condition.ExpectedValues
+                .Select(expected => MatchExpected(actualXml, expected, compareMode))
+                .ToList();
+
+            var isPassed = ApplyMatchPolicy(matches, matchPolicy);
+            result.IsPassed = isPassed;
+            result.ScoreAwarded = isPassed ? condition.Score : 0m;
+            result.MatchedExpectedValues = matches.Where(m => m.IsMatched).Select(m => m.ExpectedValue).ToList();
+            result.MissingExpectedValues = matches.Where(m => !m.IsMatched).Select(m => m.ExpectedValue).ToList();
+
+            return result;
         }
 
-        return result;
-    }
-
-    // 👇 THÊM: nếu condition này KHÔNG có normal XML check đi kèm,
-    // Special Condition PASS là đủ để condition PASS — không cần xét XmlParts.
-    if (condition.ExpectedValues.Count == 0)
-    {
-        result.IsPassed = true;
-        result.ScoreAwarded = condition.Score;
-
-        if (string.IsNullOrWhiteSpace(result.Feedback.SuccessDetail))
-        {
-            result.Feedback.SuccessDetail = specialResult.Message;
-        }
-
-        return result;
-    }
-}
+        private static SpecialConditionEvaluationResult EvaluateSpecialCondition(
 
 // ===== NORMAL XML CONDITION ===== (giữ nguyên như cũ)
 

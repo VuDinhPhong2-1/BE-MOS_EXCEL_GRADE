@@ -1257,13 +1257,10 @@ namespace MOS.ExcelGrading.Core.Services
                     var hasSpecialCondition = task.SpecialCondition != null
                         && !string.IsNullOrWhiteSpace(task.SpecialCondition.Type);
 
-                    if (task.Conditions.Count == 0)
+                    if (task.Conditions.Count == 0 && !hasSpecialCondition)
                     {
                         // Chỉ hợp lệ khi có specialCondition thay thế cho conditions XML.
-                        if (!hasSpecialCondition)
-                        {
-                            result.Errors.Add($"{taskPrefix}.conditions phải có ít nhất 1 condition, hoặc phải có specialCondition.");
-                        }
+                        result.Errors.Add($"{taskPrefix}.conditions phải có ít nhất 1 condition, hoặc phải có specialCondition.");
                     }
                     else
                     {
@@ -1314,10 +1311,10 @@ namespace MOS.ExcelGrading.Core.Services
                 result.Errors.Add($"{conditionPrefix}.sourceFile không hợp lệ hoặc có path traversal.");
             }
 
-            if (condition.ExpectedValues.Count == 0 || condition.ExpectedValues.Any(string.IsNullOrWhiteSpace))
-            {
-                result.Errors.Add($"{conditionPrefix}.expectedValue phải là string không rỗng hoặc array string không rỗng.");
-            }
+            // if (condition.ExpectedValues.Count == 0 || condition.ExpectedValues.Any(string.IsNullOrWhiteSpace))
+            // {
+            //     result.Errors.Add($"{conditionPrefix}.expectedValue phải là string không rỗng hoặc array string không rỗng.");
+            // }
 
             if (string.IsNullOrWhiteSpace(condition.CompareMode))
             {

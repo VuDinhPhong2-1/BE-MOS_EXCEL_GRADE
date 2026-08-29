@@ -344,7 +344,7 @@ namespace MOS.ExcelGrading.Core.Services
                 string.Equals(project.ProjectCode, NormalizeKey(projectCode), StringComparison.OrdinalIgnoreCase))
                 ?? throw new InvalidOperationException($"Không tìm thấy project rule cho {projectCode}.");
 
-            var packageParts = ReadPackageXmlParts(studentFile);
+            var package = ReadOfficePackage(studentFile);
 
             var result = new GradingResult
             {
@@ -364,7 +364,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 foreach (var condition in taskRule.Conditions)
                 {
-                    var conditionResult = EvaluateCondition(condition, packageParts);
+                    var conditionResult = EvaluateCondition(condition, package);
                     if (conditionResult.IsPassed)
                     {
                         taskResult.Score += conditionResult.ScoreAwarded;
@@ -546,91 +546,436 @@ namespace MOS.ExcelGrading.Core.Services
                 throw new InvalidOperationException($"matchPolicy không hỗ trợ: {condition.MatchPolicy}.");
             }
         }
-
-        private static Dictionary<string, string> ReadPackageXmlParts(Stream studentFile)
+        private sealed class OfficePackage
         {
-            if (studentFile.CanSeek)
-            {
-                studentFile.Position = 0;
-            }
+            public Dictionary<string, string> XmlParts { get; } =
+                new(StringComparer.OrdinalIgnoreCase);
 
-            using var archive = new ZipArchive(
-                studentFile,
-                ZipArchiveMode.Read,
-                leaveOpen: true);
+            public Dictionary<string, byte[]> BinaryParts { get; } =
+                new(StringComparer.OrdinalIgnoreCase);
+        }
+        private static OfficePackage ReadOfficePackage(Stream studentFile)
+{
+    if (studentFile.CanSeek)
+    {
+        studentFile.Position = 0;
+    }
 
-            var parts = new Dictionary<string, string>(
-                StringComparer.OrdinalIgnoreCase);
+    using var archive = new ZipArchive(
+        studentFile,
+        ZipArchiveMode.Read,
+        leaveOpen: true);
 
-            foreach (var entry in archive.Entries)
-            {
-                var normalizedPath = NormalizeSourceFile(entry.FullName);
+    var package = new OfficePackage();
 
-                if (!normalizedPath.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
-                    && !normalizedPath.EndsWith(".rels", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
+    foreach (var entry in archive.Entries)
+    {
+        var normalizedPath = NormalizeSourceFile(entry.FullName);
 
-                using var entryStream = entry.Open();
-
-                using var reader = new StreamReader(
-                    entryStream,
-                    Encoding.UTF8,
-                    detectEncodingFromByteOrderMarks: true);
-
-                parts[normalizedPath] = reader.ReadToEnd();
-            }
-
-            return parts;
+        if (string.IsNullOrWhiteSpace(normalizedPath))
+        {
+            continue;
         }
 
-        private static XmlConditionEvaluationResult EvaluateCondition(
-            XmlGradingCondition condition,
-            IReadOnlyDictionary<string, string> packageParts)
+        using var entryStream = entry.Open();
+
+        if (normalizedPath.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+            || normalizedPath.EndsWith(".rels", StringComparison.OrdinalIgnoreCase))
         {
-            var compareMode = string.IsNullOrWhiteSpace(condition.CompareMode)
-                ? XmlGradingCompareModes.XmlContainsNormalized
-                : condition.CompareMode.Trim();
+            using var reader = new StreamReader(
+                entryStream,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: true);
 
-            var matchPolicy = string.IsNullOrWhiteSpace(condition.MatchPolicy)
-                ? XmlGradingMatchPolicies.All
-                : condition.MatchPolicy.Trim();
+            package.XmlParts[normalizedPath] = reader.ReadToEnd();
+        }
+        else if (IsSupportedImage(normalizedPath))
+        {
+            using var memoryStream = new MemoryStream();
+            entryStream.CopyTo(memoryStream);
+            package.BinaryParts[normalizedPath] = memoryStream.ToArray();
+        }
+    }
 
-            var result = new XmlConditionEvaluationResult
+    return package;
+}
+
+private static bool IsSupportedImage(string path)
+{
+    return path.EndsWith(".png", StringComparison.OrdinalIgnoreCase)
+        || path.EndsWith(".jpg", StringComparison.OrdinalIgnoreCase)
+        || path.EndsWith(".jpeg", StringComparison.OrdinalIgnoreCase)
+        || path.EndsWith(".gif", StringComparison.OrdinalIgnoreCase)
+        || path.EndsWith(".bmp", StringComparison.OrdinalIgnoreCase)
+        || path.EndsWith(".wmf", StringComparison.OrdinalIgnoreCase)
+        || path.EndsWith(".emf", StringComparison.OrdinalIgnoreCase)
+        || path.EndsWith(".webp", StringComparison.OrdinalIgnoreCase);
+}
+
+        private static XmlConditionEvaluationResult EvaluateCondition(
+    XmlGradingCondition condition,
+    OfficePackage package)
+{
+    var compareMode = string.IsNullOrWhiteSpace(condition.CompareMode)
+        ? XmlGradingCompareModes.XmlContainsNormalized
+        : condition.CompareMode.Trim();
+
+    var matchPolicy = string.IsNullOrWhiteSpace(condition.MatchPolicy)
+        ? XmlGradingMatchPolicies.All
+        : condition.MatchPolicy.Trim();
+
+    var result = new XmlConditionEvaluationResult
+    {
+        ConditionId = condition.ConditionId,
+        SourceFile = NormalizeSourceFile(condition.SourceFile),
+        CompareMode = compareMode,
+        MatchPolicy = matchPolicy,
+        MaxConditionScore = condition.Score,
+        Feedback = condition.Feedback ?? new ConditionFeedback()
+    };
+
+    // ===== SPECIAL CONDITION (bổ sung, không thay thế XML condition) =====
+    if (condition.SpecialCondition != null
+        && condition.SpecialCondition.Type != SpecialConditionType.None)
+    {
+        var specialResult = EvaluateSpecialCondition(condition.SpecialCondition, package);
+        result.SpecialConditionResult = specialResult;
+
+        if (!specialResult.IsPassed)
+        {
+            result.IsPassed = false;
+            result.ScoreAwarded = 0m;
+
+            if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
             {
-                ConditionId = condition.ConditionId,
-                SourceFile = NormalizeSourceFile(condition.SourceFile),
-                CompareMode = compareMode,
-                MatchPolicy = matchPolicy,
-                MaxConditionScore = condition.Score,
-                Feedback = condition.Feedback ?? new ConditionFeedback()
-            };
-
-            if (!packageParts.TryGetValue(result.SourceFile, out var actualXml))
-            {
-                result.MissingExpectedValues.AddRange(condition.ExpectedValues);
-                if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
-                {
-                    result.Feedback.ErrorMessage = $"Không tìm thấy XML part {result.SourceFile} trong file học sinh.";
-                }
-
-                return result;
+                result.Feedback.ErrorMessage = specialResult.Message;
             }
-
-            var matches = condition.ExpectedValues
-                .Select(expected => MatchExpected(actualXml, expected, compareMode))
-                .ToList();
-
-            var isPassed = ApplyMatchPolicy(matches, matchPolicy);
-            result.IsPassed = isPassed;
-            result.ScoreAwarded = isPassed ? condition.Score : 0m;
-            result.MatchedExpectedValues = matches.Where(match => match.IsMatched).Select(match => match.ExpectedValue).ToList();
-            result.MissingExpectedValues = matches.Where(match => !match.IsMatched).Select(match => match.ExpectedValue).ToList();
 
             return result;
         }
+    }
 
+    // ===== NORMAL XML CONDITION =====
+    if (!package.XmlParts.TryGetValue(result.SourceFile, out var actualXml))
+    {
+        result.MissingExpectedValues.AddRange(condition.ExpectedValues);
+        if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
+        {
+            result.Feedback.ErrorMessage = $"Không tìm thấy XML part {result.SourceFile} trong file học sinh.";
+        }
+
+        return result;
+    }
+
+    var matches = condition.ExpectedValues
+        .Select(expected => MatchExpected(actualXml, expected, compareMode))
+        .ToList();
+
+    var isPassed = ApplyMatchPolicy(matches, matchPolicy);
+    result.IsPassed = isPassed;
+    result.ScoreAwarded = isPassed ? condition.Score : 0m;
+    result.MatchedExpectedValues = matches.Where(m => m.IsMatched).Select(m => m.ExpectedValue).ToList();
+    result.MissingExpectedValues = matches.Where(m => !m.IsMatched).Select(m => m.ExpectedValue).ToList();
+
+    return result;
+}
+
+    private static SpecialConditionEvaluationResult EvaluateSpecialCondition(
+    SpecialCondition specialCondition,
+    OfficePackage package)
+{
+    return specialCondition.Type switch
+    {
+        SpecialConditionType.PictureBullet =>
+            EvaluatePictureBullet(specialCondition.PictureBullet, package),
+
+        _ => new SpecialConditionEvaluationResult
+        {
+            IsPassed = false,
+            Type = specialCondition.Type.ToString(),
+            Message = $"Special condition không được hỗ trợ: {specialCondition.Type}."
+        }
+    };
+}
+
+private static SpecialConditionEvaluationResult EvaluatePictureBullet(
+    PictureBulletConfig? config,
+    OfficePackage package)
+{
+    static SpecialConditionEvaluationResult Fail(string message) => new()
+    {
+        IsPassed = false,
+        Type = "PictureBullet",
+        Message = message
+    };
+
+    if (config == null)
+    {
+        return Fail("PictureBulletConfig không được cấu hình.");
+    }
+
+    if (string.IsNullOrWhiteSpace(config.ExpectedImageSha256))
+    {
+        return Fail("Chưa cấu hình ExpectedImageSha256.");
+    }
+
+    var documentPart = NormalizeSourceFile(
+        string.IsNullOrWhiteSpace(config.DocumentPart)
+            ? "word/document.xml"
+            : config.DocumentPart);
+
+    if (!package.XmlParts.TryGetValue(documentPart, out var documentXml))
+    {
+        return Fail($"Không tìm thấy {documentPart} trong file học sinh.");
+    }
+
+    const string numberingPath = "word/numbering.xml";
+    const string numberingRelsPath = "word/_rels/numbering.xml.rels";
+
+    if (!package.XmlParts.TryGetValue(numberingPath, out var numberingXml))
+    {
+        return Fail("File học sinh không có word/numbering.xml.");
+    }
+
+    if (!package.XmlParts.TryGetValue(numberingRelsPath, out var relsXml))
+    {
+        return Fail("Không tìm thấy word/_rels/numbering.xml.rels.");
+    }
+
+    XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    XNamespace v = "urn:schemas-microsoft-com:vml";
+    XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
+    XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
+
+    try
+    {
+        var documentDocument = XDocument.Parse(documentXml);
+        var numberingDocument = XDocument.Parse(numberingXml);
+        var relsDocument = XDocument.Parse(relsXml);
+
+        // Bước 1: lấy paragraph theo index (đếm toàn bộ w:p, kể cả không có numPr)
+        var allParagraphs = documentDocument.Descendants(w + "p").ToList();
+
+        List<XElement> paragraphsToCheck;
+
+        if (config.ParagraphIndex.HasValue)
+        {
+            if (config.ParagraphIndex.Value < 0
+                || config.ParagraphIndex.Value >= allParagraphs.Count)
+            {
+                return Fail(
+                    $"paragraphIndex {config.ParagraphIndex.Value} vượt ngoài phạm vi document ({allParagraphs.Count} paragraph).");
+            }
+
+            paragraphsToCheck = new List<XElement> { allParagraphs[config.ParagraphIndex.Value] };
+        }
+        else
+        {
+            paragraphsToCheck = allParagraphs;
+        }
+
+        var expectedHash = NormalizeHash(config.ExpectedImageSha256);
+        SpecialConditionEvaluationResult? lastAttempt = null;
+
+        foreach (var paragraph in paragraphsToCheck)
+        {
+            var numPr = paragraph.Element(w + "pPr")?.Element(w + "numPr");
+            if (numPr == null)
+            {
+                continue; // paragraph không có numbering
+            }
+
+            var numIdVal = numPr.Element(w + "numId")?.Attribute(w + "val")?.Value;
+            if (!int.TryParse(numIdVal, out var numId))
+            {
+                continue;
+            }
+
+            if (config.NumId.HasValue && numId != config.NumId.Value)
+            {
+                continue;
+            }
+
+            // ilvl mặc định = 0 nếu không khai báo
+            var ilvlVal = numPr.Element(w + "ilvl")?.Attribute(w + "val")?.Value;
+            var ilvl = int.TryParse(ilvlVal, out var parsedIlvl) ? parsedIlvl : 0;
+
+            if (config.Level.HasValue && ilvl != config.Level.Value)
+            {
+                continue;
+            }
+
+            // Bước 2: numId -> w:num -> abstractNumId
+            var numElement = numberingDocument
+                .Descendants(w + "num")
+                .FirstOrDefault(e => e.Attribute(w + "numId")?.Value == numId.ToString());
+
+            if (numElement == null)
+            {
+                lastAttempt = Fail($"Không tìm thấy w:num numId={numId} trong numbering.xml.");
+                continue;
+            }
+
+            var abstractNumIdVal = numElement.Element(w + "abstractNumId")?.Attribute(w + "val")?.Value;
+            if (!int.TryParse(abstractNumIdVal, out var abstractNumId))
+            {
+                lastAttempt = Fail($"numId={numId} thiếu w:abstractNumId hợp lệ.");
+                continue;
+            }
+
+            // Bước 3: abstractNumId -> abstractNum -> lvl[ilvl] -> lvlPicBulletId
+            var abstractNumElement = numberingDocument
+                .Descendants(w + "abstractNum")
+                .FirstOrDefault(e => e.Attribute(w + "abstractNumId")?.Value == abstractNumId.ToString());
+
+            if (abstractNumElement == null)
+            {
+                lastAttempt = Fail($"Không tìm thấy w:abstractNum abstractNumId={abstractNumId}.");
+                continue;
+            }
+
+            var lvlElement = abstractNumElement
+                .Elements(w + "lvl")
+                .FirstOrDefault(e => e.Attribute(w + "ilvl")?.Value == ilvl.ToString());
+
+            if (lvlElement == null)
+            {
+                lastAttempt = Fail($"Không tìm thấy w:lvl ilvl={ilvl} trong abstractNum {abstractNumId}.");
+                continue;
+            }
+
+            var lvlPicBulletIdVal = lvlElement.Element(w + "lvlPicBulletId")?.Attribute(w + "val")?.Value;
+            if (!int.TryParse(lvlPicBulletIdVal, out var lvlPicBulletId))
+            {
+                lastAttempt = Fail(
+                    $"Level {ilvl} của numId={numId} không dùng picture bullet (thiếu w:lvlPicBulletId).");
+                continue;
+            }
+
+            // Bước 4: lvlPicBulletId -> numPicBullet -> r:id ảnh
+            var numPicBulletElement = numberingDocument
+                .Descendants(w + "numPicBullet")
+                .FirstOrDefault(e => e.Attribute(w + "numPicBulletId")?.Value == lvlPicBulletId.ToString());
+
+            if (numPicBulletElement == null)
+            {
+                lastAttempt = Fail($"Không tìm thấy w:numPicBullet numPicBulletId={lvlPicBulletId}.");
+                continue;
+            }
+
+            // Hỗ trợ cả 2 dạng Word hay sinh: VML (v:imagedata) và DrawingML (a:blip)
+            var relationshipId =
+                numPicBulletElement.Descendants(v + "imagedata").FirstOrDefault()?.Attribute(r + "id")?.Value
+                ?? numPicBulletElement.Descendants(a + "blip").FirstOrDefault()?.Attribute(r + "embed")?.Value;
+
+            if (string.IsNullOrWhiteSpace(relationshipId))
+            {
+                lastAttempt = Fail($"numPicBullet {lvlPicBulletId} không có tham chiếu ảnh (v:imagedata / a:blip).");
+                continue;
+            }
+
+            // Bước 5: relationship id -> target -> resolve path -> bytes -> sha256
+            var relationship = relsDocument
+                .Descendants(rel + "Relationship")
+                .FirstOrDefault(e => string.Equals(
+                    e.Attribute("Id")?.Value, relationshipId, StringComparison.Ordinal));
+
+            if (relationship == null)
+            {
+                lastAttempt = Fail($"Không tìm thấy relationship {relationshipId} trong numbering.xml.rels.");
+                continue;
+            }
+
+            var target = relationship.Attribute("Target")?.Value;
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                lastAttempt = Fail($"Relationship {relationshipId} không có Target.");
+                continue;
+            }
+
+            var imagePath = ResolveRelationshipTarget(numberingPath, target);
+
+            if (!package.BinaryParts.TryGetValue(imagePath, out var imageBytes))
+            {
+                lastAttempt = Fail($"Không đọc được ảnh {imagePath} trong file học sinh.");
+                continue;
+            }
+
+            var actualHash = ComputeSha256(imageBytes);
+            var isMatched = string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase);
+
+            return new SpecialConditionEvaluationResult
+            {
+                IsPassed = isMatched,
+                Type = "PictureBullet",
+                Message = isMatched
+                    ? "Picture bullet đúng hình ảnh yêu cầu."
+                    : "Picture bullet không đúng hình ảnh yêu cầu.",
+                ExpectedSha256 = expectedHash,
+                ActualSha256 = actualHash,
+                ImagePath = imagePath,
+                NumPicBulletId = lvlPicBulletId,
+                RelationshipId = relationshipId
+            };
+        }
+
+        return lastAttempt ?? Fail(
+            config.ParagraphIndex.HasValue
+                ? $"Paragraph {config.ParagraphIndex.Value} không sử dụng picture bullet phù hợp."
+                : "Không tìm thấy paragraph nào sử dụng picture bullet phù hợp.");
+    }
+    catch (XmlException ex)
+    {
+        return Fail($"Không thể phân tích XML: {ex.Message}");
+    }
+}
+
+private static string ResolveRelationshipTarget(string sourcePart, string target)
+{
+    target = target.Replace('\\', '/').Trim();
+
+    if (target.StartsWith("/"))
+    {
+        return target.TrimStart('/');
+    }
+
+    var sourceDirectory = sourcePart.Contains('/')
+        ? sourcePart[..sourcePart.LastIndexOf('/')]
+        : string.Empty;
+
+    var combined = string.IsNullOrWhiteSpace(sourceDirectory)
+        ? target
+        : $"{sourceDirectory}/{target}";
+
+    var segments = combined.Split('/', StringSplitOptions.RemoveEmptyEntries);
+    var stack = new Stack<string>();
+
+    foreach (var segment in segments)
+    {
+        if (segment == ".") continue;
+        if (segment == "..")
+        {
+            if (stack.Count > 0) stack.Pop();
+            continue;
+        }
+        stack.Push(segment);
+    }
+
+    return string.Join("/", stack.Reverse());
+}
+
+private static string ComputeSha256(byte[] bytes)
+{
+    using var sha256 = System.Security.Cryptography.SHA256.Create();
+    var hash = sha256.ComputeHash(bytes);
+    return Convert.ToHexString(hash).ToLowerInvariant();
+}
+
+private static string NormalizeHash(string hash)
+{
+    return (hash ?? string.Empty).Trim().Replace("-", "").Replace(" ", "").ToLowerInvariant();
+}
         private static ExpectedMatchResult MatchExpected(
     string actualXml,
     string expectedValue,
@@ -985,8 +1330,67 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 result.Errors.Add($"{conditionPrefix}.xmlEquivalentWholeFile chỉ hỗ trợ đúng 1 expectedValue.");
             }
+            ValidateSpecialCondition(condition.SpecialCondition, conditionPrefix, result);
         }
 
+
+        private static void ValidateSpecialCondition(
+    SpecialCondition? specialCondition,
+    string conditionPrefix,
+    XmlRuleValidationResult result)
+{
+    if (specialCondition == null || specialCondition.Type == SpecialConditionType.None)
+    {
+        return;
+    }
+
+    switch (specialCondition.Type)
+    {
+        case SpecialConditionType.PictureBullet:
+            var pb = specialCondition.PictureBullet;
+
+            if (pb == null)
+            {
+                result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet không được null.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(pb.ExpectedImageSha256))
+            {
+                result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.expectedImageSha256 không được rỗng.");
+            }
+
+            if (string.IsNullOrWhiteSpace(pb.DocumentPart))
+            {
+                result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.documentPart không được rỗng.");
+            }
+            else if (!IsSafeSourceFile(pb.DocumentPart))
+            {
+                result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.documentPart không hợp lệ.");
+            }
+
+            if (pb.Level.HasValue && pb.Level.Value < 0)
+            {
+                result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.level phải >= 0.");
+            }
+
+            if (pb.NumId.HasValue && pb.NumId.Value < 0)
+            {
+                result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.numId phải >= 0.");
+            }
+
+            if (pb.ParagraphIndex.HasValue && pb.ParagraphIndex.Value < 0)
+            {
+                result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.paragraphIndex phải >= 0.");
+            }
+
+            break;
+
+        default:
+            result.Errors.Add($"{conditionPrefix}.specialCondition.type không được hỗ trợ: {specialCondition.Type}.");
+            break;
+    }
+}
         private static bool IsSafeSourceFile(string sourceFile)
         {
             var normalized = NormalizeSourceFile(sourceFile);

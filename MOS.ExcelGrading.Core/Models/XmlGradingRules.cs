@@ -100,6 +100,10 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("score")]
         public decimal Score { get; set; }
 
+        [BsonElement("specialCondition")]
+        [JsonPropertyName("specialCondition")]
+        public SpecialCondition? SpecialCondition { get; set; }
+
         [BsonElement("sourceFile")]
         public string SourceFile { get; set; } = string.Empty;
 
@@ -130,6 +134,67 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("fixAction")]
         public string FixAction { get; set; } = string.Empty;
     }
+
+    public enum SpecialConditionType
+{
+    None = 0,
+    PictureBullet = 1
+}
+
+public class SpecialCondition
+{
+    [BsonElement("type")]
+    [JsonPropertyName("type")]
+    public SpecialConditionType Type { get; set; }
+
+    [BsonElement("pictureBullet")]
+    [JsonPropertyName("pictureBullet")]
+    public PictureBulletConfig? PictureBullet { get; set; }
+}
+
+public class PictureBulletConfig
+{
+    /// <summary>SHA256 của hình ảnh bullet chuẩn (bắt buộc).</summary>
+    [BsonElement("expectedImageSha256")]
+    [JsonPropertyName("expectedImageSha256")]
+    public string ExpectedImageSha256 { get; set; } = string.Empty;
+
+    /// <summary>File chứa paragraph cần kiểm tra. Mặc định word/document.xml.</summary>
+    [BsonElement("documentPart")]
+    [JsonPropertyName("documentPart")]
+    public string DocumentPart { get; set; } = "word/document.xml";
+
+    /// <summary>Index paragraph (đếm toàn bộ w:p, kể cả không có numPr). null = kiểm tra mọi paragraph.</summary>
+    [BsonElement("paragraphIndex")]
+    [JsonPropertyName("paragraphIndex")]
+    public int? ParagraphIndex { get; set; }
+
+    /// <summary>Giới hạn level (ilvl). null = mọi level.</summary>
+    [BsonElement("level")]
+    [JsonPropertyName("level")]
+    public int? Level { get; set; }
+
+    /// <summary>Giới hạn numId. null = không giới hạn.</summary>
+    [BsonElement("numId")]
+    [JsonPropertyName("numId")]
+    public int? NumId { get; set; }
+
+    [BsonElement("requirePictureBullet")]
+    [JsonPropertyName("requirePictureBullet")]
+    public bool RequirePictureBullet { get; set; } = true;
+}
+
+public class SpecialConditionEvaluationResult
+{
+    public bool IsPassed { get; set; }
+    public string Type { get; set; } = string.Empty;
+    public string Message { get; set; } = string.Empty;
+    public string? ExpectedSha256 { get; set; }
+    public string? ActualSha256 { get; set; }
+    public string? ImagePath { get; set; }
+    public int? NumPicBulletId { get; set; }
+    public string? RelationshipId { get; set; }
+}
 
     public class ExpectedValueJsonConverter : JsonConverter<List<string>>
     {
@@ -181,6 +246,7 @@ namespace MOS.ExcelGrading.Core.Models
         public List<string> MatchedExpectedValues { get; set; } = new();
         public List<string> MissingExpectedValues { get; set; } = new();
         public ConditionFeedback Feedback { get; set; } = new();
+        public SpecialConditionEvaluationResult? SpecialConditionResult { get; set; }
     }
 
     public class XmlRuleValidationResult

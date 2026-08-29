@@ -1340,63 +1340,7 @@ private static string NormalizeHash(string hash)
             return result;
         }
 
-        private static void ValidateCondition(XmlGradingCondition condition, string taskPrefix, XmlRuleValidationResult result)
-        {
-            var conditionPrefix = string.IsNullOrWhiteSpace(condition.ConditionId)
-                ? $"{taskPrefix}.condition"
-                : $"{taskPrefix}.{condition.ConditionId}";
-
-            if (string.IsNullOrWhiteSpace(condition.ConditionId))
-            {
-                result.Errors.Add($"{taskPrefix}.conditionId không được rỗng.");
-            }
-
-            if (condition.Score <= 0)
-            {
-                result.Errors.Add($"{conditionPrefix}.score phải lớn hơn 0.");
-            }
-
-            if (string.IsNullOrWhiteSpace(condition.SourceFile))
-            {
-                result.Errors.Add($"{conditionPrefix}.sourceFile không được rỗng.");
-            }
-            else if (!IsSafeSourceFile(condition.SourceFile))
-            {
-                result.Errors.Add($"{conditionPrefix}.sourceFile không hợp lệ hoặc có path traversal.");
-            }
-
-            if (condition.ExpectedValues.Count == 0 || condition.ExpectedValues.Any(string.IsNullOrWhiteSpace))
-            {
-                result.Errors.Add($"{conditionPrefix}.expectedValue phải là string không rỗng hoặc array string không rỗng.");
-            }
-
-            if (string.IsNullOrWhiteSpace(condition.CompareMode))
-            {
-                condition.CompareMode = XmlGradingCompareModes.XmlContainsNormalized;
-            }
-
-            if (!XmlGradingCompareModes.Supported.Contains(condition.CompareMode))
-            {
-                result.Errors.Add($"{conditionPrefix}.compareMode không được hỗ trợ: {condition.CompareMode}.");
-            }
-
-            if (string.IsNullOrWhiteSpace(condition.MatchPolicy))
-            {
-                condition.MatchPolicy = XmlGradingMatchPolicies.All;
-            }
-
-            if (!XmlGradingMatchPolicies.Supported.Contains(condition.MatchPolicy))
-            {
-                result.Errors.Add($"{conditionPrefix}.matchPolicy không được hỗ trợ: {condition.MatchPolicy}.");
-            }
-
-            if (string.Equals(condition.CompareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase) &&
-                condition.ExpectedValues.Count != 1)
-            {
-                result.Errors.Add($"{conditionPrefix}.xmlEquivalentWholeFile chỉ hỗ trợ đúng 1 expectedValue.");
-            }
-            ValidateSpecialCondition(condition.SpecialCondition, conditionPrefix, result);
-        }
+        
 
 
         private static void ValidateSpecialCondition(

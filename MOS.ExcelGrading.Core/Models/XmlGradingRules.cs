@@ -59,6 +59,14 @@ namespace MOS.ExcelGrading.Core.Models
             };
     }
 
+    // [BsonIgnoreExtraElements] được thêm vào TẤT CẢ các class map với MongoDB
+    // bên dưới để driver bỏ qua field lạ/thừa trong document thay vì throw
+    // exception khi deserialize (đây là nguyên nhân gốc của lỗi
+    // "Element 'specialCondition' does not match any field or property of
+    // class XmlGradingCondition" — dữ liệu cũ trong DB có field specialCondition
+    // bị lồng sai vị trí bên trong 1 condition thay vì ở cấp Task).
+
+    [BsonIgnoreExtraElements]
     public class GradingRuleSet
     {
         [BsonId]
@@ -78,6 +86,7 @@ namespace MOS.ExcelGrading.Core.Models
         public List<ProjectXmlRule> Projects { get; set; } = new();
     }
 
+    [BsonIgnoreExtraElements]
     public class ProjectXmlRule
     {
         [BsonElement("projectCode")]
@@ -93,6 +102,7 @@ namespace MOS.ExcelGrading.Core.Models
         public List<TaskXmlRule> Tasks { get; set; } = new();
     }
 
+    [BsonIgnoreExtraElements]
     public class TaskXmlRule
     {
         [BsonElement("taskId")]
@@ -120,6 +130,7 @@ namespace MOS.ExcelGrading.Core.Models
     /// Khớp đúng interface SpecialCondition phía FE:
     /// { type: SpecialConditionType; config?: PictureBulletConfig }
     /// </summary>
+    [BsonIgnoreExtraElements]
     public class SpecialCondition
     {
         [BsonElement("type")]
@@ -137,6 +148,7 @@ namespace MOS.ExcelGrading.Core.Models
     /// assetId chỉ mang tính tham chiếu (id ảnh đã upload), không dùng để chấm.
     /// imageHash là SHA256 dùng để so khớp khi chấm.
     /// </summary>
+    [BsonIgnoreExtraElements]
     public class PictureBulletConfig
     {
         [BsonElement("level")]
@@ -152,6 +164,7 @@ namespace MOS.ExcelGrading.Core.Models
         public string? ImageHash { get; set; }
     }
 
+    [BsonIgnoreExtraElements]
     public class XmlGradingCondition
     {
         [BsonElement("conditionId")]
@@ -179,6 +192,8 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("stopTaskIfFailed")]
         public bool StopTaskIfFailed { get; set; } = false;
     }
+
+    [BsonIgnoreExtraElements]
     public class ConditionFeedback
     {
         [BsonElement("successDetail")]

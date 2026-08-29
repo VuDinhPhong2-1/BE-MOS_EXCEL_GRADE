@@ -43,6 +43,22 @@ namespace MOS.ExcelGrading.Core.Models
         };
     }
 
+    /// <summary>
+    /// Danh sách loại Special Condition được hỗ trợ.
+    /// Khớp đúng union type "SpecialConditionType" phía FE
+    /// (xml-grading-rules.types.ts). Thêm loại mới -> thêm hằng số ở đây.
+    /// </summary>
+    public static class SpecialConditionTypes
+    {
+        public const string PictureBullet = "pictureBullet";
+
+        public static readonly HashSet<string> Supported =
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                PictureBullet
+            };
+    }
+
     public class GradingRuleSet
     {
         [BsonId]
@@ -90,6 +106,50 @@ namespace MOS.ExcelGrading.Core.Models
 
         [BsonElement("conditions")]
         public List<XmlGradingCondition> Conditions { get; set; } = new();
+
+        /// <summary>
+        /// Điều kiện đặc biệt của riêng Task này — khớp đúng vị trí
+        /// "task.specialCondition" phía FE (không nằm trong Condition).
+        /// </summary>
+        [BsonElement("specialCondition")]
+        [JsonPropertyName("specialCondition")]
+        public SpecialCondition? SpecialCondition { get; set; }
+    }
+
+    /// <summary>
+    /// Khớp đúng interface SpecialCondition phía FE:
+    /// { type: SpecialConditionType; config?: PictureBulletConfig }
+    /// </summary>
+    public class SpecialCondition
+    {
+        [BsonElement("type")]
+        [JsonPropertyName("type")]
+        public string Type { get; set; } = string.Empty;
+
+        [BsonElement("config")]
+        [JsonPropertyName("config")]
+        public PictureBulletConfig? Config { get; set; }
+    }
+
+    /// <summary>
+    /// Khớp đúng interface PictureBulletConfig phía FE:
+    /// { level?: number; assetId?: string; imageHash?: string }
+    /// assetId chỉ mang tính tham chiếu (id ảnh đã upload), không dùng để chấm.
+    /// imageHash là SHA256 dùng để so khớp khi chấm.
+    /// </summary>
+    public class PictureBulletConfig
+    {
+        [BsonElement("level")]
+        [JsonPropertyName("level")]
+        public int? Level { get; set; }
+
+        [BsonElement("assetId")]
+        [JsonPropertyName("assetId")]
+        public string? AssetId { get; set; }
+
+        [BsonElement("imageHash")]
+        [JsonPropertyName("imageHash")]
+        public string? ImageHash { get; set; }
     }
 
     public class XmlGradingCondition
@@ -99,10 +159,6 @@ namespace MOS.ExcelGrading.Core.Models
 
         [BsonElement("score")]
         public decimal Score { get; set; }
-
-        [BsonElement("specialCondition")]
-        [JsonPropertyName("specialCondition")]
-        public SpecialCondition? SpecialCondition { get; set; }
 
         [BsonElement("sourceFile")]
         public string SourceFile { get; set; } = string.Empty;
@@ -134,67 +190,6 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("fixAction")]
         public string FixAction { get; set; } = string.Empty;
     }
-
-    public enum SpecialConditionType
-{
-    None = 0,
-    PictureBullet = 1
-}
-
-public class SpecialCondition
-{
-    [BsonElement("type")]
-    [JsonPropertyName("type")]
-    public SpecialConditionType Type { get; set; }
-
-    [BsonElement("pictureBullet")]
-    [JsonPropertyName("pictureBullet")]
-    public PictureBulletConfig? PictureBullet { get; set; }
-}
-
-public class PictureBulletConfig
-{
-    /// <summary>SHA256 của hình ảnh bullet chuẩn (bắt buộc).</summary>
-    [BsonElement("expectedImageSha256")]
-    [JsonPropertyName("expectedImageSha256")]
-    public string ExpectedImageSha256 { get; set; } = string.Empty;
-
-    /// <summary>File chứa paragraph cần kiểm tra. Mặc định word/document.xml.</summary>
-    [BsonElement("documentPart")]
-    [JsonPropertyName("documentPart")]
-    public string DocumentPart { get; set; } = "word/document.xml";
-
-    /// <summary>Index paragraph (đếm toàn bộ w:p, kể cả không có numPr). null = kiểm tra mọi paragraph.</summary>
-    [BsonElement("paragraphIndex")]
-    [JsonPropertyName("paragraphIndex")]
-    public int? ParagraphIndex { get; set; }
-
-    /// <summary>Giới hạn level (ilvl). null = mọi level.</summary>
-    [BsonElement("level")]
-    [JsonPropertyName("level")]
-    public int? Level { get; set; }
-
-    /// <summary>Giới hạn numId. null = không giới hạn.</summary>
-    [BsonElement("numId")]
-    [JsonPropertyName("numId")]
-    public int? NumId { get; set; }
-
-    [BsonElement("requirePictureBullet")]
-    [JsonPropertyName("requirePictureBullet")]
-    public bool RequirePictureBullet { get; set; } = true;
-}
-
-public class SpecialConditionEvaluationResult
-{
-    public bool IsPassed { get; set; }
-    public string Type { get; set; } = string.Empty;
-    public string Message { get; set; } = string.Empty;
-    public string? ExpectedSha256 { get; set; }
-    public string? ActualSha256 { get; set; }
-    public string? ImagePath { get; set; }
-    public int? NumPicBulletId { get; set; }
-    public string? RelationshipId { get; set; }
-}
 
     public class ExpectedValueJsonConverter : JsonConverter<List<string>>
     {
@@ -246,7 +241,6 @@ public class SpecialConditionEvaluationResult
         public List<string> MatchedExpectedValues { get; set; } = new();
         public List<string> MissingExpectedValues { get; set; } = new();
         public ConditionFeedback Feedback { get; set; } = new();
-        public SpecialConditionEvaluationResult? SpecialConditionResult { get; set; }
     }
 
     public class XmlRuleValidationResult

@@ -362,6 +362,37 @@ namespace MOS.ExcelGrading.Core.Services
                     MaxScore = taskRule.MaxScore
                 };
 
+                // ===== SPECIAL CONDITION (cấp Task) =====
+                // Hoạt động như một "gate": nếu Task có specialCondition mà nó FAIL,
+                // toàn bộ Task = 0 điểm bất kể conditions XML thường có đúng hay không.
+                // Nếu Task không có conditions nào khác, specialCondition PASS -> full điểm Task.
+                var hasSpecialCondition = taskRule.SpecialCondition != null
+                    && !string.IsNullOrWhiteSpace(taskRule.SpecialCondition.Type);
+
+                var specialConditionPassed = true;
+
+                if (hasSpecialCondition)
+                {
+                    var specialResult = EvaluateTaskSpecialCondition(taskRule.SpecialCondition!, package);
+                    specialConditionPassed = specialResult.IsPassed;
+
+                    if (specialResult.IsPassed)
+                    {
+                        taskResult.Details.Add($"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}");
+                    }
+                    else
+                    {
+                        taskResult.Errors.Add($"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}");
+                    }
+
+                    if (taskRule.Conditions.Count == 0)
+                    {
+                        // Special condition sở hữu toàn bộ điểm Task.
+                        taskResult.Score = specialConditionPassed ? taskRule.MaxScore : 0m;
+                    }
+                }
+
+                // ===== NORMAL XML CONDITIONS =====
                 foreach (var condition in taskRule.Conditions)
                 {
                     var conditionResult = EvaluateCondition(condition, package);
@@ -393,6 +424,12 @@ namespace MOS.ExcelGrading.Core.Services
                     {
                         break;
                     }
+                }
+
+                // Special condition FAIL -> zero toàn bộ Task, kể cả khi có conditions XML đã đạt điểm.
+                if (hasSpecialCondition && !specialConditionPassed)
+                {
+                    taskResult.Score = 0m;
                 }
 
                 if (taskResult.Score > taskResult.MaxScore)
@@ -456,6 +493,27 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 NormalizeConditionForPersistence(condition);
             }
+
+            if (task.SpecialCondition != null)
+            {
+                task.SpecialCondition.Type = task.SpecialCondition.Type?.Trim() ?? string.Empty;
+
+                // Nếu FE gửi type rỗng (người dùng chọn "Không sử dụng"), coi như không có special condition.
+                if (string.IsNullOrWhiteSpace(task.SpecialCondition.Type))
+                {
+                    task.SpecialCondition = null;
+                }
+                else if (task.SpecialCondition.Config != null)
+                {
+                    task.SpecialCondition.Config.AssetId = string.IsNullOrWhiteSpace(task.SpecialCondition.Config.AssetId)
+                        ? null
+                        : task.SpecialCondition.Config.AssetId.Trim();
+
+                    task.SpecialCondition.Config.ImageHash = string.IsNullOrWhiteSpace(task.SpecialCondition.Config.ImageHash)
+                        ? null
+                        : NormalizeHash(task.SpecialCondition.Config.ImageHash);
+                }
+            }
         }
 
         private static void NormalizeConditionForPersistence(XmlGradingCondition condition)
@@ -512,6 +570,12 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 throw new InvalidOperationException("Task maxScore phải lớn hơn 0.");
             }
+
+            if (task.SpecialCondition != null
+                && !SpecialConditionTypes.Supported.Contains(task.SpecialCondition.Type))
+            {
+                throw new InvalidOperationException($"specialCondition.type không được hỗ trợ: {task.SpecialCondition.Type}.");
+            }
         }
 
         private static void ValidateConditionShell(XmlGradingCondition condition)
@@ -526,29 +590,14 @@ namespace MOS.ExcelGrading.Core.Services
                 throw new InvalidOperationException("Condition score phải lớn hơn 0.");
             }
 
-            var hasSpecialCondition = condition.SpecialCondition != null
-                && condition.SpecialCondition.Type != SpecialConditionType.None;
-
-            var hasNormalXmlCheck = condition.ExpectedValues.Count > 0;
-
-            // Nếu condition chỉ dùng Special Condition (không có expectedValues),
-            // sourceFile/expectedValues không bắt buộc phải hợp lệ theo kiểu XML thường.
-            if (hasNormalXmlCheck || !hasSpecialCondition)
+            if (!IsSafeSourceFile(condition.SourceFile))
             {
-                if (!IsSafeSourceFile(condition.SourceFile))
-                {
-                    throw new InvalidOperationException("sourceFile phải là đường dẫn XML an toàn trong Office package.");
-                }
-
-                if (condition.ExpectedValues.Count == 0 && !hasSpecialCondition)
-                {
-                    throw new InvalidOperationException("expectedValue là bắt buộc.");
-                }
+                throw new InvalidOperationException("sourceFile phải là đường dẫn XML an toàn trong Office package.");
             }
 
-            if (!hasSpecialCondition && condition.ExpectedValues.Count == 0)
+            if (condition.ExpectedValues.Count == 0)
             {
-                throw new InvalidOperationException("Condition phải có expectedValues hoặc specialCondition.");
+                throw new InvalidOperationException("expectedValue là bắt buộc.");
             }
 
             if (!XmlGradingCompareModes.Supported.Contains(condition.CompareMode))
@@ -651,43 +700,6 @@ namespace MOS.ExcelGrading.Core.Services
                 Feedback = condition.Feedback ?? new ConditionFeedback()
             };
 
-            // ===== SPECIAL CONDITION (bổ sung, có thể thay thế normal XML condition) =====
-            if (condition.SpecialCondition != null
-                && condition.SpecialCondition.Type != SpecialConditionType.None)
-            {
-                var specialResult = EvaluateSpecialCondition(condition.SpecialCondition, package);
-                result.SpecialConditionResult = specialResult;
-
-                if (!specialResult.IsPassed)
-                {
-                    result.IsPassed = false;
-                    result.ScoreAwarded = 0m;
-
-                    if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
-                    {
-                        result.Feedback.ErrorMessage = specialResult.Message;
-                    }
-
-                    return result;
-                }
-
-                // Nếu condition này KHÔNG có normal XML check đi kèm (expectedValues rỗng),
-                // Special Condition PASS là đủ để condition PASS.
-                if (condition.ExpectedValues.Count == 0)
-                {
-                    result.IsPassed = true;
-                    result.ScoreAwarded = condition.Score;
-
-                    if (string.IsNullOrWhiteSpace(result.Feedback.SuccessDetail))
-                    {
-                        result.Feedback.SuccessDetail = specialResult.Message;
-                    }
-
-                    return result;
-                }
-            }
-
-            // ===== NORMAL XML CONDITION =====
             if (!package.XmlParts.TryGetValue(result.SourceFile, out var actualXml))
             {
                 result.MissingExpectedValues.AddRange(condition.ExpectedValues);
@@ -712,57 +724,60 @@ namespace MOS.ExcelGrading.Core.Services
             return result;
         }
 
-        private static SpecialConditionEvaluationResult EvaluateSpecialCondition(
+        /// <summary>
+        /// Kết quả nội bộ khi đánh giá 1 Special Condition (không phơi ra ngoài API,
+        /// chỉ dùng để build message cho taskResult.Details/Errors).
+        /// </summary>
+        private sealed class SpecialConditionEvalOutcome
+        {
+            public bool IsPassed { get; set; }
+            public string Message { get; set; } = string.Empty;
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateTaskSpecialCondition(
             SpecialCondition specialCondition,
             OfficePackage package)
         {
-            return specialCondition.Type switch
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))
             {
-                SpecialConditionType.PictureBullet =>
-                    EvaluatePictureBullet(specialCondition.PictureBullet, package),
+                return EvaluatePictureBullet(specialCondition.Config, package);
+            }
 
-                _ => new SpecialConditionEvaluationResult
-                {
-                    IsPassed = false,
-                    Type = specialCondition.Type.ToString(),
-                    Message = $"Special condition không được hỗ trợ: {specialCondition.Type}."
-                }
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = false,
+                Message = $"Special condition không được hỗ trợ: {specialCondition.Type}."
             };
         }
 
-        private static SpecialConditionEvaluationResult EvaluatePictureBullet(
+        private static SpecialConditionEvalOutcome EvaluatePictureBullet(
             PictureBulletConfig? config,
             OfficePackage package)
         {
-            static SpecialConditionEvaluationResult Fail(string message) => new()
+            static SpecialConditionEvalOutcome Fail(string message) => new()
             {
                 IsPassed = false,
-                Type = "PictureBullet",
                 Message = message
             };
 
             if (config == null)
             {
-                return Fail("PictureBulletConfig không được cấu hình.");
+                return Fail("Chưa cấu hình Picture Bullet (config trống).");
             }
 
-            if (string.IsNullOrWhiteSpace(config.ExpectedImageSha256))
+            if (string.IsNullOrWhiteSpace(config.ImageHash))
             {
-                return Fail("Chưa cấu hình ExpectedImageSha256.");
+                return Fail("Chưa có imageHash — ảnh bullet chuẩn chưa được upload/tạo hash ở BE.");
             }
 
-            var documentPart = NormalizeSourceFile(
-                string.IsNullOrWhiteSpace(config.DocumentPart)
-                    ? "word/document.xml"
-                    : config.DocumentPart);
+            const string documentPart = "word/document.xml";
+            const string numberingPath = "word/numbering.xml";
+            const string numberingRelsPath = "word/_rels/numbering.xml.rels";
 
             if (!package.XmlParts.TryGetValue(documentPart, out var documentXml))
             {
                 return Fail($"Không tìm thấy {documentPart} trong file học sinh.");
             }
-
-            const string numberingPath = "word/numbering.xml";
-            const string numberingRelsPath = "word/_rels/numbering.xml.rels";
 
             if (!package.XmlParts.TryGetValue(numberingPath, out var numberingXml))
             {
@@ -786,36 +801,21 @@ namespace MOS.ExcelGrading.Core.Services
                 var numberingDocument = XDocument.Parse(numberingXml);
                 var relsDocument = XDocument.Parse(relsXml);
 
-                // Bước 1: lấy paragraph theo index (đếm toàn bộ w:p, kể cả không có numPr)
+                var expectedHash = NormalizeHash(config.ImageHash);
+
+                // Duyệt toàn bộ paragraph trong document.xml, tìm bất kỳ paragraph nào
+                // dùng picture bullet ở đúng Level (nếu có chỉ định) mà ảnh khớp expectedHash.
                 var allParagraphs = documentDocument.Descendants(w + "p").ToList();
 
-                List<XElement> paragraphsToCheck;
+                var checkedAnyBulletParagraph = false;
+                string? lastMismatchInfo = null;
 
-                if (config.ParagraphIndex.HasValue)
-                {
-                    if (config.ParagraphIndex.Value < 0
-                        || config.ParagraphIndex.Value >= allParagraphs.Count)
-                    {
-                        return Fail(
-                            $"paragraphIndex {config.ParagraphIndex.Value} vượt ngoài phạm vi document ({allParagraphs.Count} paragraph).");
-                    }
-
-                    paragraphsToCheck = new List<XElement> { allParagraphs[config.ParagraphIndex.Value] };
-                }
-                else
-                {
-                    paragraphsToCheck = allParagraphs;
-                }
-
-                var expectedHash = NormalizeHash(config.ExpectedImageSha256);
-                SpecialConditionEvaluationResult? lastAttempt = null;
-
-                foreach (var paragraph in paragraphsToCheck)
+                foreach (var paragraph in allParagraphs)
                 {
                     var numPr = paragraph.Element(w + "pPr")?.Element(w + "numPr");
                     if (numPr == null)
                     {
-                        continue; // paragraph không có numbering
+                        continue;
                     }
 
                     var numIdVal = numPr.Element(w + "numId")?.Attribute(w + "val")?.Value;
@@ -824,12 +824,6 @@ namespace MOS.ExcelGrading.Core.Services
                         continue;
                     }
 
-                    if (config.NumId.HasValue && numId != config.NumId.Value)
-                    {
-                        continue;
-                    }
-
-                    // ilvl mặc định = 0 nếu không khai báo
                     var ilvlVal = numPr.Element(w + "ilvl")?.Attribute(w + "val")?.Value;
                     var ilvl = int.TryParse(ilvlVal, out var parsedIlvl) ? parsedIlvl : 0;
 
@@ -838,32 +832,29 @@ namespace MOS.ExcelGrading.Core.Services
                         continue;
                     }
 
-                    // Bước 2: numId -> w:num -> abstractNumId
+                    // numId -> w:num -> abstractNumId
                     var numElement = numberingDocument
                         .Descendants(w + "num")
                         .FirstOrDefault(e => e.Attribute(w + "numId")?.Value == numId.ToString());
 
                     if (numElement == null)
                     {
-                        lastAttempt = Fail($"Không tìm thấy w:num numId={numId} trong numbering.xml.");
                         continue;
                     }
 
                     var abstractNumIdVal = numElement.Element(w + "abstractNumId")?.Attribute(w + "val")?.Value;
                     if (!int.TryParse(abstractNumIdVal, out var abstractNumId))
                     {
-                        lastAttempt = Fail($"numId={numId} thiếu w:abstractNumId hợp lệ.");
                         continue;
                     }
 
-                    // Bước 3: abstractNumId -> abstractNum -> lvl[ilvl] -> lvlPicBulletId
+                    // abstractNumId -> abstractNum -> lvl[ilvl] -> lvlPicBulletId
                     var abstractNumElement = numberingDocument
                         .Descendants(w + "abstractNum")
                         .FirstOrDefault(e => e.Attribute(w + "abstractNumId")?.Value == abstractNumId.ToString());
 
                     if (abstractNumElement == null)
                     {
-                        lastAttempt = Fail($"Không tìm thấy w:abstractNum abstractNumId={abstractNumId}.");
                         continue;
                     }
 
@@ -871,58 +862,45 @@ namespace MOS.ExcelGrading.Core.Services
                         .Elements(w + "lvl")
                         .FirstOrDefault(e => e.Attribute(w + "ilvl")?.Value == ilvl.ToString());
 
-                    if (lvlElement == null)
-                    {
-                        lastAttempt = Fail($"Không tìm thấy w:lvl ilvl={ilvl} trong abstractNum {abstractNumId}.");
-                        continue;
-                    }
-
-                    var lvlPicBulletIdVal = lvlElement.Element(w + "lvlPicBulletId")?.Attribute(w + "val")?.Value;
+                    var lvlPicBulletIdVal = lvlElement?.Element(w + "lvlPicBulletId")?.Attribute(w + "val")?.Value;
                     if (!int.TryParse(lvlPicBulletIdVal, out var lvlPicBulletId))
                     {
-                        lastAttempt = Fail(
-                            $"Level {ilvl} của numId={numId} không dùng picture bullet (thiếu w:lvlPicBulletId).");
+                        // Level này không dùng picture bullet -> không tính là "đã kiểm tra bullet"
                         continue;
                     }
 
-                    // Bước 4: lvlPicBulletId -> numPicBullet -> r:id ảnh
+                    checkedAnyBulletParagraph = true;
+
+                    // lvlPicBulletId -> numPicBullet -> r:id ảnh
                     var numPicBulletElement = numberingDocument
                         .Descendants(w + "numPicBullet")
                         .FirstOrDefault(e => e.Attribute(w + "numPicBulletId")?.Value == lvlPicBulletId.ToString());
 
                     if (numPicBulletElement == null)
                     {
-                        lastAttempt = Fail($"Không tìm thấy w:numPicBullet numPicBulletId={lvlPicBulletId}.");
+                        lastMismatchInfo = $"numPicBulletId={lvlPicBulletId} không tồn tại trong numbering.xml.";
                         continue;
                     }
 
-                    // Hỗ trợ cả 2 dạng Word hay sinh: VML (v:imagedata) và DrawingML (a:blip)
                     var relationshipId =
                         numPicBulletElement.Descendants(v + "imagedata").FirstOrDefault()?.Attribute(r + "id")?.Value
                         ?? numPicBulletElement.Descendants(a + "blip").FirstOrDefault()?.Attribute(r + "embed")?.Value;
 
                     if (string.IsNullOrWhiteSpace(relationshipId))
                     {
-                        lastAttempt = Fail($"numPicBullet {lvlPicBulletId} không có tham chiếu ảnh (v:imagedata / a:blip).");
+                        lastMismatchInfo = $"numPicBulletId={lvlPicBulletId} không có tham chiếu ảnh.";
                         continue;
                     }
 
-                    // Bước 5: relationship id -> target -> resolve path -> bytes -> sha256
                     var relationship = relsDocument
                         .Descendants(rel + "Relationship")
                         .FirstOrDefault(e => string.Equals(
                             e.Attribute("Id")?.Value, relationshipId, StringComparison.Ordinal));
 
-                    if (relationship == null)
-                    {
-                        lastAttempt = Fail($"Không tìm thấy relationship {relationshipId} trong numbering.xml.rels.");
-                        continue;
-                    }
-
-                    var target = relationship.Attribute("Target")?.Value;
+                    var target = relationship?.Attribute("Target")?.Value;
                     if (string.IsNullOrWhiteSpace(target))
                     {
-                        lastAttempt = Fail($"Relationship {relationshipId} không có Target.");
+                        lastMismatchInfo = $"Relationship {relationshipId} không có Target hợp lệ.";
                         continue;
                     }
 
@@ -930,32 +908,32 @@ namespace MOS.ExcelGrading.Core.Services
 
                     if (!package.BinaryParts.TryGetValue(imagePath, out var imageBytes))
                     {
-                        lastAttempt = Fail($"Không đọc được ảnh {imagePath} trong file học sinh.");
+                        lastMismatchInfo = $"Không đọc được ảnh {imagePath} trong file học sinh.";
                         continue;
                     }
 
                     var actualHash = ComputeSha256(imageBytes);
-                    var isMatched = string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase);
 
-                    return new SpecialConditionEvaluationResult
+                    if (string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
                     {
-                        IsPassed = isMatched,
-                        Type = "PictureBullet",
-                        Message = isMatched
-                            ? "Picture bullet đúng hình ảnh yêu cầu."
-                            : "Picture bullet không đúng hình ảnh yêu cầu.",
-                        ExpectedSha256 = expectedHash,
-                        ActualSha256 = actualHash,
-                        ImagePath = imagePath,
-                        NumPicBulletId = lvlPicBulletId,
-                        RelationshipId = relationshipId
-                    };
+                        return new SpecialConditionEvalOutcome
+                        {
+                            IsPassed = true,
+                            Message = "Picture bullet đúng hình ảnh yêu cầu."
+                        };
+                    }
+
+                    lastMismatchInfo = $"Tìm thấy picture bullet (numId={numId}, level={ilvl}) nhưng ảnh không khớp (hash={actualHash}).";
                 }
 
-                return lastAttempt ?? Fail(
-                    config.ParagraphIndex.HasValue
-                        ? $"Paragraph {config.ParagraphIndex.Value} không sử dụng picture bullet phù hợp."
-                        : "Không tìm thấy paragraph nào sử dụng picture bullet phù hợp.");
+                if (!checkedAnyBulletParagraph)
+                {
+                    return Fail(config.Level.HasValue
+                        ? $"Không tìm thấy paragraph nào dùng picture bullet ở level {config.Level.Value}."
+                        : "Không tìm thấy paragraph nào dùng picture bullet trong tài liệu.");
+                }
+
+                return Fail(lastMismatchInfo ?? "Picture bullet không đúng hình ảnh yêu cầu.");
             }
             catch (XmlException ex)
             {
@@ -1287,20 +1265,34 @@ namespace MOS.ExcelGrading.Core.Services
                         result.Errors.Add($"{taskPrefix}.maxScore phải lớn hơn 0.");
                     }
 
+                    var hasSpecialCondition = task.SpecialCondition != null
+                        && !string.IsNullOrWhiteSpace(task.SpecialCondition.Type);
+
                     if (task.Conditions.Count == 0)
                     {
-                        result.Errors.Add($"{taskPrefix}.conditions phải có ít nhất 1 condition.");
+                        // Chỉ hợp lệ khi có specialCondition thay thế cho conditions XML.
+                        if (!hasSpecialCondition)
+                        {
+                            result.Errors.Add($"{taskPrefix}.conditions phải có ít nhất 1 condition, hoặc phải có specialCondition.");
+                        }
                     }
-
-                    var totalConditionScore = task.Conditions.Sum(condition => condition.Score);
-                    if (totalConditionScore != task.MaxScore)
+                    else
                     {
-                        result.Errors.Add($"{taskPrefix}.conditions tổng score ({totalConditionScore}) phải bằng task.maxScore ({task.MaxScore}).");
+                        var totalConditionScore = task.Conditions.Sum(condition => condition.Score);
+                        if (totalConditionScore != task.MaxScore)
+                        {
+                            result.Errors.Add($"{taskPrefix}.conditions tổng score ({totalConditionScore}) phải bằng task.maxScore ({task.MaxScore}).");
+                        }
                     }
 
                     foreach (var condition in task.Conditions)
                     {
                         ValidateCondition(condition, taskPrefix, result);
+                    }
+
+                    if (hasSpecialCondition)
+                    {
+                        ValidateTaskSpecialCondition(task.SpecialCondition!, taskPrefix, result);
                     }
                 }
             }
@@ -1324,32 +1316,18 @@ namespace MOS.ExcelGrading.Core.Services
                 result.Errors.Add($"{conditionPrefix}.score phải lớn hơn 0.");
             }
 
-            var hasSpecialCondition = condition.SpecialCondition != null
-                && condition.SpecialCondition.Type != SpecialConditionType.None;
-
-            // sourceFile: nếu có special condition mà không có expectedValues,
-            // sourceFile là tùy chọn (special condition tự quản lý documentPart riêng)
-            var hasNormalXmlCheck = condition.ExpectedValues.Count > 0;
-
-            if (hasNormalXmlCheck || !hasSpecialCondition)
+            if (string.IsNullOrWhiteSpace(condition.SourceFile))
             {
-                if (string.IsNullOrWhiteSpace(condition.SourceFile))
-                {
-                    result.Errors.Add($"{conditionPrefix}.sourceFile không được rỗng.");
-                }
-                else if (!IsSafeSourceFile(condition.SourceFile))
-                {
-                    result.Errors.Add($"{conditionPrefix}.sourceFile không hợp lệ hoặc có path traversal.");
-                }
+                result.Errors.Add($"{conditionPrefix}.sourceFile không được rỗng.");
+            }
+            else if (!IsSafeSourceFile(condition.SourceFile))
+            {
+                result.Errors.Add($"{conditionPrefix}.sourceFile không hợp lệ hoặc có path traversal.");
+            }
 
-                if (condition.ExpectedValues.Count == 0 || condition.ExpectedValues.Any(string.IsNullOrWhiteSpace))
-                {
-                    // Chỉ bắt buộc expectedValues khi KHÔNG có special condition thay thế
-                    if (!hasSpecialCondition)
-                    {
-                        result.Errors.Add($"{conditionPrefix}.expectedValue phải là string không rỗng hoặc array string không rỗng.");
-                    }
-                }
+            if (condition.ExpectedValues.Count == 0 || condition.ExpectedValues.Any(string.IsNullOrWhiteSpace))
+            {
+                result.Errors.Add($"{conditionPrefix}.expectedValue phải là string không rỗng hoặc array string không rỗng.");
             }
 
             if (string.IsNullOrWhiteSpace(condition.CompareMode))
@@ -1377,70 +1355,44 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 result.Errors.Add($"{conditionPrefix}.xmlEquivalentWholeFile chỉ hỗ trợ đúng 1 expectedValue.");
             }
-
-            ValidateSpecialCondition(condition.SpecialCondition, conditionPrefix, result);
-
-            if (!hasSpecialCondition && condition.ExpectedValues.Count == 0)
-            {
-                result.Errors.Add($"{conditionPrefix} phải có expectedValues hoặc specialCondition.");
-            }
         }
 
-        private static void ValidateSpecialCondition(
-            SpecialCondition? specialCondition,
-            string conditionPrefix,
+        private static void ValidateTaskSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
             XmlRuleValidationResult result)
         {
-            if (specialCondition == null || specialCondition.Type == SpecialConditionType.None)
+            if (string.IsNullOrWhiteSpace(specialCondition.Type))
             {
+                result.Errors.Add($"{taskPrefix}.specialCondition.type không được rỗng.");
                 return;
             }
 
-            switch (specialCondition.Type)
+            if (!SpecialConditionTypes.Supported.Contains(specialCondition.Type))
             {
-                case SpecialConditionType.PictureBullet:
-                    var pb = specialCondition.PictureBullet;
+                result.Errors.Add($"{taskPrefix}.specialCondition.type không được hỗ trợ: {specialCondition.Type}.");
+                return;
+            }
 
-                    if (pb == null)
-                    {
-                        result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet không được null.");
-                        return;
-                    }
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))
+            {
+                var config = specialCondition.Config;
 
-                    if (string.IsNullOrWhiteSpace(pb.ExpectedImageSha256))
-                    {
-                        result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.expectedImageSha256 không được rỗng.");
-                    }
+                if (config == null)
+                {
+                    result.Errors.Add($"{taskPrefix}.specialCondition.config không được null.");
+                    return;
+                }
 
-                    if (string.IsNullOrWhiteSpace(pb.DocumentPart))
-                    {
-                        result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.documentPart không được rỗng.");
-                    }
-                    else if (!IsSafeSourceFile(pb.DocumentPart))
-                    {
-                        result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.documentPart không hợp lệ.");
-                    }
+                if (string.IsNullOrWhiteSpace(config.ImageHash))
+                {
+                    result.Errors.Add($"{taskPrefix}.specialCondition.config.imageHash không được rỗng (ảnh bullet chuẩn chưa được upload/tạo hash).");
+                }
 
-                    if (pb.Level.HasValue && pb.Level.Value < 0)
-                    {
-                        result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.level phải >= 0.");
-                    }
-
-                    if (pb.NumId.HasValue && pb.NumId.Value < 0)
-                    {
-                        result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.numId phải >= 0.");
-                    }
-
-                    if (pb.ParagraphIndex.HasValue && pb.ParagraphIndex.Value < 0)
-                    {
-                        result.Errors.Add($"{conditionPrefix}.specialCondition.pictureBullet.paragraphIndex phải >= 0.");
-                    }
-
-                    break;
-
-                default:
-                    result.Errors.Add($"{conditionPrefix}.specialCondition.type không được hỗ trợ: {specialCondition.Type}.");
-                    break;
+                if (config.Level.HasValue && config.Level.Value < 0)
+                {
+                    result.Errors.Add($"{taskPrefix}.specialCondition.config.level phải >= 0.");
+                }
             }
         }
 

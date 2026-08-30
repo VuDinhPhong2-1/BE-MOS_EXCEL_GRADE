@@ -364,9 +364,10 @@ namespace MOS.ExcelGrading.Core.Services
                 };
 
                 // ===== SPECIAL CONDITION (cấp Task) =====
-                // Hoạt động như một "gate": nếu Task có specialCondition mà nó FAIL,
-                // toàn bộ Task = 0 điểm bất kể conditions XML thường có đúng hay không.
-                // Nếu Task không có conditions nào khác, specialCondition PASS -> full điểm Task.
+                // Hoạt động như một "gate" + có điểm riêng: nếu Task có specialCondition
+                // mà nó FAIL, toàn bộ Task = 0 điểm bất kể conditions XML thường có đúng
+                // hay không. Nếu PASS, cộng thêm SpecialCondition.Score vào điểm Task
+                // (độc lập với điểm các Conditions XML, không còn "ăn trọn" MaxScore).
                 var hasSpecialCondition = taskRule.SpecialCondition != null
                     && !string.IsNullOrWhiteSpace(taskRule.SpecialCondition.Type);
 
@@ -380,16 +381,15 @@ namespace MOS.ExcelGrading.Core.Services
                     if (specialResult.IsPassed)
                     {
                         taskResult.Details.Add($"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}");
+
+                        // Cộng điểm riêng của specialCondition do người tạo ruleset cấu hình.
+                        // Cho phép Task chỉ dùng specialCondition (0 condition XML) hoặc
+                        // kết hợp cả hai, miễn tổng = task.maxScore (được validate ở ValidateRuleSet).
+                        taskResult.Score += taskRule.SpecialCondition!.Score;
                     }
                     else
                     {
                         taskResult.Errors.Add($"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}");
-                    }
-
-                    if (taskRule.Conditions.Count == 0)
-                    {
-                        // Special condition sở hữu toàn bộ điểm Task.
-                        taskResult.Score = specialConditionPassed ? taskRule.MaxScore : 0m;
                     }
                 }
 
@@ -504,15 +504,23 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     task.SpecialCondition = null;
                 }
-                else if (task.SpecialCondition.Config != null)
+                else
                 {
-                    task.SpecialCondition.Config.AssetId = string.IsNullOrWhiteSpace(task.SpecialCondition.Config.AssetId)
-                        ? null
-                        : task.SpecialCondition.Config.AssetId.Trim();
+                    if (task.SpecialCondition.Score < 0)
+                    {
+                        task.SpecialCondition.Score = 0m;
+                    }
 
-                    task.SpecialCondition.Config.ImageHash = string.IsNullOrWhiteSpace(task.SpecialCondition.Config.ImageHash)
-                        ? null
-                        : ImageHashUtility.NormalizeHash(task.SpecialCondition.Config.ImageHash);
+                    if (task.SpecialCondition.Config != null)
+                    {
+                        task.SpecialCondition.Config.AssetId = string.IsNullOrWhiteSpace(task.SpecialCondition.Config.AssetId)
+                            ? null
+                            : task.SpecialCondition.Config.AssetId.Trim();
+
+                        task.SpecialCondition.Config.ImageHash = string.IsNullOrWhiteSpace(task.SpecialCondition.Config.ImageHash)
+                            ? null
+                            : ImageHashUtility.NormalizeHash(task.SpecialCondition.Config.ImageHash);
+                    }
                 }
             }
         }
@@ -572,10 +580,17 @@ namespace MOS.ExcelGrading.Core.Services
                 throw new InvalidOperationException("Task maxScore phải lớn hơn 0.");
             }
 
-            if (task.SpecialCondition != null
-                && !SpecialConditionTypes.Supported.Contains(task.SpecialCondition.Type))
+            if (task.SpecialCondition != null)
             {
-                throw new InvalidOperationException($"specialCondition.type không được hỗ trợ: {task.SpecialCondition.Type}.");
+                if (!SpecialConditionTypes.Supported.Contains(task.SpecialCondition.Type))
+                {
+                    throw new InvalidOperationException($"specialCondition.type không được hỗ trợ: {task.SpecialCondition.Type}.");
+                }
+
+                if (task.SpecialCondition.Score <= 0)
+                {
+                    throw new InvalidOperationException("specialCondition.score phải lớn hơn 0.");
+                }
             }
         }
 
@@ -1257,17 +1272,26 @@ namespace MOS.ExcelGrading.Core.Services
                     var hasSpecialCondition = task.SpecialCondition != null
                         && !string.IsNullOrWhiteSpace(task.SpecialCondition.Type);
 
+                    // Task hợp lệ khi có ít nhất 1 Condition XML HOẶC có specialCondition
+                    // (không còn bắt buộc phải có Condition XML nếu đã dùng specialCondition).
                     if (task.Conditions.Count == 0 && !hasSpecialCondition)
                     {
-                        // Chỉ hợp lệ khi có specialCondition thay thế cho conditions XML.
                         result.Errors.Add($"{taskPrefix}.conditions phải có ít nhất 1 condition, hoặc phải có specialCondition.");
                     }
                     else
                     {
-                        var totalConditionScore = task.Conditions.Sum(condition => condition.Score);
+                        // Tổng điểm = tổng Conditions XML + điểm riêng của specialCondition (nếu có).
+                        // Cho phép Task chỉ dùng specialCondition (0 Condition XML) hoặc kết hợp cả hai.
+                        var totalConditionScore = task.Conditions.Sum(condition => condition.Score)
+                            + (hasSpecialCondition ? task.SpecialCondition!.Score : 0m);
+
                         if (totalConditionScore != task.MaxScore)
                         {
-                            result.Errors.Add($"{taskPrefix}.conditions tổng score ({totalConditionScore}) phải bằng task.maxScore ({task.MaxScore}).");
+                            var scoreBreakdown = hasSpecialCondition
+                                ? $"conditions + specialCondition = {totalConditionScore}"
+                                : $"conditions = {totalConditionScore}";
+
+                            result.Errors.Add($"{taskPrefix}: tổng score ({scoreBreakdown}) phải bằng task.maxScore ({task.MaxScore}).");
                         }
                     }
 
@@ -1358,6 +1382,11 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.type không được hỗ trợ: {specialCondition.Type}.");
                 return;
+            }
+
+            if (specialCondition.Score <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.score phải lớn hơn 0.");
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))

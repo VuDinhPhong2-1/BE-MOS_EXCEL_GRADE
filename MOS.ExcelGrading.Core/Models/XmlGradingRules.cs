@@ -137,6 +137,10 @@ namespace MOS.ExcelGrading.Core.Models
         [JsonPropertyName("type")]
         public string Type { get; set; } = string.Empty;
 
+        [BsonElement("score")]
+        [JsonPropertyName("score")]
+        public decimal Score { get; set; }
+
         [BsonElement("config")]
         [JsonPropertyName("config")]
         public PictureBulletConfig? Config { get; set; }

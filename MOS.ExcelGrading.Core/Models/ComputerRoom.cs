@@ -31,6 +31,9 @@ namespace MOS.ExcelGrading.Core.Models
         [Range(0, 1000)]
         public int BrokenMachineCount { get; set; } = 0;
 
+        [StringLength(1000)]
+        public string? BrokenMachinesDetail { get; set; }
+
         [StringLength(120)]
         public string NetSupportStatus { get; set; } = "Tốt";
 

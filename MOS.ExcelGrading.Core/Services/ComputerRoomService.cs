@@ -92,6 +92,7 @@ namespace MOS.ExcelGrading.Core.Services
                 .Set(x => x.StudentMachineCount, room.StudentMachineCount)
                 .Set(x => x.TeacherMachineCount, room.TeacherMachineCount)
                 .Set(x => x.BrokenMachineCount, room.BrokenMachineCount)
+                .Set(x => x.BrokenMachinesDetail, room.BrokenMachinesDetail)
                 .Set(x => x.NetSupportStatus, room.NetSupportStatus)
                 .Set(x => x.AudioStatus, room.AudioStatus)
                 .Set(x => x.CoolingStatus, room.CoolingStatus)

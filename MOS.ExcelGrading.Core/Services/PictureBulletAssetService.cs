@@ -11,7 +11,7 @@ namespace MOS.ExcelGrading.Core.Services
     /// Lưu ảnh bullet chuẩn vào MongoDB GridFS (dùng chung cluster với
     /// grading_rule_sets, không cần thêm hạ tầng storage riêng).
     /// </summary>
-    public class PictureBulletAssetService : IPictureBulletAssetService
+    public class PictureBulletAssetService : IImageAssetService
     {
         // Khớp đúng giới hạn phía FE (PictureBulletEditor.tsx: MAX_FILE_SIZE)
         private const long MaxFileSizeBytes = 10 * 1024 * 1024;

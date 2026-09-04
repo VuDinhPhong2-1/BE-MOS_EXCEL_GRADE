@@ -1,3 +1,5 @@
+using MOS.ExcelGrading.Core.Models;
+
 namespace MOS.ExcelGrading.Core.Interfaces
 {
     public enum ImageAssetKind

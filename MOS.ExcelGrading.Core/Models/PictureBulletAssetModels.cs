@@ -9,6 +9,7 @@ namespace MOS.ExcelGrading.Core.Models
     {
         public string AssetId { get; set; } = string.Empty;
         public string ImageHash { get; set; } = string.Empty;
+        public string PerceptualHash { get; set; } = string.Empty;
         public string ContentType { get; set; } = string.Empty;
         public long SizeBytes { get; set; }
     }

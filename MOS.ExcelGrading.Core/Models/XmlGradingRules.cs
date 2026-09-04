@@ -188,6 +188,13 @@ public static class ImageWrapTypes
         [BsonElement("imageHash")]
         [JsonPropertyName("imageHash")]
         public string? ImageHash { get; set; }
+
+        // MỚI: dHash 64-bit dạng hex 16 ký tự, dùng để so sánh ảnh chịu được
+        // nén JPEG lại khi Word lưu file. Optional để tương thích ruleset cũ
+        // (chưa có field này thì fallback về so ImageHash tuyệt đối).
+        [BsonElement("perceptualHash")]
+        [JsonPropertyName("perceptualHash")]
+        public string? PerceptualHash { get; set; }
     }
 
     /// <summary>
@@ -211,7 +218,15 @@ public static class ImageWrapTypes
         [BsonElement("wrapType")]
         [JsonPropertyName("wrapType")]
         public string? WrapType { get; set; }
+
+        // MỚI: dHash 64-bit dạng hex 16 ký tự, dùng để so sánh ảnh chịu được
+        // nén JPEG lại khi Word lưu file. Optional để tương thích ruleset cũ
+        // (chưa có field này thì fallback về so ImageHash tuyệt đối).
+        [BsonElement("perceptualHash")]
+        [JsonPropertyName("perceptualHash")]
+        public string? PerceptualHash { get; set; }
     }
+
     [BsonIgnoreExtraElements]
     public class XmlGradingCondition
     {

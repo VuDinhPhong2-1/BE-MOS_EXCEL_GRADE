@@ -63,14 +63,14 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             var imageHash = ImageHashUtility.ComputeSha256(bytes);
-
+            var perceptualHash = ImageHashUtility.ComputePerceptualHash(bytes);
             var uploadOptions = new GridFSUploadOptions
             {
                 Metadata = new BsonDocument
                 {
                     { "contentType", contentType },
                     { "imageHash", imageHash },
-                    { "kind", kind.ToString() },
+                    { "perceptualHash", perceptualHash },
                     { "uploadedAtUtc", DateTime.UtcNow }
                 }
             };
@@ -85,6 +85,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 AssetId = objectId.ToString(),
                 ImageHash = imageHash,
+                PerceptualHash = perceptualHash,
                 ContentType = contentType,
                 SizeBytes = bytes.LongLength
             };

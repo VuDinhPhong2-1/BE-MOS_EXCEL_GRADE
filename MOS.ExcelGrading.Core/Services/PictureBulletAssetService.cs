@@ -36,7 +36,7 @@ namespace MOS.ExcelGrading.Core.Services
             });
         }
 
-        public async Task<PictureBulletAssetUploadResult> UploadAsync(Stream content, string fileName, string contentType)
+        public async Task<PictureBulletAssetUploadResult> UploadAsync(Stream content, string fileName, string contentType, ImageAssetKind kind)
         {
             if (content == null)
             {
@@ -70,6 +70,7 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     { "contentType", contentType },
                     { "imageHash", imageHash },
+                    { "kind", kind.ToString() },
                     { "uploadedAtUtc", DateTime.UtcNow }
                 }
             };

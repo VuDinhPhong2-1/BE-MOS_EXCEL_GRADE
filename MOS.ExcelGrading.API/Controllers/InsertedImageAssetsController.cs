@@ -5,22 +5,14 @@ using MOS.ExcelGrading.Core.Models;
 
 namespace MOS.ExcelGrading.Api.Controllers
 {
-    // Lưu ý: điều chỉnh namespace/route-prefix/attribute Authorize cho khớp với
-    // cách các controller khác trong project đang được cấu hình (ví dụ nếu có
-    // [Authorize(Policy = "AdminOnly")] riêng thì dùng lại policy đó thay vì Roles).
-    //
-    // Controller này dùng lại chính IPictureBulletAssetService vì logic upload/
-    // tính hash/lưu trữ ảnh hoàn toàn generic, không có gì đặc thù riêng cho
-    // "picture bullet". Route riêng /inserted-image-assets chỉ để tách bạch
-    // rõ ràng về mặt API cho tính năng insertedImage, tránh nhầm lẫn khi đọc log/docs.
     [ApiController]
     [Route("api/inserted-image-assets")]
     [Authorize(Roles = "Admin")]
     public class InsertedImageAssetsController : ControllerBase
     {
-        private readonly IPictureBulletAssetService _assetService;
+        private readonly IImageAssetService _assetService;
 
-        public InsertedImageAssetsController(IPictureBulletAssetService assetService)
+        public InsertedImageAssetsController(IImageAssetService assetService)
         {
             _assetService = assetService;
         }
@@ -39,7 +31,7 @@ namespace MOS.ExcelGrading.Api.Controllers
             try
             {
                 await using var stream = file.OpenReadStream();
-                var result = await _assetService.UploadAsync(stream, file.FileName, file.ContentType);
+                var result = await _assetService.UploadAsync(stream, file.FileName, file.ContentType, ImageAssetKind.InsertedImage);
                 return Ok(result);
             }
             catch (InvalidOperationException ex)
@@ -49,7 +41,6 @@ namespace MOS.ExcelGrading.Api.Controllers
         }
 
         // GET /api/inserted-image-assets/{assetId}
-        // Dùng để FE hiển thị lại preview khi mở 1 ruleset đã có sẵn assetId.
         [HttpGet("{assetId}")]
         public async Task<IActionResult> Get(string assetId)
         {

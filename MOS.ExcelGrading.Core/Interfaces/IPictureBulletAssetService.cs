@@ -1,18 +1,16 @@
-using MOS.ExcelGrading.Core.Models;
-
 namespace MOS.ExcelGrading.Core.Interfaces
 {
-    public interface IPictureBulletAssetService
+    public enum ImageAssetKind
     {
-        /// <summary>
-        /// Upload ảnh bullet chuẩn, tính SHA-256, lưu vào GridFS.
-        /// Ném InvalidOperationException nếu file không hợp lệ (sai định dạng, quá lớn, rỗng).
-        /// </summary>
-        Task<PictureBulletAssetUploadResult> UploadAsync(Stream content, string fileName, string contentType);
+        PictureBullet,
+        InsertedImage
+    }
 
-        /// <summary>
-        /// Đọc lại ảnh theo assetId để hiển thị preview. Trả về null nếu không tìm thấy.
-        /// </summary>
+    public interface IImageAssetService
+    {
+        Task<PictureBulletAssetUploadResult> UploadAsync(
+            Stream content, string fileName, string contentType, ImageAssetKind kind);
+
         Task<PictureBulletAssetContent?> GetAsync(string assetId);
     }
 }

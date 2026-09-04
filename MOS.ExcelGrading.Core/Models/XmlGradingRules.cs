@@ -43,21 +43,38 @@ namespace MOS.ExcelGrading.Core.Models
         };
     }
 
-    /// <summary>
-    /// Danh sách loại Special Condition được hỗ trợ.
-    /// Khớp đúng union type "SpecialConditionType" phía FE
-    /// (xml-grading-rules.types.ts). Thêm loại mới -> thêm hằng số ở đây.
-    /// </summary>
     public static class SpecialConditionTypes
-    {
-        public const string PictureBullet = "pictureBullet";
+{
+    public const string PictureBullet = "pictureBullet";
+    public const string InsertedImage = "insertedImage"; // MỚI
 
-        public static readonly HashSet<string> Supported =
-            new(StringComparer.OrdinalIgnoreCase)
-            {
-                PictureBullet
-            };
-    }
+    public static readonly HashSet<string> Supported =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            PictureBullet,
+            InsertedImage
+        };
+}
+
+/// <summary>
+/// Các chế độ ngắt dòng văn bản (Text Wrapping) của ảnh trong Word,
+/// dùng để kiểm tra specialCondition = insertedImage.
+/// </summary>
+public static class ImageWrapTypes
+{
+    public const string Inline = "inline";
+    public const string Square = "square";
+    public const string Tight = "tight";
+    public const string Through = "through";
+    public const string TopAndBottom = "topAndBottom";
+    public const string Behind = "behind";
+    public const string InFront = "inFront";
+
+    public static readonly HashSet<string> Supported = new(StringComparer.OrdinalIgnoreCase)
+    {
+        Inline, Square, Tight, Through, TopAndBottom, Behind, InFront
+    };
+}
 
     // [BsonIgnoreExtraElements] được thêm vào TẤT CẢ các class map với MongoDB
     // bên dưới để driver bỏ qua field lạ/thừa trong document thay vì throw
@@ -144,7 +161,12 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("config")]
         [JsonPropertyName("config")]
         public PictureBulletConfig? Config { get; set; }
-    }
+
+        // MỚI: dùng riêng cho type = insertedImage
+        [BsonElement("imageInsertConfig")]
+        [JsonPropertyName("imageInsertConfig")]
+        public ImageInsertConfig? ImageInsertConfig { get; set; }
+}
 
     /// <summary>
     /// Khớp đúng interface PictureBulletConfig phía FE:
@@ -168,6 +190,28 @@ namespace MOS.ExcelGrading.Core.Models
         public string? ImageHash { get; set; }
     }
 
+    /// <summary>
+    /// Khớp đúng interface ImageInsertConfig phía FE:
+    /// { assetId?: string; imageHash?: string; wrapType?: ImageWrapType }
+    /// assetId chỉ mang tính tham chiếu (id ảnh đã upload), không dùng để chấm.
+    /// imageHash là SHA256 dùng để so khớp khi chấm.
+    /// wrapType để trống nếu không cần kiểm tra chế độ ngắt dòng.
+    /// </summary>
+    [BsonIgnoreExtraElements]
+    public class ImageInsertConfig
+    {
+        [BsonElement("assetId")]
+        [JsonPropertyName("assetId")]
+        public string? AssetId { get; set; }
+
+        [BsonElement("imageHash")]
+        [JsonPropertyName("imageHash")]
+        public string? ImageHash { get; set; }
+
+        [BsonElement("wrapType")]
+        [JsonPropertyName("wrapType")]
+        public string? WrapType { get; set; }
+    }
     [BsonIgnoreExtraElements]
     public class XmlGradingCondition
     {

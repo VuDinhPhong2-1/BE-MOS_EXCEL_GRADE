@@ -511,6 +511,7 @@ namespace MOS.ExcelGrading.Core.Services
                         task.SpecialCondition.Score = 0m;
                     }
 
+                    // ===== Normalize cho type = pictureBullet =====
                     if (task.SpecialCondition.Config != null)
                     {
                         task.SpecialCondition.Config.AssetId = string.IsNullOrWhiteSpace(task.SpecialCondition.Config.AssetId)
@@ -521,9 +522,33 @@ namespace MOS.ExcelGrading.Core.Services
                             ? null
                             : ImageHashUtility.NormalizeHash(task.SpecialCondition.Config.ImageHash);
                     }
+
+                    // ===== Normalize cho type = insertedImage =====
+                    // Tách riêng khối config này với pictureBullet ở trên vì 2 loại
+                    // special condition dùng 2 property config khác nhau
+                    // (Config vs ImageInsertConfig), không lồng chung 1 object.
+                    if (task.SpecialCondition.ImageInsertConfig != null)
+                    {
+                        var imageInsertConfig = task.SpecialCondition.ImageInsertConfig;
+
+                        imageInsertConfig.AssetId = string.IsNullOrWhiteSpace(imageInsertConfig.AssetId)
+                            ? null
+                            : imageInsertConfig.AssetId.Trim();
+
+                        imageInsertConfig.ImageHash = string.IsNullOrWhiteSpace(imageInsertConfig.ImageHash)
+                            ? null
+                            : ImageHashUtility.NormalizeHash(imageInsertConfig.ImageHash);
+
+                        // wrapType là optional: rỗng nghĩa là không cần kiểm tra
+                        // chế độ ngắt dòng, chỉ kiểm tra đúng ảnh. Trim + để null
+                        // nếu rỗng để tránh lưu chuỗi khoảng trắng vào DB.
+                        imageInsertConfig.WrapType = string.IsNullOrWhiteSpace(imageInsertConfig.WrapType)
+                            ? null
+                            : imageInsertConfig.WrapType.Trim();
+                    }
                 }
             }
-        }
+}
 
         private static void NormalizeConditionForPersistence(XmlGradingCondition condition)
         {
@@ -750,13 +775,17 @@ namespace MOS.ExcelGrading.Core.Services
             public string Message { get; set; } = string.Empty;
         }
 
-        private static SpecialConditionEvalOutcome EvaluateTaskSpecialCondition(
-            SpecialCondition specialCondition,
-            OfficePackage package)
+        private static SpecialConditionEvalOutcome EvaluateTaskSpecialCondition(SpecialCondition specialCondition, OfficePackage package)
         {
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluatePictureBullet(specialCondition.Config, package);
+            }
+
+            // MỚI
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateInsertedImage(specialCondition.ImageInsertConfig, package);
             }
 
             return new SpecialConditionEvalOutcome
@@ -765,6 +794,160 @@ namespace MOS.ExcelGrading.Core.Services
                 Message = $"Special condition không được hỗ trợ: {specialCondition.Type}."
             };
         }
+
+    private static SpecialConditionEvalOutcome EvaluateInsertedImage(
+    ImageInsertConfig? config,
+    OfficePackage package)
+{
+    static SpecialConditionEvalOutcome Fail(string message) => new()
+    {
+        IsPassed = false,
+        Message = message
+    };
+
+    if (config == null)
+    {
+        return Fail("Chưa cấu hình Inserted Image (config trống).");
+    }
+
+    if (string.IsNullOrWhiteSpace(config.ImageHash))
+    {
+        return Fail("Chưa có imageHash — ảnh chuẩn chưa được upload/tạo hash ở BE.");
+    }
+
+    const string documentPart = "word/document.xml";
+    const string documentRelsPath = "word/_rels/document.xml.rels";
+
+    if (!package.XmlParts.TryGetValue(documentPart, out var documentXml))
+    {
+        return Fail($"Không tìm thấy {documentPart} trong file học sinh.");
+    }
+
+    if (!package.XmlParts.TryGetValue(documentRelsPath, out var relsXml))
+    {
+        return Fail("Không tìm thấy word/_rels/document.xml.rels.");
+    }
+
+    XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+    XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+    XNamespace wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+    XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
+    XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
+
+    try
+    {
+        var documentDocument = XDocument.Parse(documentXml);
+        var relsDocument = XDocument.Parse(relsXml);
+        var expectedHash = ImageHashUtility.NormalizeHash(config.ImageHash);
+        var expectedWrap = string.IsNullOrWhiteSpace(config.WrapType) ? null : config.WrapType.Trim();
+
+        var drawings = documentDocument.Descendants(w + "drawing").ToList();
+
+        if (drawings.Count == 0)
+        {
+            return Fail("Không tìm thấy hình ảnh (w:drawing) nào trong tài liệu.");
+        }
+
+        string? lastMismatchInfo = null;
+
+        foreach (var drawing in drawings)
+        {
+            var relationshipId = drawing.Descendants(a + "blip").FirstOrDefault()?.Attribute(r + "embed")?.Value;
+
+            if (string.IsNullOrWhiteSpace(relationshipId))
+            {
+                continue;
+            }
+
+            var relationship = relsDocument
+                .Descendants(rel + "Relationship")
+                .FirstOrDefault(e => string.Equals(e.Attribute("Id")?.Value, relationshipId, StringComparison.Ordinal));
+
+            var target = relationship?.Attribute("Target")?.Value;
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                lastMismatchInfo = $"Relationship {relationshipId} không có Target hợp lệ.";
+                continue;
+            }
+
+            var imagePath = ResolveRelationshipTarget(documentPart, target);
+
+            if (!package.BinaryParts.TryGetValue(imagePath, out var imageBytes))
+            {
+                lastMismatchInfo = $"Không đọc được ảnh {imagePath} trong file học sinh.";
+                continue;
+            }
+
+            var actualHash = ImageHashUtility.ComputeSha256(imageBytes);
+
+            if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+            {
+                lastMismatchInfo = $"Tìm thấy ảnh {imagePath} nhưng không đúng nội dung yêu cầu (hash={actualHash}).";
+                continue;
+            }
+
+            if (expectedWrap == null)
+            {
+                return new SpecialConditionEvalOutcome
+                {
+                    IsPassed = true,
+                    Message = "Đã chèn đúng hình ảnh yêu cầu."
+                };
+            }
+
+            var actualWrap = DetectWrapType(drawing, wp);
+
+            if (string.Equals(actualWrap, expectedWrap, StringComparison.OrdinalIgnoreCase))
+            {
+                return new SpecialConditionEvalOutcome
+                {
+                    IsPassed = true,
+                    Message = $"Đã chèn đúng hình ảnh yêu cầu với chế độ ngắt dòng '{expectedWrap}'."
+                };
+            }
+
+            lastMismatchInfo = $"Đã tìm thấy đúng ảnh yêu cầu nhưng chế độ ngắt dòng đang là '{actualWrap}' thay vì '{expectedWrap}'.";
+        }
+
+        return Fail(lastMismatchInfo ?? "Không tìm thấy ảnh nào khớp với yêu cầu trong tài liệu.");
+    }
+    catch (XmlException ex)
+    {
+        return Fail($"Không thể phân tích XML: {ex.Message}");
+    }
+}
+
+/// <summary>
+/// wp:inline = "inline". wp:anchor có 1 trong các phần tử wrap con:
+/// wrapSquare/wrapTight/wrapThrough/wrapTopAndBottom/wrapNone
+/// (behind/inFront phân biệt bằng attribute behindDoc trên wp:anchor).
+/// </summary>
+private static string DetectWrapType(XElement drawing, XNamespace wp)
+{
+    if (drawing.Element(wp + "inline") != null)
+    {
+        return ImageWrapTypes.Inline;
+    }
+
+    var anchor = drawing.Element(wp + "anchor");
+    if (anchor == null)
+    {
+        return "unknown";
+    }
+
+    if (anchor.Element(wp + "wrapSquare") != null) return ImageWrapTypes.Square;
+    if (anchor.Element(wp + "wrapTight") != null) return ImageWrapTypes.Tight;
+    if (anchor.Element(wp + "wrapThrough") != null) return ImageWrapTypes.Through;
+    if (anchor.Element(wp + "wrapTopAndBottom") != null) return ImageWrapTypes.TopAndBottom;
+
+    if (anchor.Element(wp + "wrapNone") != null)
+    {
+        var behindDoc = anchor.Attribute("behindDoc")?.Value;
+        return behindDoc == "1" ? ImageWrapTypes.Behind : ImageWrapTypes.InFront;
+    }
+
+    return "unknown";
+}
 
         private static SpecialConditionEvalOutcome EvaluatePictureBullet(
             PictureBulletConfig? config,
@@ -1368,48 +1551,70 @@ namespace MOS.ExcelGrading.Core.Services
         }
 
         private static void ValidateTaskSpecialCondition(
-            SpecialCondition specialCondition,
-            string taskPrefix,
-            XmlRuleValidationResult result)
+    SpecialCondition specialCondition,
+    string taskPrefix,
+    XmlRuleValidationResult result)
+    {
+        if (string.IsNullOrWhiteSpace(specialCondition.Type))
         {
-            if (string.IsNullOrWhiteSpace(specialCondition.Type))
+            result.Errors.Add($"{taskPrefix}.specialCondition.type không được rỗng.");
+            return;
+        }
+
+        if (!SpecialConditionTypes.Supported.Contains(specialCondition.Type))
+        {
+            result.Errors.Add($"{taskPrefix}.specialCondition.type không được hỗ trợ: {specialCondition.Type}.");
+            return;
+        }
+
+        if (specialCondition.Score <= 0)
+        {
+            result.Errors.Add($"{taskPrefix}.specialCondition.score phải lớn hơn 0.");
+        }
+
+        if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))
+        {
+            var config = specialCondition.Config;
+
+            if (config == null)
             {
-                result.Errors.Add($"{taskPrefix}.specialCondition.type không được rỗng.");
+                result.Errors.Add($"{taskPrefix}.specialCondition.config không được null.");
                 return;
             }
 
-            if (!SpecialConditionTypes.Supported.Contains(specialCondition.Type))
+            if (string.IsNullOrWhiteSpace(config.ImageHash))
             {
-                result.Errors.Add($"{taskPrefix}.specialCondition.type không được hỗ trợ: {specialCondition.Type}.");
-                return;
+                result.Errors.Add($"{taskPrefix}.specialCondition.config.imageHash không được rỗng (ảnh bullet chuẩn chưa được upload/tạo hash).");
             }
 
-            if (specialCondition.Score <= 0)
+            if (config.Level.HasValue && config.Level.Value < 0)
             {
-                result.Errors.Add($"{taskPrefix}.specialCondition.score phải lớn hơn 0.");
-            }
-
-            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))
-            {
-                var config = specialCondition.Config;
-
-                if (config == null)
-                {
-                    result.Errors.Add($"{taskPrefix}.specialCondition.config không được null.");
-                    return;
-                }
-
-                if (string.IsNullOrWhiteSpace(config.ImageHash))
-                {
-                    result.Errors.Add($"{taskPrefix}.specialCondition.config.imageHash không được rỗng (ảnh bullet chuẩn chưa được upload/tạo hash).");
-                }
-
-                if (config.Level.HasValue && config.Level.Value < 0)
-                {
-                    result.Errors.Add($"{taskPrefix}.specialCondition.config.level phải >= 0.");
-                }
+                result.Errors.Add($"{taskPrefix}.specialCondition.config.level phải >= 0.");
             }
         }
+
+        // MỚI
+        if (string.Equals(specialCondition.Type, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase))
+        {
+            var config = specialCondition.ImageInsertConfig;
+
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig không được null.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.ImageHash))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.imageHash không được rỗng (ảnh chuẩn chưa được upload/tạo hash).");
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.WrapType) && !ImageWrapTypes.Supported.Contains(config.WrapType))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.wrapType không được hỗ trợ: {config.WrapType}.");
+            }
+        }
+    }
 
         private static bool IsSafeSourceFile(string sourceFile)
         {

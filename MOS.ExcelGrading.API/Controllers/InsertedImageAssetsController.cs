@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MOS.ExcelGrading.API.Authorization;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 
@@ -7,7 +8,7 @@ namespace MOS.ExcelGrading.Api.Controllers
 {
     [ApiController]
     [Route("api/inserted-image-assets")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
     public class InsertedImageAssetsController : ControllerBase
     {
         private readonly IImageAssetService _assetService;
@@ -21,6 +22,7 @@ namespace MOS.ExcelGrading.Api.Controllers
         // multipart/form-data, field "file"
         [HttpPost]
         [RequestSizeLimit(10 * 1024 * 1024)]
+        [RequirePermission(Permissions.CreateXmlRules)]
         public async Task<IActionResult> Upload([FromForm] IFormFile? file)
         {
             if (file == null || file.Length == 0)
@@ -42,6 +44,7 @@ namespace MOS.ExcelGrading.Api.Controllers
 
         // GET /api/inserted-image-assets/{assetId}
         [HttpGet("{assetId}")]
+        [RequirePermission(Permissions.ViewXmlRules)]
         public async Task<IActionResult> Get(string assetId)
         {
             var asset = await _assetService.GetAsync(assetId);

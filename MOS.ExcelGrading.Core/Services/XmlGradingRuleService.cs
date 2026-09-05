@@ -390,7 +390,14 @@ namespace MOS.ExcelGrading.Core.Services
                     }
                     else
                     {
-                        taskResult.Errors.Add($"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}");
+                        var message = $"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}";
+                        taskResult.Errors.Add(message);
+                        taskResult.DisplayIssues.Add(new TaskDisplayIssue
+                        {
+                            Heading = string.IsNullOrWhiteSpace(taskRule.TaskName) ? taskRule.TaskId : taskRule.TaskName,
+                            Message = message,
+                            FixAction = string.Empty,
+                        });
                     }
                 }
 
@@ -408,14 +415,23 @@ namespace MOS.ExcelGrading.Core.Services
                     }
                     else
                     {
-                        if (!string.IsNullOrWhiteSpace(conditionResult.Feedback.ErrorMessage))
+                        var errorMessage = conditionResult.Feedback.ErrorMessage?.Trim() ?? string.Empty;
+                        var fixAction = conditionResult.Feedback.FixAction?.Trim() ?? string.Empty;
+
+                        if (!string.IsNullOrWhiteSpace(errorMessage))
                         {
-                            taskResult.Errors.Add(conditionResult.Feedback.ErrorMessage.Trim());
+                            taskResult.Errors.Add(errorMessage);
+                            taskResult.DisplayIssues.Add(new TaskDisplayIssue
+                            {
+                                Heading = string.IsNullOrWhiteSpace(taskRule.TaskName) ? taskRule.TaskId : taskRule.TaskName,
+                                Message = errorMessage,
+                                FixAction = fixAction,
+                            });
                         }
 
-                        if (!string.IsNullOrWhiteSpace(conditionResult.Feedback.FixAction))
+                        if (!string.IsNullOrWhiteSpace(fixAction))
                         {
-                            taskResult.FixActions.Add(conditionResult.Feedback.FixAction.Trim());
+                            taskResult.FixActions.Add(fixAction);
                         }
                     }
 
@@ -427,7 +443,6 @@ namespace MOS.ExcelGrading.Core.Services
                         break;
                     }
                 }
-
                 // Special condition FAIL -> zero toàn bộ Task, kể cả khi có conditions XML đã đạt điểm.
                 if (hasSpecialCondition && !specialConditionPassed)
                 {

@@ -124,6 +124,11 @@ namespace MOS.ExcelGrading.Core.Models
         public const string ImportStudents = "students.import";
         public const string BulkImportStudents = "students.bulkimport";
 
+        // XML Grading Rules Management
+        public const string ViewXmlRules = "xmlrules.view";
+        public const string CreateXmlRules = "xmlrules.create";
+        public const string EditXmlRules = "xmlrules.edit";
+        public const string DeleteXmlRules = "xmlrules.delete";
         public static Dictionary<string, List<string>> GetRolePermissions() => new()
         {
             [UserRoles.Admin] = new List<string>
@@ -132,14 +137,15 @@ namespace MOS.ExcelGrading.Core.Models
                 ViewGrades, CreateGrades, EditGrades, DeleteGrades, ExportGrades,
                 ViewProjects, CreateProjects, EditProjects, DeleteProjects,
                 ViewSchools, CreateSchools, EditSchools, DeleteSchools,
-                ViewSystemLogs, ManageSettings
+                ViewSystemLogs, ManageSettings,
+                ViewXmlRules, CreateXmlRules, EditXmlRules, DeleteXmlRules
             },
             [UserRoles.Teacher] = new List<string>
             {
                 ViewUsers,
                 ViewGrades, CreateGrades, EditGrades, ExportGrades,
                 ViewProjects, CreateProjects, EditProjects,
-                ViewSchools, CreateSchools, EditSchools
+                ViewSchools, CreateSchools, EditSchools,ViewXmlRules
             },
             [UserRoles.PendingTeacher] = new List<string>(),
             [UserRoles.Student] = new List<string>

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MOS.ExcelGrading.API.Authorization;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 
@@ -7,7 +8,7 @@ namespace MOS.ExcelGrading.API.Controllers
 {
     [ApiController]
     [Route("api/admin/xml-grading-rules")]
-    [Authorize(Roles = UserRoles.Admin)]
+    [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
     public class XmlGradingRulesController : ControllerBase
     {
         private readonly IXmlGradingRuleService _xmlGradingRuleService;
@@ -22,6 +23,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpGet]
+        [RequirePermission(Permissions.ViewXmlRules)]
         public async Task<ActionResult<List<GradingRuleSet>>> GetRuleSets([FromQuery] string? subject, [FromQuery] bool? isActive)
         {
             var ruleSets = await _xmlGradingRuleService.GetRuleSetsAsync(subject, isActive);
@@ -29,6 +31,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission(Permissions.ViewXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> GetRuleSetById(string id)
         {
             var ruleSet = await _xmlGradingRuleService.GetRuleSetByIdAsync(id);
@@ -41,6 +44,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPost]
+        [RequirePermission(Permissions.CreateXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> CreateRuleSet([FromBody] GradingRuleSet ruleSet)
         {
             try
@@ -55,6 +59,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission(Permissions.EditXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> UpdateRuleSet(string id, [FromBody] GradingRuleSet ruleSet)
         {
             try
@@ -74,6 +79,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission(Permissions.DeleteXmlRules)]
         public async Task<IActionResult> DeleteRuleSet(string id)
         {
             var deleted = await _xmlGradingRuleService.DeleteRuleSetAsync(id);
@@ -86,60 +92,70 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPost("{ruleSetId}/projects")]
+        [RequirePermission(Permissions.CreateXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> AddProject(string ruleSetId, [FromBody] ProjectXmlRule project)
         {
             return await ExecuteNestedMutation(() => _xmlGradingRuleService.AddProjectAsync(ruleSetId, project));
         }
 
         [HttpPut("{ruleSetId}/projects/{projectCode}")]
+        [RequirePermission(Permissions.EditXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> UpdateProject(string ruleSetId, string projectCode, [FromBody] ProjectXmlRule project)
         {
             return await ExecuteNestedMutation(() => _xmlGradingRuleService.UpdateProjectAsync(ruleSetId, projectCode, project));
         }
 
         [HttpDelete("{ruleSetId}/projects/{projectCode}")]
+        [RequirePermission(Permissions.DeleteXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> DeleteProject(string ruleSetId, string projectCode)
         {
             return await ExecuteNestedMutation(() => _xmlGradingRuleService.DeleteProjectAsync(ruleSetId, projectCode));
         }
 
         [HttpPost("{ruleSetId}/projects/{projectCode}/tasks")]
+        [RequirePermission(Permissions.CreateXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> AddTask(string ruleSetId, string projectCode, [FromBody] TaskXmlRule task)
         {
             return await ExecuteNestedMutation(() => _xmlGradingRuleService.AddTaskAsync(ruleSetId, projectCode, task));
         }
 
         [HttpPut("{ruleSetId}/projects/{projectCode}/tasks/{taskId}")]
+        [RequirePermission(Permissions.EditXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> UpdateTask(string ruleSetId, string projectCode, string taskId, [FromBody] TaskXmlRule task)
         {
             return await ExecuteNestedMutation(() => _xmlGradingRuleService.UpdateTaskAsync(ruleSetId, projectCode, taskId, task));
         }
 
         [HttpDelete("{ruleSetId}/projects/{projectCode}/tasks/{taskId}")]
+        [RequirePermission(Permissions.DeleteXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> DeleteTask(string ruleSetId, string projectCode, string taskId)
         {
             return await ExecuteNestedMutation(() => _xmlGradingRuleService.DeleteTaskAsync(ruleSetId, projectCode, taskId));
         }
 
         [HttpPost("{ruleSetId}/projects/{projectCode}/tasks/{taskId}/conditions")]
+        [RequirePermission(Permissions.CreateXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> AddCondition(string ruleSetId, string projectCode, string taskId, [FromBody] XmlGradingCondition condition)
         {
             return await ExecuteNestedMutation(() => _xmlGradingRuleService.AddConditionAsync(ruleSetId, projectCode, taskId, condition));
         }
 
         [HttpPut("{ruleSetId}/projects/{projectCode}/tasks/{taskId}/conditions/{conditionId}")]
+        [RequirePermission(Permissions.EditXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> UpdateCondition(string ruleSetId, string projectCode, string taskId, string conditionId, [FromBody] XmlGradingCondition condition)
         {
             return await ExecuteNestedMutation(() => _xmlGradingRuleService.UpdateConditionAsync(ruleSetId, projectCode, taskId, conditionId, condition));
         }
 
         [HttpDelete("{ruleSetId}/projects/{projectCode}/tasks/{taskId}/conditions/{conditionId}")]
+        [RequirePermission(Permissions.DeleteXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> DeleteCondition(string ruleSetId, string projectCode, string taskId, string conditionId)
         {
             return await ExecuteNestedMutation(() => _xmlGradingRuleService.DeleteConditionAsync(ruleSetId, projectCode, taskId, conditionId));
         }
 
         [HttpGet("{subject}/{projectCode}/active")]
+        [RequirePermission(Permissions.ViewXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> GetActiveRuleSet(string subject, string projectCode)
         {
             var ruleSet = await _xmlGradingRuleService.GetActiveRuleSetAsync(subject, projectCode);
@@ -152,6 +168,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPost("validate")]
+        [RequirePermission(Permissions.ViewXmlRules)]
         public async Task<ActionResult<XmlRuleValidationResult>> ValidateRuleSet([FromBody] GradingRuleSet ruleSet)
         {
             var validation = await _xmlGradingRuleService.ValidateRuleSetAsync(ruleSet);
@@ -159,6 +176,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPost("seed/excel/project22/task1")]
+        [RequirePermission(Permissions.CreateXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> SeedProject22Task1()
         {
             try
@@ -175,6 +193,7 @@ namespace MOS.ExcelGrading.API.Controllers
 
         [HttpPost("grade/{subject}/{projectCode}")]
         [RequestSizeLimit(104_857_600)]
+        [RequirePermission(Permissions.ViewXmlRules)]
         public async Task<ActionResult<GradingResult>> GradeWithXmlRules(string subject, string projectCode, IFormFile file)
         {
             if (file == null || file.Length == 0)

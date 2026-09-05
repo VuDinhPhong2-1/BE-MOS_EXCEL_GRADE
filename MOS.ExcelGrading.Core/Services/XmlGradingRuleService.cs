@@ -764,9 +764,10 @@ namespace MOS.ExcelGrading.Core.Services
                 return result;
             }
 
-            var matches = condition.ExpectedValues
-                .Select(expected => MatchExpected(actualXml, expected, compareMode))
-                .ToList();
+            var matches = string.Equals(matchPolicy, XmlGradingMatchPolicies.Ordered, StringComparison.OrdinalIgnoreCase)
+    && !string.Equals(compareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase)
+    ? MatchExpectedOrdered(actualXml, condition.ExpectedValues, compareMode)
+    : condition.ExpectedValues.Select(expected => MatchExpected(actualXml, expected, compareMode)).ToList();
 
             var isPassed = ApplyMatchPolicy(matches, matchPolicy);
             result.IsPassed = isPassed;
@@ -1290,6 +1291,63 @@ namespace MOS.ExcelGrading.Core.Services
             };
         }
 
+        private static List<ExpectedMatchResult> MatchExpectedOrdered(
+        string actualXml,
+        IReadOnlyList<string> expectedValues,
+        string compareMode)
+        {
+            var mode = string.IsNullOrWhiteSpace(compareMode)
+                ? XmlGradingCompareModes.XmlContainsNormalized
+                : compareMode.Trim();
+
+            // Chuẩn hóa search space 1 lần duy nhất (không đổi thứ tự ký tự nên cursor vẫn hợp lệ)
+            var searchSpace = string.Equals(mode, XmlGradingCompareModes.XmlContainsNormalized, StringComparison.OrdinalIgnoreCase)
+                ? NormalizeXmlForComparison(actualXml)
+                : actualXml;
+
+            var results = new List<ExpectedMatchResult>();
+            var cursor = 0;
+
+            foreach (var expectedValue in expectedValues)
+            {
+                string expected;
+                if (string.Equals(mode, XmlGradingCompareModes.XmlContainsNormalized, StringComparison.OrdinalIgnoreCase))
+                {
+                    expected = NormalizeXmlForComparison(expectedValue);
+                }
+                else if (string.Equals(mode, XmlGradingCompareModes.XmlContains, StringComparison.OrdinalIgnoreCase))
+                {
+                    expected = expectedValue.Trim();
+                }
+                else
+                {
+                    // exactStringContains
+                    expected = expectedValue;
+                }
+
+                // Tìm bắt đầu từ cursor hiện tại -> đảm bảo đúng thứ tự và liền mạch,
+                // không cho phép match ở một occurrence đứng trước fragment trước đó.
+                var index = string.IsNullOrEmpty(expected)
+                    ? -1
+                    : searchSpace.IndexOf(expected, cursor, StringComparison.Ordinal);
+
+                results.Add(new ExpectedMatchResult
+                {
+                    ExpectedValue = expectedValue,
+                    IsMatched = index >= 0,
+                    MatchIndex = index >= 0 ? index : null
+                });
+
+                if (index >= 0)
+                {
+                    cursor = index + expected.Length;
+                }
+                // Nếu không match, giữ nguyên cursor -> các fragment sau vẫn được thử,
+                // nhưng IsPassed cuối cùng sẽ = false vì có ít nhất 1 fragment missing.
+            }
+
+            return results;
+        }
         private static ExpectedMatchResult XmlContainsNormalized(string actualXml, string expectedValue)
         {
             var normalizedActual =
@@ -1437,9 +1495,7 @@ namespace MOS.ExcelGrading.Core.Services
                     matches.Any(match => match.IsMatched),
 
                 var value when string.Equals(value, XmlGradingMatchPolicies.Ordered, StringComparison.OrdinalIgnoreCase) =>
-                    matches.All(match => match.IsMatched) &&
-                    matches.Select(match => match.MatchIndex ?? -1).SequenceEqual(
-                        matches.Select(match => match.MatchIndex ?? -1).OrderBy(index => index)),
+                    matches.All(match => match.IsMatched), // thứ tự đã được đảm bảo bởi cursor khi tìm kiếm
 
                 _ => matches.All(match => match.IsMatched)
             };

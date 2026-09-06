@@ -1,6 +1,5 @@
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace MOS.ExcelGrading.Core.Models
@@ -228,6 +227,14 @@ public static class ImageWrapTypes
     }
 
     [BsonIgnoreExtraElements]
+    public class XmlExpectedVariant
+    {
+        [JsonPropertyName("expectedValues")]
+        [BsonElement("expectedValues")]
+        public List<string> ExpectedValues { get; set; } = new();
+    }
+
+    [BsonIgnoreExtraElements]
     public class XmlGradingCondition
     {
         [BsonElement("conditionId")]
@@ -239,9 +246,9 @@ public static class ImageWrapTypes
         [BsonElement("sourceFile")]
         public string SourceFile { get; set; } = string.Empty;
 
-        [JsonPropertyName("expectedValues")]
-        [BsonElement("expectedValues")]
-        public List<string> ExpectedValues { get; set; } = new();
+        [JsonPropertyName("expectedVariants")]
+        [BsonElement("expectedVariants")]
+        public List<XmlExpectedVariant> ExpectedVariants { get; set; } = new();
 
         [BsonElement("compareMode")]
         public string CompareMode { get; set; } = XmlGradingCompareModes.XmlContainsNormalized;
@@ -267,37 +274,6 @@ public static class ImageWrapTypes
 
         [BsonElement("fixAction")]
         public string FixAction { get; set; } = string.Empty;
-    }
-
-    public class ExpectedValueJsonConverter : JsonConverter<List<string>>
-    {
-        public override List<string> Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-        {
-            if (reader.TokenType == JsonTokenType.String)
-            {
-                var value = reader.GetString();
-                return string.IsNullOrWhiteSpace(value) ? new List<string>() : new List<string> { value };
-            }
-
-            if (reader.TokenType == JsonTokenType.StartArray)
-            {
-                var values = JsonSerializer.Deserialize<List<string>>(ref reader, options) ?? new List<string>();
-                return values.Where(value => !string.IsNullOrWhiteSpace(value)).ToList();
-            }
-
-            throw new JsonException("expectedValue must be a non-empty string or an array of non-empty strings.");
-        }
-
-        public override void Write(Utf8JsonWriter writer, List<string> value, JsonSerializerOptions options)
-        {
-            if (value.Count == 1)
-            {
-                writer.WriteStringValue(value[0]);
-                return;
-            }
-
-            JsonSerializer.Serialize(writer, value, options);
-        }
     }
 
     public class ExpectedMatchResult

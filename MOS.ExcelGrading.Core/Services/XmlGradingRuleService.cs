@@ -581,10 +581,17 @@ namespace MOS.ExcelGrading.Core.Services
         {
             condition.ConditionId = condition.ConditionId?.Trim() ?? string.Empty;
             condition.SourceFile = NormalizeSourceFile(condition.SourceFile);
-            condition.ExpectedValues = condition.ExpectedValues?
-                .Where(value => !string.IsNullOrWhiteSpace(value))
-                .Select(value => value.Trim())
-                .ToList() ?? new List<string>();
+            condition.ExpectedVariants = condition.ExpectedVariants?
+                .Where(variant => variant != null)
+                .Select(variant => new XmlExpectedVariant
+                {
+                    ExpectedValues = variant.ExpectedValues?
+                        .Where(value => !string.IsNullOrWhiteSpace(value))
+                        .Select(value => value.Trim())
+                        .ToList() ?? new List<string>()
+                })
+                .Where(variant => variant.ExpectedValues.Count > 0)
+                .ToList() ?? new List<XmlExpectedVariant>();
             condition.CompareMode = string.IsNullOrWhiteSpace(condition.CompareMode)
                 ? XmlGradingCompareModes.XmlContainsNormalized
                 : condition.CompareMode.Trim();
@@ -663,9 +670,14 @@ namespace MOS.ExcelGrading.Core.Services
                 throw new InvalidOperationException("sourceFile phải là đường dẫn XML an toàn trong Office package.");
             }
 
-            if (condition.ExpectedValues.Count == 0)
+            if (condition.ExpectedVariants == null || condition.ExpectedVariants.Count == 0)
             {
-                throw new InvalidOperationException("expectedValue là bắt buộc.");
+                throw new InvalidOperationException("expectedVariants là bắt buộc.");
+            }
+
+            if (condition.ExpectedVariants.Any(variant => variant == null || variant.ExpectedValues.Count == 0))
+            {
+                throw new InvalidOperationException("Mỗi expectedVariant phải có ít nhất 1 expectedValues.");
             }
 
             if (!XmlGradingCompareModes.Supported.Contains(condition.CompareMode))
@@ -770,7 +782,11 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (!package.XmlParts.TryGetValue(result.SourceFile, out var actualXml))
             {
-                result.MissingExpectedValues.AddRange(condition.ExpectedValues);
+                result.MissingExpectedValues.AddRange(
+                    (condition.ExpectedVariants ?? new List<XmlExpectedVariant>())
+                        .Where(variant => variant != null)
+                        .SelectMany(variant => variant.ExpectedValues)
+                        .Distinct(StringComparer.Ordinal));
                 if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
                 {
                     result.Feedback.ErrorMessage = $"Không tìm thấy XML part {result.SourceFile} trong file học sinh.";
@@ -779,18 +795,45 @@ namespace MOS.ExcelGrading.Core.Services
                 return result;
             }
 
-            var matches = string.Equals(matchPolicy, XmlGradingMatchPolicies.Ordered, StringComparison.OrdinalIgnoreCase)
-    && !string.Equals(compareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase)
-    ? MatchExpectedOrdered(actualXml, condition.ExpectedValues, compareMode)
-    : condition.ExpectedValues.Select(expected => MatchExpected(actualXml, expected, compareMode)).ToList();
+            List<ExpectedMatchResult>? bestMatches = null;
+            foreach (var variant in (condition.ExpectedVariants ?? new List<XmlExpectedVariant>()).Where(variant => variant != null))
+            {
+                var matches = EvaluateExpectedValues(actualXml, variant.ExpectedValues, compareMode, matchPolicy);
+                bestMatches ??= matches;
 
-            var isPassed = ApplyMatchPolicy(matches, matchPolicy);
-            result.IsPassed = isPassed;
-            result.ScoreAwarded = isPassed ? condition.Score : 0m;
-            result.MatchedExpectedValues = matches.Where(match => match.IsMatched).Select(match => match.ExpectedValue).ToList();
-            result.MissingExpectedValues = matches.Where(match => !match.IsMatched).Select(match => match.ExpectedValue).ToList();
+                if (ApplyMatchPolicy(matches, matchPolicy))
+                {
+                    result.IsPassed = true;
+                    result.ScoreAwarded = condition.Score;
+                    result.MatchedExpectedValues = matches.Where(match => match.IsMatched).Select(match => match.ExpectedValue).ToList();
+                    result.MissingExpectedValues = matches.Where(match => !match.IsMatched).Select(match => match.ExpectedValue).ToList();
+                    return result;
+                }
+
+                if (matches.Count(match => match.IsMatched) > bestMatches.Count(match => match.IsMatched))
+                {
+                    bestMatches = matches;
+                }
+            }
+
+            result.IsPassed = false;
+            result.ScoreAwarded = 0m;
+            result.MatchedExpectedValues = bestMatches?.Where(match => match.IsMatched).Select(match => match.ExpectedValue).ToList() ?? new List<string>();
+            result.MissingExpectedValues = bestMatches?.Where(match => !match.IsMatched).Select(match => match.ExpectedValue).ToList() ?? new List<string>();
 
             return result;
+        }
+
+        private static List<ExpectedMatchResult> EvaluateExpectedValues(
+            string actualXml,
+            IReadOnlyList<string> expectedValues,
+            string compareMode,
+            string matchPolicy)
+        {
+            return string.Equals(matchPolicy, XmlGradingMatchPolicies.Ordered, StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(compareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase)
+                ? MatchExpectedOrdered(actualXml, expectedValues, compareMode)
+                : expectedValues.Select(expected => MatchExpected(actualXml, expected, compareMode)).ToList();
         }
 
         /// <summary>
@@ -1628,10 +1671,21 @@ namespace MOS.ExcelGrading.Core.Services
                 result.Errors.Add($"{conditionPrefix}.sourceFile không hợp lệ hoặc có path traversal.");
             }
 
-            // if (condition.ExpectedValues.Count == 0 || condition.ExpectedValues.Any(string.IsNullOrWhiteSpace))
-            // {
-            //     result.Errors.Add($"{conditionPrefix}.expectedValue phải là string không rỗng hoặc array string không rỗng.");
-            // }
+            if (condition.ExpectedVariants == null || condition.ExpectedVariants.Count == 0)
+            {
+                result.Errors.Add($"{conditionPrefix}.expectedVariants phải có ít nhất 1 variant.");
+            }
+            else
+            {
+                for (var variantIndex = 0; variantIndex < condition.ExpectedVariants.Count; variantIndex++)
+                {
+                    var variant = condition.ExpectedVariants[variantIndex];
+                    if (variant == null || variant.ExpectedValues.Count == 0 || variant.ExpectedValues.Any(string.IsNullOrWhiteSpace))
+                    {
+                        result.Errors.Add($"{conditionPrefix}.expectedVariants[{variantIndex}].expectedValues phải là array string không rỗng.");
+                    }
+                }
+            }
 
             if (string.IsNullOrWhiteSpace(condition.CompareMode))
             {
@@ -1654,9 +1708,9 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             if (string.Equals(condition.CompareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase) &&
-                condition.ExpectedValues.Count != 1)
+                condition.ExpectedVariants?.Any(variant => variant.ExpectedValues.Count != 1) == true)
             {
-                result.Errors.Add($"{conditionPrefix}.xmlEquivalentWholeFile chỉ hỗ trợ đúng 1 expectedValue.");
+                result.Errors.Add($"{conditionPrefix}.xmlEquivalentWholeFile chỉ hỗ trợ đúng 1 expectedValue trong mỗi expectedVariant.");
             }
         }
 
@@ -1847,10 +1901,16 @@ namespace MOS.ExcelGrading.Core.Services
                                         ConditionId = "P22-T1-C01",
                                         Score = 2m,
                                         SourceFile = "xl/worksheets/sheet1.xml",
-                                        ExpectedValues = new List<string>
+                                        ExpectedVariants = new List<XmlExpectedVariant>
                                         {
-                                            "<c r=\"A1\" t=\"s\"><v>0</v></c>",
-                                            "<c r=\"A2\" t=\"s\"><v>1</v></c>"
+                                            new()
+                                            {
+                                                ExpectedValues = new List<string>
+                                                {
+                                                    "<c r=\"A1\" t=\"s\"><v>0</v></c>",
+                                                    "<c r=\"A2\" t=\"s\"><v>1</v></c>"
+                                                }
+                                            }
                                         },
                                         CompareMode = XmlGradingCompareModes.XmlContainsNormalized,
                                         MatchPolicy = XmlGradingMatchPolicies.All,
@@ -1866,9 +1926,15 @@ namespace MOS.ExcelGrading.Core.Services
                                         ConditionId = "P22-T1-C02",
                                         Score = 4m,
                                         SourceFile = "xl/worksheets/sheet2.xml",
-                                        ExpectedValues = new List<string>
+                                        ExpectedVariants = new List<XmlExpectedVariant>
                                         {
-                                            "<c r=\"A1\" s=\"5\" t=\"s\"><v>0</v></c>"
+                                            new()
+                                            {
+                                                ExpectedValues = new List<string>
+                                                {
+                                                    "<c r=\"A1\" s=\"5\" t=\"s\"><v>0</v></c>"
+                                                }
+                                            }
                                         },
                                         CompareMode = XmlGradingCompareModes.XmlContainsNormalized,
                                         MatchPolicy = XmlGradingMatchPolicies.All,
@@ -1884,9 +1950,15 @@ namespace MOS.ExcelGrading.Core.Services
                                         ConditionId = "P22-T1-C03",
                                         Score = 6m,
                                         SourceFile = "xl/worksheets/sheet2.xml",
-                                        ExpectedValues = new List<string>
+                                        ExpectedVariants = new List<XmlExpectedVariant>
                                         {
-                                            "<c r=\"A2\" s=\"6\" t=\"s\"><v>1</v></c>"
+                                            new()
+                                            {
+                                                ExpectedValues = new List<string>
+                                                {
+                                                    "<c r=\"A2\" s=\"6\" t=\"s\"><v>1</v></c>"
+                                                }
+                                            }
                                         },
                                         CompareMode = XmlGradingCompareModes.XmlContainsNormalized,
                                         MatchPolicy = XmlGradingMatchPolicies.All,
@@ -1902,9 +1974,15 @@ namespace MOS.ExcelGrading.Core.Services
                                         ConditionId = "P22-T1-C04",
                                         Score = 6m,
                                         SourceFile = "xl/worksheets/sheet2.xml",
-                                        ExpectedValues = new List<string>
+                                        ExpectedVariants = new List<XmlExpectedVariant>
                                         {
-                                            "<sheetData>"
+                                            new()
+                                            {
+                                                ExpectedValues = new List<string>
+                                                {
+                                                    "<sheetData>"
+                                                }
+                                            }
                                         },
                                         CompareMode = XmlGradingCompareModes.ExactStringContains,
                                         MatchPolicy = XmlGradingMatchPolicies.All,

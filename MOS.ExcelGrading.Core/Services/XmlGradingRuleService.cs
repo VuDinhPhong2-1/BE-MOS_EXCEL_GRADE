@@ -14,6 +14,15 @@ namespace MOS.ExcelGrading.Core.Services
     {
         private const decimal StandardProjectMaxScore = 125m;
         private const int PerceptualHashThreshold = 10;
+        private const string CommonOfficeNamespaceDeclarations =
+            "xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\" " +
+            "xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\" " +
+            "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" " +
+            "xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\" " +
+            "xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " +
+            "xmlns:pic=\"http://schemas.openxmlformats.org/drawingml/2006/picture\" " +
+            "xmlns:x=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" " +
+            "xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"";
         private readonly IMongoCollection<GradingRuleSet> _ruleSets;
 
         public XmlGradingRuleService(IMongoDatabase database)
@@ -1513,7 +1522,7 @@ namespace MOS.ExcelGrading.Core.Services
             string xml,
             IReadOnlyList<string>? ignoreAttributes = null)
         {
-            var wrapped = $"<__root>{StripXmlDeclaration(xml)}</__root>";
+            var wrapped = $"<__root {CommonOfficeNamespaceDeclarations}>{StripXmlDeclaration(xml)}</__root>";
             var document = XDocument.Parse(wrapped, LoadOptions.PreserveWhitespace);
             var normalized = string.Concat(document.Root!.Nodes().Select(node => NormalizeNode(node, ignoreAttributes)));
             return normalized;

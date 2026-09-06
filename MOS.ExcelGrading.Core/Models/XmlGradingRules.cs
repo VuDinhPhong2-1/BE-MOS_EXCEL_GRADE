@@ -48,12 +48,14 @@ namespace MOS.ExcelGrading.Core.Models
 {
     public const string PictureBullet = "pictureBullet";
     public const string InsertedImage = "insertedImage"; // MỚI
+    public const string ConvertTableToText = "convertTableToText";
 
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
         {
             PictureBullet,
-            InsertedImage
+            InsertedImage,
+            ConvertTableToText
         };
 }
 
@@ -167,7 +169,39 @@ public static class ImageWrapTypes
         [BsonElement("imageInsertConfig")]
         [JsonPropertyName("imageInsertConfig")]
         public ImageInsertConfig? ImageInsertConfig { get; set; }
+
+        [BsonElement("convertTableToTextConfig")]
+        [JsonPropertyName("convertTableToTextConfig")]
+        public ConvertTableToTextConfig? ConvertTableToTextConfig { get; set; }
 }
+
+    [BsonIgnoreExtraElements]
+    public class ConvertTableToTextConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("anchorText")]
+        [JsonPropertyName("anchorText")]
+        public string? AnchorText { get; set; }
+
+        [BsonElement("expectedRows")]
+        [JsonPropertyName("expectedRows")]
+        public List<string> ExpectedRows { get; set; } = new();
+
+        [BsonElement("minRows")]
+        [JsonPropertyName("minRows")]
+        public int? MinRows { get; set; }
+
+        [BsonElement("minTabsPerRow")]
+        [JsonPropertyName("minTabsPerRow")]
+        public int? MinTabsPerRow { get; set; }
+
+        [BsonElement("requireNoTables")]
+        [JsonPropertyName("requireNoTables")]
+        public bool? RequireNoTables { get; set; } = true;
+    }
 
     /// <summary>
     /// Khớp đúng interface PictureBulletConfig phía FE:
@@ -265,6 +299,10 @@ public static class ImageWrapTypes
         [JsonPropertyName("minOccurrences")]
         [BsonElement("minOccurrences")]
         public int? MinOccurrences { get; set; }
+
+        [JsonPropertyName("maxOccurrences")]
+        [BsonElement("maxOccurrences")]
+        public int? MaxOccurrences { get; set; }
 
         [BsonElement("feedback")]
         public ConditionFeedback Feedback { get; set; } = new();

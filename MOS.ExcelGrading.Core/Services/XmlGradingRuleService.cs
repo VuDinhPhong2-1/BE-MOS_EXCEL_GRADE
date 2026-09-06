@@ -586,6 +586,36 @@ namespace MOS.ExcelGrading.Core.Services
                             ? null
                             : imageInsertConfig.WrapType.Trim();
                     }
+
+                    if (task.SpecialCondition.ConvertTableToTextConfig != null)
+                    {
+                        var convertConfig = task.SpecialCondition.ConvertTableToTextConfig;
+
+                        convertConfig.SourceFile = string.IsNullOrWhiteSpace(convertConfig.SourceFile)
+                            ? "word/document.xml"
+                            : NormalizeSourceFile(convertConfig.SourceFile);
+
+                        convertConfig.AnchorText = string.IsNullOrWhiteSpace(convertConfig.AnchorText)
+                            ? null
+                            : NormalizePlainText(convertConfig.AnchorText);
+
+                        convertConfig.ExpectedRows = convertConfig.ExpectedRows?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(NormalizePlainText)
+                            .ToList() ?? new List<string>();
+
+                        if (convertConfig.MinRows <= 0)
+                        {
+                            convertConfig.MinRows = null;
+                        }
+
+                        if (convertConfig.MinTabsPerRow <= 0)
+                        {
+                            convertConfig.MinTabsPerRow = null;
+                        }
+
+                        convertConfig.RequireNoTables ??= true;
+                    }
                 }
             }
         }
@@ -619,6 +649,10 @@ namespace MOS.ExcelGrading.Core.Services
             if (condition.MinOccurrences <= 0)
             {
                 condition.MinOccurrences = null;
+            }
+            if (condition.MaxOccurrences <= 0)
+            {
+                condition.MaxOccurrences = null;
             }
             condition.Feedback ??= new ConditionFeedback();
         }
@@ -719,6 +753,13 @@ namespace MOS.ExcelGrading.Core.Services
                 && (!condition.MinOccurrences.HasValue || condition.MinOccurrences.Value <= 0))
             {
                 throw new InvalidOperationException("minOccurrences phai lon hon 0 khi compareMode la xmlMinOccurrences.");
+            }
+
+            if (condition.MaxOccurrences.HasValue
+                && condition.MinOccurrences.HasValue
+                && condition.MaxOccurrences.Value < condition.MinOccurrences.Value)
+            {
+                throw new InvalidOperationException("maxOccurrences phai lon hon hoac bang minOccurrences.");
             }
         }
 
@@ -884,7 +925,7 @@ namespace MOS.ExcelGrading.Core.Services
             List<ExpectedMatchResult>? bestMatches = null;
             foreach (var variant in (condition.ExpectedVariants ?? new List<XmlExpectedVariant>()).Where(variant => variant != null))
             {
-                var matches = EvaluateExpectedValues(result.SourceFile, actualXml, variant.ExpectedValues, compareMode, matchPolicy, condition.IgnoreAttributes, condition.MinOccurrences, cache);
+                var matches = EvaluateExpectedValues(result.SourceFile, actualXml, variant.ExpectedValues, compareMode, matchPolicy, condition.IgnoreAttributes, condition.MinOccurrences, condition.MaxOccurrences, cache);
                 bestMatches ??= matches;
 
                 if (ApplyMatchPolicy(matches, matchPolicy))
@@ -918,13 +959,14 @@ namespace MOS.ExcelGrading.Core.Services
             string matchPolicy,
             IReadOnlyList<string> ignoreAttributes,
             int? minOccurrences,
+            int? maxOccurrences,
             XmlEvaluationCache cache)
         {
             return string.Equals(matchPolicy, XmlGradingMatchPolicies.Ordered, StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(compareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(compareMode, XmlGradingCompareModes.XmlMinOccurrences, StringComparison.OrdinalIgnoreCase)
                 ? MatchExpectedOrdered(sourceFile, actualXml, expectedValues, compareMode, ignoreAttributes, cache)
-                : expectedValues.Select(expected => MatchExpected(sourceFile, actualXml, expected, compareMode, ignoreAttributes, minOccurrences, cache)).ToList();
+                : expectedValues.Select(expected => MatchExpected(sourceFile, actualXml, expected, compareMode, ignoreAttributes, minOccurrences, maxOccurrences, cache)).ToList();
         }
 
         /// <summary>
@@ -948,6 +990,11 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateInsertedImage(specialCondition.ImageInsertConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateConvertTableToText(specialCondition.ConvertTableToTextConfig, package);
             }
 
             return new SpecialConditionEvalOutcome
@@ -980,6 +1027,138 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return string.Equals(actualSha256Hash, expectedSha256Hash, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private sealed class ParagraphTextSnapshot
+        {
+            public string Text { get; init; } = string.Empty;
+            public int TabCount { get; init; }
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateConvertTableToText(
+            ConvertTableToTextConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            config ??= new ConvertTableToTextConfig();
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : NormalizeSourceFile(config.SourceFile);
+
+            if (!package.XmlParts.TryGetValue(sourceFile, out var documentXml))
+            {
+                return Fail($"Khong tim thay {sourceFile} trong file hoc sinh.");
+            }
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+            try
+            {
+                var document = XDocument.Parse(documentXml);
+
+                if (config.RequireNoTables != false && document.Descendants(w + "tbl").Any())
+                {
+                    return Fail("Tai lieu van con bang Word (w:tbl), chua convert table thanh text.");
+                }
+
+                var paragraphs = document
+                    .Descendants(w + "p")
+                    .Select(paragraph => BuildParagraphTextSnapshot(paragraph, w))
+                    .Where(paragraph => !string.IsNullOrWhiteSpace(paragraph.Text))
+                    .ToList();
+
+                var startIndex = 0;
+                var anchorText = NormalizePlainText(config.AnchorText);
+                if (!string.IsNullOrWhiteSpace(anchorText))
+                {
+                    var anchorIndex = paragraphs.FindIndex(paragraph =>
+                        NormalizePlainText(paragraph.Text).Contains(anchorText, StringComparison.OrdinalIgnoreCase));
+
+                    if (anchorIndex < 0)
+                    {
+                        return Fail($"Khong tim thay anchorText '{anchorText}'.");
+                    }
+
+                    startIndex = anchorIndex + 1;
+                }
+
+                var minTabsPerRow = Math.Max(1, config.MinTabsPerRow ?? 1);
+                var convertedRows = paragraphs
+                    .Skip(startIndex)
+                    .Where(paragraph => paragraph.TabCount >= minTabsPerRow)
+                    .ToList();
+
+                var expectedRows = config.ExpectedRows?
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(NormalizePlainText)
+                    .ToList() ?? new List<string>();
+
+                if (expectedRows.Count > 0)
+                {
+                    var cursor = 0;
+                    foreach (var expectedRow in expectedRows)
+                    {
+                        var index = convertedRows.FindIndex(cursor, row =>
+                            string.Equals(NormalizePlainText(row.Text), expectedRow, StringComparison.OrdinalIgnoreCase));
+
+                        if (index < 0)
+                        {
+                            return Fail($"Khong tim thay dong da convert: {expectedRow}");
+                        }
+
+                        cursor = index + 1;
+                    }
+                }
+
+                var requiredRows = Math.Max(expectedRows.Count, config.MinRows ?? 1);
+                if (convertedRows.Count < requiredRows)
+                {
+                    return Fail($"Chi tim thay {convertedRows.Count} dong text co tab, can toi thieu {requiredRows} dong.");
+                }
+
+                return new SpecialConditionEvalOutcome
+                {
+                    IsPassed = true,
+                    Message = $"Da convert table thanh text bang tabs: tim thay {convertedRows.Count} dong phu hop."
+                };
+            }
+            catch (XmlException ex)
+            {
+                return Fail($"Khong the phan tich XML: {ex.Message}");
+            }
+        }
+
+        private static ParagraphTextSnapshot BuildParagraphTextSnapshot(XElement paragraph, XNamespace w)
+        {
+            var text = new StringBuilder();
+            var tabCount = 0;
+
+            foreach (var node in paragraph.Descendants())
+            {
+                if (node.Name == w + "tab")
+                {
+                    text.Append('\t');
+                    tabCount++;
+                    continue;
+                }
+
+                if (node.Name == w + "t")
+                {
+                    text.Append(node.Value);
+                }
+            }
+
+            return new ParagraphTextSnapshot
+            {
+                Text = NormalizePlainText(text.ToString()),
+                TabCount = tabCount
+            };
         }
 
         private static SpecialConditionEvalOutcome EvaluateInsertedImage(
@@ -1370,6 +1549,7 @@ namespace MOS.ExcelGrading.Core.Services
             string compareMode,
             IReadOnlyList<string> ignoreAttributes,
             int? minOccurrences,
+            int? maxOccurrences,
             XmlEvaluationCache cache)
         {
             var mode = string.IsNullOrWhiteSpace(compareMode)
@@ -1420,6 +1600,7 @@ namespace MOS.ExcelGrading.Core.Services
                     expectedValue,
                     ignoreAttributes,
                     minOccurrences,
+                    maxOccurrences,
                     cache);
             }
 
@@ -1553,6 +1734,7 @@ namespace MOS.ExcelGrading.Core.Services
             string expectedValue,
             IReadOnlyList<string> ignoreAttributes,
             int? minOccurrences,
+            int? maxOccurrences,
             XmlEvaluationCache cache)
         {
             var normalizedActual = cache.GetNormalizedActual(sourceFile, actualXml, ignoreAttributes);
@@ -1562,11 +1744,12 @@ namespace MOS.ExcelGrading.Core.Services
                 : normalizedActual.IndexOf(normalizedExpected, StringComparison.Ordinal);
             var occurrences = CountOccurrences(normalizedActual, normalizedExpected);
             var requiredOccurrences = Math.Max(1, minOccurrences ?? 1);
+            var isWithinMax = !maxOccurrences.HasValue || occurrences <= maxOccurrences.Value;
 
             return new ExpectedMatchResult
             {
                 ExpectedValue = expectedValue,
-                IsMatched = occurrences >= requiredOccurrences,
+                IsMatched = occurrences >= requiredOccurrences && isWithinMax,
                 MatchIndex = firstIndex >= 0 ? firstIndex : null
             };
         }
@@ -1780,6 +1963,20 @@ namespace MOS.ExcelGrading.Core.Services
                 : value.Trim();
         }
 
+        private static string NormalizePlainText(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var normalized = value.Replace("\r\n", "\n").Replace('\r', '\n').Trim();
+            normalized = Regex.Replace(normalized, "[ ]+", " ");
+            normalized = Regex.Replace(normalized, " *\t *", "\t");
+            normalized = Regex.Replace(normalized, "\n+", "\n");
+            return normalized;
+        }
+
         private static string StripXmlDeclaration(string xml)
         {
             var trimmed = xml.Trim();
@@ -1965,6 +2162,13 @@ namespace MOS.ExcelGrading.Core.Services
                 result.Errors.Add($"{conditionPrefix}.minOccurrences phai lon hon 0 khi compareMode la xmlMinOccurrences.");
             }
 
+            if (condition.MaxOccurrences.HasValue
+                && condition.MinOccurrences.HasValue
+                && condition.MaxOccurrences.Value < condition.MinOccurrences.Value)
+            {
+                result.Errors.Add($"{conditionPrefix}.maxOccurrences phai lon hon hoac bang minOccurrences.");
+            }
+
             if (string.Equals(condition.CompareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase) &&
                 condition.ExpectedVariants?.Any(variant => variant.ExpectedValues.Count != 1) == true)
             {
@@ -2035,6 +2239,49 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.wrapType không được hỗ trợ: {config.WrapType}.");
                 }
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateConvertTableToTextSpecialCondition(specialCondition, taskPrefix, result);
+            }
+        }
+
+        private static void ValidateConvertTableToTextSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ConvertTableToTextConfig;
+
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.convertTableToTextConfig khong duoc null.");
+                return;
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : config.SourceFile;
+
+            if (!IsSafeSourceFile(sourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.convertTableToTextConfig.sourceFile khong hop le.");
+            }
+
+            if (config.MinRows.HasValue && config.MinRows.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.convertTableToTextConfig.minRows phai lon hon 0.");
+            }
+
+            if (config.MinTabsPerRow.HasValue && config.MinTabsPerRow.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.convertTableToTextConfig.minTabsPerRow phai lon hon 0.");
+            }
+
+            if ((config.ExpectedRows == null || config.ExpectedRows.Count == 0) && !config.MinRows.HasValue)
+            {
+                result.Warnings.Add($"{taskPrefix}.specialCondition.convertTableToTextConfig nen co expectedRows hoac minRows de tranh dieu kien qua rong.");
             }
         }
 

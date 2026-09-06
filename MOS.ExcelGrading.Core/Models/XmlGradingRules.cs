@@ -17,6 +17,7 @@ namespace MOS.ExcelGrading.Core.Models
 
         // Tìm chuỗi tuyệt đối trong raw XML
         public const string ExactStringContains = "exactStringContains";
+        public const string XmlMinOccurrences = "xmlMinOccurrences";
 
         public static readonly HashSet<string> Supported =
             new(StringComparer.OrdinalIgnoreCase)
@@ -24,7 +25,8 @@ namespace MOS.ExcelGrading.Core.Models
             XmlContainsNormalized,
             XmlContains,
             XmlEquivalentWholeFile,
-            ExactStringContains
+            ExactStringContains,
+            XmlMinOccurrences
             };
     }
 
@@ -259,6 +261,10 @@ public static class ImageWrapTypes
 
         [BsonElement("matchPolicy")]
         public string MatchPolicy { get; set; } = XmlGradingMatchPolicies.All;
+
+        [JsonPropertyName("minOccurrences")]
+        [BsonElement("minOccurrences")]
+        public int? MinOccurrences { get; set; }
 
         [BsonElement("feedback")]
         public ConditionFeedback Feedback { get; set; } = new();

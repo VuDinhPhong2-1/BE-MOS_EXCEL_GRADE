@@ -237,6 +237,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             NormalizeConditionForPersistence(condition);
             ValidateConditionShell(condition);
+            EnsureMinOccurrencesIsValid(condition);
 
             if (task.Conditions.Any(existing => string.Equals(existing.ConditionId, condition.ConditionId, StringComparison.OrdinalIgnoreCase)))
             {
@@ -259,6 +260,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             NormalizeConditionForPersistence(condition);
             ValidateConditionShell(condition);
+            EnsureMinOccurrencesIsValid(condition);
 
             var index = task.Conditions.FindIndex(existing => string.Equals(existing.ConditionId, conditionId, StringComparison.OrdinalIgnoreCase));
             if (index < 0)
@@ -364,6 +366,8 @@ namespace MOS.ExcelGrading.Core.Services
                 MaxScore = StandardProjectMaxScore
             };
 
+            var evaluationCache = new XmlEvaluationCache();
+
             foreach (var taskRule in projectRule.Tasks)
             {
                 var taskResult = new TaskResult
@@ -413,7 +417,7 @@ namespace MOS.ExcelGrading.Core.Services
                 // ===== NORMAL XML CONDITIONS =====
                 foreach (var condition in taskRule.Conditions)
                 {
-                    var conditionResult = EvaluateCondition(condition, package);
+                    var conditionResult = EvaluateCondition(condition, package, evaluationCache);
                     if (conditionResult.IsPassed)
                     {
                         taskResult.Score += conditionResult.ScoreAwarded;
@@ -612,6 +616,10 @@ namespace MOS.ExcelGrading.Core.Services
             condition.MatchPolicy = string.IsNullOrWhiteSpace(condition.MatchPolicy)
                 ? XmlGradingMatchPolicies.All
                 : condition.MatchPolicy.Trim();
+            if (condition.MinOccurrences <= 0)
+            {
+                condition.MinOccurrences = null;
+            }
             condition.Feedback ??= new ConditionFeedback();
         }
 
@@ -705,6 +713,15 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
+        private static void EnsureMinOccurrencesIsValid(XmlGradingCondition condition)
+        {
+            if (string.Equals(condition.CompareMode, XmlGradingCompareModes.XmlMinOccurrences, StringComparison.OrdinalIgnoreCase)
+                && (!condition.MinOccurrences.HasValue || condition.MinOccurrences.Value <= 0))
+            {
+                throw new InvalidOperationException("minOccurrences phai lon hon 0 khi compareMode la xmlMinOccurrences.");
+            }
+        }
+
         private sealed class OfficePackage
         {
             public Dictionary<string, string> XmlParts { get; } =
@@ -712,6 +729,60 @@ namespace MOS.ExcelGrading.Core.Services
 
             public Dictionary<string, byte[]> BinaryParts { get; } =
                 new(StringComparer.OrdinalIgnoreCase);
+        }
+
+        private static string BuildIgnoreAttributesKey(IReadOnlyList<string>? ignoreAttributes)
+        {
+            if (ignoreAttributes == null || ignoreAttributes.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            return string.Join(
+                "|",
+                ignoreAttributes
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(NormalizeIgnoreAttributeToken)
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .OrderBy(value => value, StringComparer.OrdinalIgnoreCase));
+        }
+
+        private sealed class XmlEvaluationCache
+        {
+            private readonly Dictionary<string, string> _normalizedActualXml = new(StringComparer.Ordinal);
+            private readonly Dictionary<string, string> _normalizedExpectedXml = new(StringComparer.Ordinal);
+
+            public string GetNormalizedActual(
+                string sourceFile,
+                string value,
+                IReadOnlyList<string>? ignoreAttributes)
+            {
+                var key = $"{sourceFile}::{BuildIgnoreAttributesKey(ignoreAttributes)}";
+                if (_normalizedActualXml.TryGetValue(key, out var normalized))
+                {
+                    return normalized;
+                }
+
+                normalized = NormalizeXmlForComparison(value, ignoreAttributes);
+                _normalizedActualXml[key] = normalized;
+                return normalized;
+            }
+
+            public string GetNormalizedExpected(
+                string value,
+                IReadOnlyList<string>? ignoreAttributes)
+            {
+                var key = $"{BuildIgnoreAttributesKey(ignoreAttributes)}::{value}";
+                if (_normalizedExpectedXml.TryGetValue(key, out var normalized))
+                {
+                    return normalized;
+                }
+
+                normalized = NormalizeXmlForComparison(value, ignoreAttributes);
+                _normalizedExpectedXml[key] = normalized;
+                return normalized;
+            }
         }
 
         private static OfficePackage ReadOfficePackage(Stream studentFile)
@@ -774,7 +845,8 @@ namespace MOS.ExcelGrading.Core.Services
 
         private static XmlConditionEvaluationResult EvaluateCondition(
             XmlGradingCondition condition,
-            OfficePackage package)
+            OfficePackage package,
+            XmlEvaluationCache cache)
         {
             var compareMode = string.IsNullOrWhiteSpace(condition.CompareMode)
                 ? XmlGradingCompareModes.XmlContainsNormalized
@@ -812,7 +884,7 @@ namespace MOS.ExcelGrading.Core.Services
             List<ExpectedMatchResult>? bestMatches = null;
             foreach (var variant in (condition.ExpectedVariants ?? new List<XmlExpectedVariant>()).Where(variant => variant != null))
             {
-                var matches = EvaluateExpectedValues(actualXml, variant.ExpectedValues, compareMode, matchPolicy, condition.IgnoreAttributes);
+                var matches = EvaluateExpectedValues(result.SourceFile, actualXml, variant.ExpectedValues, compareMode, matchPolicy, condition.IgnoreAttributes, condition.MinOccurrences, cache);
                 bestMatches ??= matches;
 
                 if (ApplyMatchPolicy(matches, matchPolicy))
@@ -839,16 +911,20 @@ namespace MOS.ExcelGrading.Core.Services
         }
 
         private static List<ExpectedMatchResult> EvaluateExpectedValues(
+            string sourceFile,
             string actualXml,
             IReadOnlyList<string> expectedValues,
             string compareMode,
             string matchPolicy,
-            IReadOnlyList<string> ignoreAttributes)
+            IReadOnlyList<string> ignoreAttributes,
+            int? minOccurrences,
+            XmlEvaluationCache cache)
         {
             return string.Equals(matchPolicy, XmlGradingMatchPolicies.Ordered, StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(compareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase)
-                ? MatchExpectedOrdered(actualXml, expectedValues, compareMode, ignoreAttributes)
-                : expectedValues.Select(expected => MatchExpected(actualXml, expected, compareMode, ignoreAttributes)).ToList();
+                && !string.Equals(compareMode, XmlGradingCompareModes.XmlMinOccurrences, StringComparison.OrdinalIgnoreCase)
+                ? MatchExpectedOrdered(sourceFile, actualXml, expectedValues, compareMode, ignoreAttributes, cache)
+                : expectedValues.Select(expected => MatchExpected(sourceFile, actualXml, expected, compareMode, ignoreAttributes, minOccurrences, cache)).ToList();
         }
 
         /// <summary>
@@ -1288,10 +1364,13 @@ namespace MOS.ExcelGrading.Core.Services
         }
 
         private static ExpectedMatchResult MatchExpected(
+            string sourceFile,
             string actualXml,
             string expectedValue,
             string compareMode,
-            IReadOnlyList<string> ignoreAttributes)
+            IReadOnlyList<string> ignoreAttributes,
+            int? minOccurrences,
+            XmlEvaluationCache cache)
         {
             var mode = string.IsNullOrWhiteSpace(compareMode)
                 ? XmlGradingCompareModes.XmlContainsNormalized
@@ -1332,13 +1411,29 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (string.Equals(
                 mode,
+                XmlGradingCompareModes.XmlMinOccurrences,
+                StringComparison.OrdinalIgnoreCase))
+            {
+                return XmlMinOccurrences(
+                    sourceFile,
+                    actualXml,
+                    expectedValue,
+                    ignoreAttributes,
+                    minOccurrences,
+                    cache);
+            }
+
+            if (string.Equals(
+                mode,
                 XmlGradingCompareModes.XmlContainsNormalized,
                 StringComparison.OrdinalIgnoreCase))
             {
                 return XmlContainsNormalized(
+                    sourceFile,
                     actualXml,
                     expectedValue,
-                    ignoreAttributes);
+                    ignoreAttributes,
+                    cache);
             }
 
             // Không nên âm thầm coi mode lạ là normalized
@@ -1368,10 +1463,12 @@ namespace MOS.ExcelGrading.Core.Services
         }
 
         private static List<ExpectedMatchResult> MatchExpectedOrdered(
-        string actualXml,
-        IReadOnlyList<string> expectedValues,
-        string compareMode,
-        IReadOnlyList<string> ignoreAttributes)
+            string sourceFile,
+            string actualXml,
+            IReadOnlyList<string> expectedValues,
+            string compareMode,
+            IReadOnlyList<string> ignoreAttributes,
+            XmlEvaluationCache cache)
         {
             var mode = string.IsNullOrWhiteSpace(compareMode)
                 ? XmlGradingCompareModes.XmlContainsNormalized
@@ -1379,7 +1476,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             // Chuẩn hóa search space 1 lần duy nhất (không đổi thứ tự ký tự nên cursor vẫn hợp lệ)
             var searchSpace = string.Equals(mode, XmlGradingCompareModes.XmlContainsNormalized, StringComparison.OrdinalIgnoreCase)
-                ? NormalizeXmlForComparison(actualXml, ignoreAttributes)
+                ? cache.GetNormalizedActual(sourceFile, actualXml, ignoreAttributes)
                 : actualXml;
 
             var results = new List<ExpectedMatchResult>();
@@ -1390,7 +1487,7 @@ namespace MOS.ExcelGrading.Core.Services
                 string expected;
                 if (string.Equals(mode, XmlGradingCompareModes.XmlContainsNormalized, StringComparison.OrdinalIgnoreCase))
                 {
-                    expected = NormalizeXmlForComparison(expectedValue, ignoreAttributes);
+                    expected = cache.GetNormalizedExpected(expectedValue, ignoreAttributes);
                 }
                 else if (string.Equals(mode, XmlGradingCompareModes.XmlContains, StringComparison.OrdinalIgnoreCase))
                 {
@@ -1426,15 +1523,17 @@ namespace MOS.ExcelGrading.Core.Services
             return results;
         }
         private static ExpectedMatchResult XmlContainsNormalized(
+            string sourceFile,
             string actualXml,
             string expectedValue,
-            IReadOnlyList<string> ignoreAttributes)
+            IReadOnlyList<string> ignoreAttributes,
+            XmlEvaluationCache cache)
         {
             var normalizedActual =
-                NormalizeXmlForComparison(actualXml, ignoreAttributes);
+                cache.GetNormalizedActual(sourceFile, actualXml, ignoreAttributes);
 
             var normalizedExpected =
-                NormalizeXmlForComparison(expectedValue, ignoreAttributes);
+                cache.GetNormalizedExpected(expectedValue, ignoreAttributes);
 
             var index = normalizedActual.IndexOf(
                 normalizedExpected,
@@ -1446,6 +1545,48 @@ namespace MOS.ExcelGrading.Core.Services
                 IsMatched = index >= 0,
                 MatchIndex = index >= 0 ? index : null
             };
+        }
+
+        private static ExpectedMatchResult XmlMinOccurrences(
+            string sourceFile,
+            string actualXml,
+            string expectedValue,
+            IReadOnlyList<string> ignoreAttributes,
+            int? minOccurrences,
+            XmlEvaluationCache cache)
+        {
+            var normalizedActual = cache.GetNormalizedActual(sourceFile, actualXml, ignoreAttributes);
+            var normalizedExpected = cache.GetNormalizedExpected(expectedValue, ignoreAttributes);
+            var firstIndex = string.IsNullOrEmpty(normalizedExpected)
+                ? -1
+                : normalizedActual.IndexOf(normalizedExpected, StringComparison.Ordinal);
+            var occurrences = CountOccurrences(normalizedActual, normalizedExpected);
+            var requiredOccurrences = Math.Max(1, minOccurrences ?? 1);
+
+            return new ExpectedMatchResult
+            {
+                ExpectedValue = expectedValue,
+                IsMatched = occurrences >= requiredOccurrences,
+                MatchIndex = firstIndex >= 0 ? firstIndex : null
+            };
+        }
+
+        private static int CountOccurrences(string value, string search)
+        {
+            if (string.IsNullOrEmpty(value) || string.IsNullOrEmpty(search))
+            {
+                return 0;
+            }
+
+            var count = 0;
+            var index = 0;
+            while ((index = value.IndexOf(search, index, StringComparison.Ordinal)) >= 0)
+            {
+                count++;
+                index += search.Length;
+            }
+
+            return count;
         }
 
         private static string NormalizeXmlForComparison(
@@ -1816,6 +1957,12 @@ namespace MOS.ExcelGrading.Core.Services
             if (!XmlGradingMatchPolicies.Supported.Contains(condition.MatchPolicy))
             {
                 result.Errors.Add($"{conditionPrefix}.matchPolicy không được hỗ trợ: {condition.MatchPolicy}.");
+            }
+
+            if (string.Equals(condition.CompareMode, XmlGradingCompareModes.XmlMinOccurrences, StringComparison.OrdinalIgnoreCase)
+                && (!condition.MinOccurrences.HasValue || condition.MinOccurrences.Value <= 0))
+            {
+                result.Errors.Add($"{conditionPrefix}.minOccurrences phai lon hon 0 khi compareMode la xmlMinOccurrences.");
             }
 
             if (string.Equals(condition.CompareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase) &&

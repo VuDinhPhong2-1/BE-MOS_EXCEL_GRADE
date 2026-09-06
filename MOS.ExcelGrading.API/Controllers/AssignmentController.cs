@@ -15,66 +15,55 @@ namespace MOS.ExcelGrading.API.Controllers
     {
         private readonly IAssignmentService _assignmentService;
         private readonly IAssignmentFileService _assignmentFileService;
+        private readonly IXmlGradingRuleService _xmlGradingRuleService;
         private readonly ILogger<AssignmentController> _logger;
 
         public AssignmentController(
             IAssignmentService assignmentService,
             IAssignmentFileService assignmentFileService,
+            IXmlGradingRuleService xmlGradingRuleService,
             ILogger<AssignmentController> logger)
         {
             _assignmentService = assignmentService;
             _assignmentFileService = assignmentFileService;
+            _xmlGradingRuleService = xmlGradingRuleService;
             _logger = logger;
         }
         /// <summary>
         /// Lấy danh sách các Grading API endpoints có sẵn
         /// </summary>
         [HttpGet("grading-endpoints")]
-        public IActionResult GetGradingEndpoints()
+        public async Task<IActionResult> GetGradingEndpoints()
         {
-            var implementedProjects = new List<(int Number, string Description, double RawMaxScore)>
+            try
             {
-                (1, "Chấm điểm Dự án 01", 125),
-                (2, "Chấm điểm Dự án 02", 125),
-                (3, "Chấm điểm Dự án 03 (Task 1-5 tự động, Task 6 thủ công)", 125),
-                (4, "Chấm điểm Dự án 04", 125),
-                (5, "Chấm điểm Dự án 05", 125),
-                (6, "Chấm điểm Dự án 06", 125),
-                (7, "Chấm điểm Dự án 07", 125),
-                (8, "Chấm điểm Dự án 08", 125),
-                (9, "Chấm điểm Dự án 09", 125),
-                (10, "Chấm điểm Dự án 10", 125),
-                (11, "Chấm điểm Dự án 11", 125),
-                (12, "Chấm điểm Dự án 12", 125),
-                (13, "Chấm điểm Dự án 13", 125),
-                (14, "Chấm điểm Dự án 14", 125),
-                (15, "Chấm điểm Dự án 15", 125),
-                (16, "Chấm điểm Dự án 16", 125),
-                (18, "Chấm điểm Dự án 18", 125),
-                (20, "Chấm điểm Dự án 20", 125),
-                (22, "Chấm điểm Dự án 22", 125)
-            };
+                var activeRuleSets = await _xmlGradingRuleService.GetRuleSetsAsync(isActive: true);
+                var viComparer = StringComparer.Create(
+                    System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),
+                    ignoreCase: true);
 
-            var excelEndpoints = implementedProjects
-                .Select(item => BuildSubjectEndpointInfo(
-                    GradingApiSubjects.Excel,
-                    item.Number,
-                    item.Description,
-                    item.RawMaxScore));
+                var endpoints = activeRuleSets
+                    .SelectMany(ruleSet => ruleSet.Projects
+                        .Select(project => BuildXmlEndpointInfo(ruleSet.Subject, project)))
+                    .Where(item => item != null)
+                    .Select(item => item!)
+                    .GroupBy(item => item.Endpoint, StringComparer.OrdinalIgnoreCase)
+                    .Select(group => group
+                        .OrderByDescending(item => item.RawMaxScore)
+                        .ThenBy(item => item.DisplayName, viComparer)
+                        .First())
+                    .OrderBy(item => item.Subject, viComparer)
+                    .ThenBy(item => GetEndpointProjectNumber(item.Endpoint) ?? int.MaxValue)
+                    .ThenBy(item => item.DisplayName, viComparer)
+                    .ToList();
 
-            var wordEndpoints = Enumerable.Range(GradingApiEndpoints.MinProjectNumber, GradingApiEndpoints.MaxProjectNumber)
-                .Select(projectNumber => BuildSubjectEndpointInfo(
-                    GradingApiSubjects.Word,
-                    projectNumber,
-                    $"Skeleton chấm điểm Word Project {projectNumber:00}",
-                    125));
-
-            var endpoints = excelEndpoints
-                .Concat(wordEndpoints)
-                .OrderBy(item => item.DisplayName, StringComparer.Create(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), ignoreCase: true))
-                .ToList();
-
-            return Ok(endpoints);
+                return Ok(endpoints);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting XML-active grading endpoint catalog");
+                return StatusCode(500, "Lỗi máy chủ nội bộ");
+            }
         }
 
         [HttpGet("templates")]
@@ -126,9 +115,50 @@ namespace MOS.ExcelGrading.API.Controllers
                 PracticeName = practice.Name,
                 PracticeTotalScore = practice.TotalScore,
                 PracticeProjectCount = practice.ProjectCount,
-                ApiPath = $"/api/grading/{endpoint}"
+                ApiPath = $"/api/admin/xml-grading-rules/grade/{endpoint}"
             };
         }
+
+        private static GradingEndpointInfo? BuildXmlEndpointInfo(string subject, ProjectXmlRule project)
+        {
+            var normalizedSubject = AssignmentFileSubjects.Normalize(subject);
+            if (!AssignmentFileSubjects.IsValid(normalizedSubject) ||
+                string.IsNullOrWhiteSpace(project.ProjectCode))
+            {
+                return null;
+            }
+
+            var endpoint = $"{normalizedSubject}/{project.ProjectCode.Trim().ToLowerInvariant()}";
+            if (!GradingApiEndpoints.IsShortProjectEndpoint(endpoint) ||
+                !GradingApiEndpoints.IsValidEndpoint(endpoint) ||
+                !GradingApiEndpoints.TryExtractProjectNumber(endpoint, out var projectNumber))
+            {
+                return null;
+            }
+
+            var projectName = string.IsNullOrWhiteSpace(project.ProjectName)
+                ? $"{GetSubjectDisplayName(normalizedSubject)} Project {projectNumber:00}"
+                : project.ProjectName.Trim();
+
+            return BuildSubjectEndpointInfo(
+                normalizedSubject,
+                projectNumber,
+                $"XML ruleset active: {projectName}",
+                (double)project.MaxScore);
+        }
+
+        private static int? GetEndpointProjectNumber(string endpoint) =>
+            GradingApiEndpoints.TryExtractProjectNumber(endpoint, out var projectNumber)
+                ? projectNumber
+                : null;
+
+        private static string GetSubjectDisplayName(string subject) =>
+            AssignmentFileSubjects.Normalize(subject) switch
+            {
+                GradingApiSubjects.Word => "Word",
+                GradingApiSubjects.Ppt => "PowerPoint",
+                _ => "Excel"
+            };
         
         /// <summary>
         /// Lấy danh sách bài tập theo lớp

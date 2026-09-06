@@ -20,7 +20,7 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly IMongoCollection<Assignment> _assignments;
         private readonly IMongoCollection<AssignmentFile> _assignmentFiles;
         private readonly GridFSBucket _bucket;
-        private readonly IGradingService _gradingService;
+        private readonly IXmlGradingRuleService _xmlGradingRuleService;
         private readonly ILogger<ExamPublicationService> _logger;
 
         static ExamPublicationService()
@@ -30,7 +30,7 @@ namespace MOS.ExcelGrading.Core.Services
 
         public ExamPublicationService(
             IMongoDatabase database,
-            IGradingService gradingService,
+            IXmlGradingRuleService xmlGradingRuleService,
             ILogger<ExamPublicationService> logger)
         {
             _examPublications = database.GetCollection<ExamPublication>("examPublications");
@@ -41,7 +41,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 BucketName = "assignmentFiles"
             });
-            _gradingService = gradingService;
+            _xmlGradingRuleService = xmlGradingRuleService;
             _logger = logger;
         }
 
@@ -435,10 +435,9 @@ namespace MOS.ExcelGrading.Core.Services
                     HelpFileName = helpFile?.OriginalName,
                     HelpText = await ReadOptionalTextFileAsync(helpFile),
                     GradingApiEndpoint = route.GradingApiEndpoint ?? string.Empty,
-                    TaskSnapshot = _gradingService
-                        .GetTaskSnapshotForEndpoint(route.GradingApiEndpoint ?? string.Empty)
-                        .Select(MapTaskSnapshot)
-                        .ToList(),
+                    TaskSnapshot = await GetTaskSnapshotFromActiveXmlRuleAsync(
+                        route.GradingApiEndpoint,
+                        assignment.Name),
                     ModeRules = BuildDefaultModeRules(request.Mode)
                 });
             }
@@ -478,6 +477,38 @@ namespace MOS.ExcelGrading.Core.Services
                 MaxScore = item.MaxScore,
                 Instructions = NormalizeNullable(item.Instructions)
             };
+        }
+
+        private async Task<List<ExamPublicationTaskSnapshotItem>> GetTaskSnapshotFromActiveXmlRuleAsync(
+            string? gradingApiEndpoint,
+            string assignmentName)
+        {
+            var normalizedEndpoint = GradingApiEndpoints.NormalizeEndpoint(gradingApiEndpoint);
+            if (!GradingApiEndpoints.TryExtractSubject(normalizedEndpoint, out var subject) ||
+                !GradingApiEndpoints.TryExtractProjectNumber(normalizedEndpoint, out var projectNumber))
+            {
+                throw new ArgumentException($"Assignment '{assignmentName}' có grading endpoint không hợp lệ.");
+            }
+
+            var xmlProjectCode = $"project{projectNumber:00}";
+            var ruleSet = await _xmlGradingRuleService.GetActiveRuleSetAsync(subject, xmlProjectCode);
+            var projectRule = ruleSet?.Projects.FirstOrDefault(project =>
+                string.Equals(project.ProjectCode, xmlProjectCode, StringComparison.OrdinalIgnoreCase));
+
+            if (projectRule == null)
+            {
+                throw new ArgumentException("Chưa có XML grading rule active cho project này.");
+            }
+
+            return projectRule.Tasks
+                .Select(task => new ExamPublicationTaskSnapshotItem
+                {
+                    TaskId = NormalizeNullable(task.TaskId),
+                    TaskName = NormalizeNullable(task.TaskName),
+                    MaxScore = (double)task.MaxScore,
+                    Instructions = null
+                })
+                .ToList();
         }
 
         private async Task<string?> ReadOptionalTextFileAsync(AssignmentFile? file)

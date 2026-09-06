@@ -330,6 +330,29 @@ namespace MOS.ExcelGrading.Core.Models
             return GetAllEndpoints().Contains(normalized);
         }
 
+        public static bool IsShortProjectEndpoint(string? endpoint)
+        {
+            if (string.IsNullOrWhiteSpace(endpoint))
+            {
+                return false;
+            }
+
+            var normalized = endpoint.Trim().Replace("\\", "/", StringComparison.Ordinal);
+            normalized = normalized.ToLowerInvariant();
+
+            if (normalized.Contains("://", StringComparison.Ordinal) ||
+                normalized.StartsWith("/", StringComparison.Ordinal) ||
+                normalized.EndsWith("/", StringComparison.Ordinal) ||
+                normalized.StartsWith("api/", StringComparison.Ordinal) ||
+                normalized.StartsWith("grading/", StringComparison.Ordinal) ||
+                normalized.StartsWith("admin/", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return SubjectProjectRegex.IsMatch(normalized);
+        }
+
         public static bool TryExtractProjectNumber(string? endpoint, out int projectNumber)
         {
             projectNumber = 0;

@@ -13,16 +13,16 @@ namespace MOS.ExcelGrading.API.Controllers
         private static readonly Encoding Latin1 = Encoding.GetEncoding(1252);
 
         private readonly IExamSessionService _examSessionService;
-        private readonly IGradingService _gradingService;
+        private readonly IXmlGradingRuleService _xmlGradingRuleService;
         private readonly ILogger<PublicExamSessionsController> _logger;
 
         public PublicExamSessionsController(
             IExamSessionService examSessionService,
-            IGradingService gradingService,
+            IXmlGradingRuleService xmlGradingRuleService,
             ILogger<PublicExamSessionsController> logger)
         {
             _examSessionService = examSessionService;
-            _gradingService = gradingService;
+            _xmlGradingRuleService = xmlGradingRuleService;
             _logger = logger;
         }
 
@@ -195,6 +195,18 @@ namespace MOS.ExcelGrading.API.Controllers
                 _logger.LogWarning("Validation error grading public exam project: {Message}", message);
                 return BadRequest(new { message });
             }
+            catch (InvalidOperationException ex)
+            {
+                var message = NormalizeMessage(ex.Message);
+                _logger.LogWarning("Business error grading public exam project: {Message}", message);
+                return BadRequest(new { message });
+            }
+            catch (InvalidDataException ex)
+            {
+                var message = NormalizeMessage(ex.Message);
+                _logger.LogWarning("Invalid Office package uploaded for public exam grading: {Message}", message);
+                return BadRequest(new { message = "File upload không phải Office OpenXML hợp lệ." });
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error grading public exam project");
@@ -207,93 +219,14 @@ namespace MOS.ExcelGrading.API.Controllers
             IFormFile studentFile)
         {
             var normalizedEndpoint = GradingApiEndpoints.NormalizeEndpoint(bootstrap.GradingApiEndpoint);
-            if (!GradingApiEndpoints.TryExtractProjectNumber(normalizedEndpoint, out var projectNumber))
+            if (!GradingApiEndpoints.TryExtractSubject(normalizedEndpoint, out var subject) ||
+                !GradingApiEndpoints.TryExtractProjectNumber(normalizedEndpoint, out var projectNumber))
             {
                 throw new ArgumentException($"Khong the nhan dien project tu endpoint {bootstrap.GradingApiEndpoint}.");
             }
 
             await using var studentStream = studentFile.OpenReadStream();
-
-            if (normalizedEndpoint.StartsWith($"{GradingApiSubjects.Word}/project", StringComparison.Ordinal))
-            {
-                if (!IsAcceptedWordInputForProject(studentFile, projectNumber))
-                {
-                    if (projectNumber == 7)
-                    {
-                        throw new ArgumentException("Word Project 07 yeu cau .docx hoac file plain text ten Memo.txt.");
-                    }
-
-                    throw new ArgumentException("File phai co dinh dang .docx (Word OpenXML).");
-                }
-
-                return await _gradingService.GradeWordProjectAsync(projectNumber, studentStream, studentFile.FileName);
-            }
-
-            if (!IsExcelFile(studentFile))
-            {
-                throw new ArgumentException("File phai co dinh dang .xlsx, .xlsm hoac .xls.");
-            }
-
-            return await GradeExcelProjectAsync(projectNumber, studentStream, studentFile.FileName);
-        }
-
-        private Task<GradingResult> GradeExcelProjectAsync(
-            int projectNumber,
-            Stream studentStream,
-            string sourceFileName)
-        {
-            return projectNumber switch
-            {
-                1 => _gradingService.GradeProject01Async(studentStream),
-                2 => _gradingService.GradeProject02Async(studentStream),
-                3 => _gradingService.GradeProject03Async(studentStream),
-                4 => _gradingService.GradeProject04Async(studentStream),
-                5 => _gradingService.GradeProject05Async(studentStream),
-                6 => _gradingService.GradeProject06Async(studentStream),
-                7 => _gradingService.GradeProject07Async(studentStream, sourceFileName),
-                8 => _gradingService.GradeProject08Async(studentStream),
-                9 => _gradingService.GradeProject09Async(studentStream),
-                10 => _gradingService.GradeProject10Async(studentStream),
-                11 => _gradingService.GradeProject11Async(studentStream),
-                12 => _gradingService.GradeProject12Async(studentStream),
-                13 => _gradingService.GradeProject13Async(studentStream),
-                14 => _gradingService.GradeProject14Async(studentStream),
-                15 => _gradingService.GradeProject15Async(studentStream),
-                16 => _gradingService.GradeProject16Async(studentStream),
-                18 => _gradingService.GradeProject18Async(studentStream),
-                20 => _gradingService.GradeProject20Async(studentStream),
-                22 => _gradingService.GradeProject22Async(studentStream),
-                _ => throw new ArgumentException($"Project Excel khong duoc ho tro: {projectNumber:00}")
-            };
-        }
-
-        private static bool IsExcelFile(IFormFile file)
-        {
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            return extension == ".xlsx" || extension == ".xlsm" || extension == ".xls";
-        }
-
-        private static bool IsAcceptedWordInputForProject(IFormFile file, int projectNumber)
-        {
-            if (projectNumber == 7 && IsMemoPlainTextFile(file))
-            {
-                return true;
-            }
-
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            return extension == ".docx";
-        }
-
-        private static bool IsMemoPlainTextFile(IFormFile file)
-        {
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-            if (extension != ".txt")
-            {
-                return false;
-            }
-
-            var baseName = Path.GetFileNameWithoutExtension(file.FileName) ?? string.Empty;
-            return string.Equals(baseName, "memo", StringComparison.OrdinalIgnoreCase);
+            return await _xmlGradingRuleService.GradeAsync(studentStream, subject, $"project{projectNumber:00}");
         }
 
         private static string NormalizeMessage(string message)

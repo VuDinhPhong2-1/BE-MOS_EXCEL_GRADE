@@ -17,10 +17,12 @@ namespace MOS.ExcelGrading.Core.Services
         private readonly IMongoCollection<Student> _students;
         private readonly IMongoCollection<User> _users;
         private readonly IMongoCollection<ExamPublication> _examPublications;
+        private readonly IXmlGradingRuleService _xmlGradingRuleService;
         private readonly ILogger<AssignmentService> _logger;
 
         public AssignmentService(
             IMongoDatabase database,
+            IXmlGradingRuleService xmlGradingRuleService,
             ILogger<AssignmentService> logger)
         {
             _assignments = database.GetCollection<Assignment>("assignments");
@@ -29,6 +31,7 @@ namespace MOS.ExcelGrading.Core.Services
             _students = database.GetCollection<Student>("students");
             _users = database.GetCollection<User>("users");
             _examPublications = database.GetCollection<ExamPublication>("examPublications");
+            _xmlGradingRuleService = xmlGradingRuleService;
             _logger = logger;
         }
 
@@ -354,6 +357,13 @@ namespace MOS.ExcelGrading.Core.Services
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.GradingApiEndpoint) &&
+                    !GradingApiEndpoints.IsShortProjectEndpoint(request.GradingApiEndpoint))
+                {
+                    throw new ArgumentException(
+                        "GradingApiEndpoint phải dùng dạng ngắn subject/projectNN, ví dụ excel/project09. Không dùng URL /api/grading/... hoặc /api/admin/xml-grading-rules/...");
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.GradingApiEndpoint) &&
                     !GradingApiEndpoints.IsValidEndpoint(request.GradingApiEndpoint))
                 {
                     throw new ArgumentException($"GradingApiEndpoint không hợp lệ: {request.GradingApiEndpoint}");
@@ -406,6 +416,11 @@ namespace MOS.ExcelGrading.Core.Services
                 normalizedEndpoint = nextGradingType == GradingTypes.Auto ? route.GradingApiEndpoint : null;
                 nextSubject = route.Subject;
                 nextProjectCode = route.ProjectCode;
+
+                if (nextGradingType == GradingTypes.Auto)
+                {
+                    await EnsureActiveXmlRuleExistsAsync(normalizedEndpoint);
+                }
 
                 var updateDefinitions = new List<UpdateDefinition<Assignment>>();
                 var builder = Builders<Assignment>.Update;
@@ -557,6 +572,12 @@ namespace MOS.ExcelGrading.Core.Services
                         throw new ArgumentException("Bắt buộc có GradingApiEndpoint khi GradingType là 'auto'");
                     }
 
+                    if (!GradingApiEndpoints.IsShortProjectEndpoint(request.GradingApiEndpoint))
+                    {
+                        throw new ArgumentException(
+                            "GradingApiEndpoint phải dùng dạng ngắn subject/projectNN, ví dụ excel/project09. Không dùng URL /api/grading/... hoặc /api/admin/xml-grading-rules/...");
+                    }
+
                     if (!GradingApiEndpoints.IsValidEndpoint(request.GradingApiEndpoint))
                     {
                         throw new ArgumentException($"GradingApiEndpoint không hợp lệ: {request.GradingApiEndpoint}");
@@ -574,6 +595,11 @@ namespace MOS.ExcelGrading.Core.Services
                     normalizedSubject,
                     request.ProjectCode,
                     normalizedGradingType == GradingTypes.Auto ? request.GradingApiEndpoint : null);
+
+                if (normalizedGradingType == GradingTypes.Auto)
+                {
+                    await EnsureActiveXmlRuleExistsAsync(route.GradingApiEndpoint);
+                }
 
                 var assignment = new Assignment
                 {
@@ -714,6 +740,23 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return route;
+        }
+
+        private async Task EnsureActiveXmlRuleExistsAsync(string? gradingApiEndpoint)
+        {
+            var normalizedEndpoint = GradingApiEndpoints.NormalizeEndpoint(gradingApiEndpoint);
+            if (!GradingApiEndpoints.TryExtractSubject(normalizedEndpoint, out var subject) ||
+                !GradingApiEndpoints.TryExtractProjectNumber(normalizedEndpoint, out var projectNumber))
+            {
+                throw new ArgumentException($"GradingApiEndpoint không hợp lệ: {gradingApiEndpoint}");
+            }
+
+            var xmlProjectCode = $"project{projectNumber:00}";
+            var ruleSet = await _xmlGradingRuleService.GetActiveRuleSetAsync(subject, xmlProjectCode);
+            if (ruleSet == null)
+            {
+                throw new ArgumentException("Chưa có XML grading rule active cho project này.");
+            }
         }
 
         private static void ApplyPublicationEligibility(Assignment assignment)

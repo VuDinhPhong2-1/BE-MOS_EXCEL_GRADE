@@ -250,6 +250,10 @@ public static class ImageWrapTypes
         [BsonElement("expectedVariants")]
         public List<XmlExpectedVariant> ExpectedVariants { get; set; } = new();
 
+        [JsonPropertyName("ignoreAttributes")]
+        [BsonElement("ignoreAttributes")]
+        public List<string> IgnoreAttributes { get; set; } = new();
+
         [BsonElement("compareMode")]
         public string CompareMode { get; set; } = XmlGradingCompareModes.XmlContainsNormalized;
 

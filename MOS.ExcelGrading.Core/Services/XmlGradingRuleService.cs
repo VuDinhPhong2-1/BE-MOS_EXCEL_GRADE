@@ -592,6 +592,11 @@ namespace MOS.ExcelGrading.Core.Services
                 })
                 .Where(variant => variant.ExpectedValues.Count > 0)
                 .ToList() ?? new List<XmlExpectedVariant>();
+            condition.IgnoreAttributes = condition.IgnoreAttributes?
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? new List<string>();
             condition.CompareMode = string.IsNullOrWhiteSpace(condition.CompareMode)
                 ? XmlGradingCompareModes.XmlContainsNormalized
                 : condition.CompareMode.Trim();
@@ -798,7 +803,7 @@ namespace MOS.ExcelGrading.Core.Services
             List<ExpectedMatchResult>? bestMatches = null;
             foreach (var variant in (condition.ExpectedVariants ?? new List<XmlExpectedVariant>()).Where(variant => variant != null))
             {
-                var matches = EvaluateExpectedValues(actualXml, variant.ExpectedValues, compareMode, matchPolicy);
+                var matches = EvaluateExpectedValues(actualXml, variant.ExpectedValues, compareMode, matchPolicy, condition.IgnoreAttributes);
                 bestMatches ??= matches;
 
                 if (ApplyMatchPolicy(matches, matchPolicy))
@@ -828,12 +833,13 @@ namespace MOS.ExcelGrading.Core.Services
             string actualXml,
             IReadOnlyList<string> expectedValues,
             string compareMode,
-            string matchPolicy)
+            string matchPolicy,
+            IReadOnlyList<string> ignoreAttributes)
         {
             return string.Equals(matchPolicy, XmlGradingMatchPolicies.Ordered, StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(compareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase)
-                ? MatchExpectedOrdered(actualXml, expectedValues, compareMode)
-                : expectedValues.Select(expected => MatchExpected(actualXml, expected, compareMode)).ToList();
+                ? MatchExpectedOrdered(actualXml, expectedValues, compareMode, ignoreAttributes)
+                : expectedValues.Select(expected => MatchExpected(actualXml, expected, compareMode, ignoreAttributes)).ToList();
         }
 
         /// <summary>
@@ -1275,7 +1281,8 @@ namespace MOS.ExcelGrading.Core.Services
         private static ExpectedMatchResult MatchExpected(
             string actualXml,
             string expectedValue,
-            string compareMode)
+            string compareMode,
+            IReadOnlyList<string> ignoreAttributes)
         {
             var mode = string.IsNullOrWhiteSpace(compareMode)
                 ? XmlGradingCompareModes.XmlContainsNormalized
@@ -1310,7 +1317,8 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 return XmlEquivalentWholeFile(
                     actualXml,
-                    expectedValue);
+                    expectedValue,
+                    ignoreAttributes);
             }
 
             if (string.Equals(
@@ -1320,7 +1328,8 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 return XmlContainsNormalized(
                     actualXml,
-                    expectedValue);
+                    expectedValue,
+                    ignoreAttributes);
             }
 
             // Không nên âm thầm coi mode lạ là normalized
@@ -1352,7 +1361,8 @@ namespace MOS.ExcelGrading.Core.Services
         private static List<ExpectedMatchResult> MatchExpectedOrdered(
         string actualXml,
         IReadOnlyList<string> expectedValues,
-        string compareMode)
+        string compareMode,
+        IReadOnlyList<string> ignoreAttributes)
         {
             var mode = string.IsNullOrWhiteSpace(compareMode)
                 ? XmlGradingCompareModes.XmlContainsNormalized
@@ -1360,7 +1370,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             // Chuẩn hóa search space 1 lần duy nhất (không đổi thứ tự ký tự nên cursor vẫn hợp lệ)
             var searchSpace = string.Equals(mode, XmlGradingCompareModes.XmlContainsNormalized, StringComparison.OrdinalIgnoreCase)
-                ? NormalizeXmlForComparison(actualXml)
+                ? NormalizeXmlForComparison(actualXml, ignoreAttributes)
                 : actualXml;
 
             var results = new List<ExpectedMatchResult>();
@@ -1371,7 +1381,7 @@ namespace MOS.ExcelGrading.Core.Services
                 string expected;
                 if (string.Equals(mode, XmlGradingCompareModes.XmlContainsNormalized, StringComparison.OrdinalIgnoreCase))
                 {
-                    expected = NormalizeXmlForComparison(expectedValue);
+                    expected = NormalizeXmlForComparison(expectedValue, ignoreAttributes);
                 }
                 else if (string.Equals(mode, XmlGradingCompareModes.XmlContains, StringComparison.OrdinalIgnoreCase))
                 {
@@ -1406,13 +1416,16 @@ namespace MOS.ExcelGrading.Core.Services
 
             return results;
         }
-        private static ExpectedMatchResult XmlContainsNormalized(string actualXml, string expectedValue)
+        private static ExpectedMatchResult XmlContainsNormalized(
+            string actualXml,
+            string expectedValue,
+            IReadOnlyList<string> ignoreAttributes)
         {
             var normalizedActual =
-                NormalizeXmlForComparison(actualXml);
+                NormalizeXmlForComparison(actualXml, ignoreAttributes);
 
             var normalizedExpected =
-                NormalizeXmlForComparison(expectedValue);
+                NormalizeXmlForComparison(expectedValue, ignoreAttributes);
 
             var index = normalizedActual.IndexOf(
                 normalizedExpected,
@@ -1426,10 +1439,24 @@ namespace MOS.ExcelGrading.Core.Services
             };
         }
 
-        private static string NormalizeXmlForComparison(string value)
+        private static string NormalizeXmlForComparison(
+            string value,
+            IReadOnlyList<string>? ignoreAttributes = null)
         {
             if (string.IsNullOrWhiteSpace(value))
                 return string.Empty;
+
+            if (ignoreAttributes?.Count > 0)
+            {
+                try
+                {
+                    return NormalizeXmlFragment(value, ignoreAttributes);
+                }
+                catch (XmlException)
+                {
+                    // Fall through to the lightweight whitespace normalization for partial/raw fragments.
+                }
+            }
 
             var text = value.Trim();
 
@@ -1453,12 +1480,15 @@ namespace MOS.ExcelGrading.Core.Services
 
             return text.Trim();
         }
-        private static ExpectedMatchResult XmlEquivalentWholeFile(string actualXml, string expectedValue)
+        private static ExpectedMatchResult XmlEquivalentWholeFile(
+            string actualXml,
+            string expectedValue,
+            IReadOnlyList<string> ignoreAttributes)
         {
             try
             {
-                var normalizedActual = NormalizeXmlFragment(actualXml);
-                var normalizedExpected = NormalizeXmlFragment(expectedValue);
+                var normalizedActual = NormalizeXmlFragment(actualXml, ignoreAttributes);
+                var normalizedExpected = NormalizeXmlFragment(expectedValue, ignoreAttributes);
                 var isMatched = string.Equals(normalizedActual, normalizedExpected, StringComparison.Ordinal);
                 return new ExpectedMatchResult
                 {
@@ -1479,39 +1509,111 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
-        private static string NormalizeXmlFragment(string xml)
+        private static string NormalizeXmlFragment(
+            string xml,
+            IReadOnlyList<string>? ignoreAttributes = null)
         {
             var wrapped = $"<__root>{StripXmlDeclaration(xml)}</__root>";
             var document = XDocument.Parse(wrapped, LoadOptions.PreserveWhitespace);
-            var normalized = string.Concat(document.Root!.Nodes().Select(NormalizeNode));
+            var normalized = string.Concat(document.Root!.Nodes().Select(node => NormalizeNode(node, ignoreAttributes)));
             return normalized;
         }
 
-        private static string NormalizeNode(XNode node)
+        private static string NormalizeNode(
+            XNode node,
+            IReadOnlyList<string>? ignoreAttributes = null)
         {
             return node switch
             {
-                XElement element => NormalizeElement(element),
+                XElement element => NormalizeElement(element, ignoreAttributes),
                 XCData cdata => SecurityElement.Escape(NormalizeText(cdata.Value)) ?? string.Empty,
                 XText text => SecurityElement.Escape(NormalizeText(text.Value)) ?? string.Empty,
                 _ => string.Empty
             };
         }
 
-        private static string NormalizeElement(XElement element)
+        private static string NormalizeElement(
+            XElement element,
+            IReadOnlyList<string>? ignoreAttributes = null)
         {
             var name = NormalizeName(element.Name);
             var attributes = element.Attributes()
                 .Where(attribute => !attribute.IsNamespaceDeclaration)
+                .Where(attribute => !ShouldIgnoreAttribute(attribute, ignoreAttributes))
                 .OrderBy(attribute => NormalizeName(attribute.Name), StringComparer.Ordinal)
                 .ThenBy(attribute => attribute.Value, StringComparer.Ordinal)
                 .Select(attribute => $"{NormalizeName(attribute.Name)}=\"{SecurityElement.Escape(attribute.Value) ?? string.Empty}\"");
 
             var attributeText = string.Join(" ", attributes);
             var openTag = string.IsNullOrWhiteSpace(attributeText) ? $"<{name}>" : $"<{name} {attributeText}>";
-            var children = string.Concat(element.Nodes().Select(NormalizeNode));
+            var children = string.Concat(element.Nodes().Select(node => NormalizeNode(node, ignoreAttributes)));
 
             return $"{openTag}{children}</{name}>";
+        }
+
+        private static bool ShouldIgnoreAttribute(
+            XAttribute attribute,
+            IReadOnlyList<string>? ignoreAttributes)
+        {
+            if (ignoreAttributes == null || ignoreAttributes.Count == 0)
+            {
+                return false;
+            }
+
+            var normalizedName = NormalizeName(attribute.Name);
+            var localName = attribute.Name.LocalName;
+
+            foreach (var ignoreAttribute in ignoreAttributes)
+            {
+                var token = NormalizeIgnoreAttributeToken(ignoreAttribute);
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    continue;
+                }
+
+                if (token.EndsWith("*", StringComparison.Ordinal))
+                {
+                    var prefix = token[..^1];
+                    if (localName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase) ||
+                        normalizedName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return true;
+                    }
+
+                    continue;
+                }
+
+                if (string.Equals(localName, token, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(normalizedName, token, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string NormalizeIgnoreAttributeToken(string value)
+        {
+            var token = (value ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(token))
+            {
+                return string.Empty;
+            }
+
+            var atIndex = token.LastIndexOf('@');
+            if (atIndex >= 0 && atIndex < token.Length - 1)
+            {
+                token = token[(atIndex + 1)..];
+            }
+
+            var colonIndex = token.LastIndexOf(':');
+            if (colonIndex >= 0 && colonIndex < token.Length - 1)
+            {
+                token = token[(colonIndex + 1)..];
+            }
+
+            return token;
         }
 
         private static string NormalizeName(XName name)

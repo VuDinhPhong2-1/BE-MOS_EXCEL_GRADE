@@ -244,6 +244,7 @@ namespace MOS.ExcelGrading.API.Controllers
                 };
 
                 var createdClass = await _classService.CreateClassAsync(classEntity, userId);
+                await InvalidateClassesBySchoolCacheAsync(createdClass.SchoolId, userId, userRole);
 
                 return CreatedAtAction(
                     nameof(GetClassById),
@@ -304,6 +305,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 if (updatedClass == null)
                     return NotFound(new { message = "Không thể cập nhật lớp" });
 
+                await InvalidateClassesBySchoolCacheAsync(updatedClass.SchoolId, userId, userRole);
+
                 return Ok(ToClassResponse(updatedClass));
             }
             catch (Exception ex)
@@ -339,6 +342,8 @@ namespace MOS.ExcelGrading.API.Controllers
 
                 if (!result)
                     return BadRequest(new { message = "Không thể xóa lớp" });
+
+                await InvalidateClassesBySchoolCacheAsync(classEntity.SchoolId, userId, userRole);
 
                 return Ok(new { message = "Đã xóa lớp thành công" });
             }
@@ -457,6 +462,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 if (updatedClass == null)
                     return NotFound(new { message = "Không thể cập nhật bàn giao lớp" });
 
+                await InvalidateClassesBySchoolCacheAsync(updatedClass.SchoolId, userId, userRole);
+
                 return Ok(ToClassResponse(updatedClass));
             }
             catch (Exception ex)
@@ -494,6 +501,8 @@ namespace MOS.ExcelGrading.API.Controllers
                 var updatedClass = await _classService.UpdateClassAsync(id, classEntity, userId);
                 if (updatedClass == null)
                     return NotFound(new { message = "Không thể cập nhật bàn giao lớp" });
+
+                await InvalidateClassesBySchoolCacheAsync(updatedClass.SchoolId, userId, userRole);
 
                 return Ok(ToClassResponse(updatedClass));
             }
@@ -535,6 +544,28 @@ namespace MOS.ExcelGrading.API.Controllers
                 CreatedAt = classEntity.CreatedAt,
                 IsActive = classEntity.IsActive
             };
+        }
+
+        private async Task InvalidateClassesBySchoolCacheAsync(string schoolId, string userId, string userRole)
+        {
+            if (!_redisSettings.Enabled || string.IsNullOrWhiteSpace(schoolId))
+            {
+                return;
+            }
+
+            foreach (var includeInactive in new[] { false, true })
+            {
+                var cacheKey = $"classes:school:v1:school:{schoolId}:user:{userId}:role:{userRole}:inactive:{includeInactive}";
+                try
+                {
+                    await _cache.RemoveAsync(cacheKey);
+                    _logger.LogInformation("[CACHE REMOVE] classesBySchool key={CacheKey}", cacheKey);
+                }
+                catch (Exception cacheEx)
+                {
+                    _logger.LogWarning(cacheEx, "[CACHE] Không thể xóa cache danh sách lớp theo trường key={CacheKey}", cacheKey);
+                }
+            }
         }
 
         private static TimeSpan ResolveTtl(int configuredSeconds, int fallbackSeconds = 60)

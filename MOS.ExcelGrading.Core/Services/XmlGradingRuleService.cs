@@ -172,6 +172,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             NormalizeTaskForPersistence(task);
             ValidateTaskShell(task);
+            EnsureSpecialConditionSupportedForSubject(task.SpecialCondition, ruleSet.Subject);
 
             if (project.Tasks.Any(existing => string.Equals(existing.TaskId, task.TaskId, StringComparison.OrdinalIgnoreCase)))
             {
@@ -194,6 +195,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             NormalizeTaskForPersistence(task);
             ValidateTaskShell(task);
+            EnsureSpecialConditionSupportedForSubject(task.SpecialCondition, ruleSet.Subject);
 
             var index = project.Tasks.FindIndex(existing => string.Equals(existing.TaskId, taskId, StringComparison.OrdinalIgnoreCase));
             if (index < 0)
@@ -389,7 +391,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (hasSpecialCondition)
                 {
-                    var specialResult = EvaluateTaskSpecialCondition(taskRule.SpecialCondition!, package);
+                    var specialResult = EvaluateTaskSpecialCondition(taskRule.SpecialCondition!, package, ruleSet.Subject);
                     specialConditionPassed = specialResult.IsPassed;
 
                     if (specialResult.IsPassed)
@@ -763,6 +765,37 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
+        private static void EnsureSpecialConditionSupportedForSubject(
+            SpecialCondition? specialCondition,
+            string subject)
+        {
+            if (specialCondition == null || string.IsNullOrWhiteSpace(specialCondition.Type))
+            {
+                return;
+            }
+
+            if (!IsSpecialConditionSupportedForSubject(specialCondition.Type, subject))
+            {
+                throw new InvalidOperationException($"specialCondition.type {specialCondition.Type} khong ho tro cho subject {NormalizeKey(subject)}.");
+            }
+        }
+
+        private static bool IsSpecialConditionSupportedForSubject(string specialConditionType, string subject)
+        {
+            var normalizedSubject = NormalizeKey(subject);
+
+            return normalizedSubject switch
+            {
+                "word" => string.Equals(specialConditionType, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase),
+                "excel" => false,
+                "ppt" => false,
+                "powerpoint" => false,
+                _ => false
+            };
+        }
+
         private sealed class OfficePackage
         {
             public Dictionary<string, string> XmlParts { get; } =
@@ -979,8 +1012,17 @@ namespace MOS.ExcelGrading.Core.Services
             public string Message { get; set; } = string.Empty;
         }
 
-        private static SpecialConditionEvalOutcome EvaluateTaskSpecialCondition(SpecialCondition specialCondition, OfficePackage package)
+        private static SpecialConditionEvalOutcome EvaluateTaskSpecialCondition(SpecialCondition specialCondition, OfficePackage package, string subject)
         {
+            if (!IsSpecialConditionSupportedForSubject(specialCondition.Type, subject))
+            {
+                return new SpecialConditionEvalOutcome
+                {
+                    IsPassed = false,
+                    Message = $"Special condition {specialCondition.Type} khong ho tro cho subject {NormalizeKey(subject)}."
+                };
+            }
+
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluatePictureBullet(specialCondition.Config, package);
@@ -2087,7 +2129,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                     if (hasSpecialCondition)
                     {
-                        ValidateTaskSpecialCondition(task.SpecialCondition!, taskPrefix, result);
+                        ValidateTaskSpecialCondition(task.SpecialCondition!, taskPrefix, result, ruleSet.Subject);
                     }
                 }
             }
@@ -2179,7 +2221,8 @@ namespace MOS.ExcelGrading.Core.Services
         private static void ValidateTaskSpecialCondition(
             SpecialCondition specialCondition,
             string taskPrefix,
-            XmlRuleValidationResult result)
+            XmlRuleValidationResult result,
+            string subject)
         {
             if (string.IsNullOrWhiteSpace(specialCondition.Type))
             {
@@ -2190,6 +2233,12 @@ namespace MOS.ExcelGrading.Core.Services
             if (!SpecialConditionTypes.Supported.Contains(specialCondition.Type))
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.type không được hỗ trợ: {specialCondition.Type}.");
+                return;
+            }
+
+            if (!IsSpecialConditionSupportedForSubject(specialCondition.Type, subject))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.type {specialCondition.Type} khong ho tro cho subject {NormalizeKey(subject)}.");
                 return;
             }
 

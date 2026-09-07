@@ -49,13 +49,15 @@ namespace MOS.ExcelGrading.Core.Models
     public const string PictureBullet = "pictureBullet";
     public const string InsertedImage = "insertedImage"; // MỚI
     public const string ConvertTableToText = "convertTableToText";
+    public const string Hyperlink = "hyperlink";
 
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
         {
             PictureBullet,
             InsertedImage,
-            ConvertTableToText
+            ConvertTableToText,
+            Hyperlink
         };
 }
 
@@ -173,7 +175,35 @@ public static class ImageWrapTypes
         [BsonElement("convertTableToTextConfig")]
         [JsonPropertyName("convertTableToTextConfig")]
         public ConvertTableToTextConfig? ConvertTableToTextConfig { get; set; }
+
+        [BsonElement("hyperlinkConfig")]
+        [JsonPropertyName("hyperlinkConfig")]
+        public HyperlinkConfig? HyperlinkConfig { get; set; }
 }
+
+    [BsonIgnoreExtraElements]
+    public class HyperlinkConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("relsFile")]
+        [JsonPropertyName("relsFile")]
+        public string? RelsFile { get; set; } = "word/_rels/document.xml.rels";
+
+        [BsonElement("displayText")]
+        [JsonPropertyName("displayText")]
+        public string? DisplayText { get; set; }
+
+        [BsonElement("url")]
+        [JsonPropertyName("url")]
+        public string? Url { get; set; }
+
+        [BsonElement("caseSensitiveText")]
+        [JsonPropertyName("caseSensitiveText")]
+        public bool? CaseSensitiveText { get; set; } = false;
+    }
 
     [BsonIgnoreExtraElements]
     public class ConvertTableToTextConfig

@@ -618,6 +618,29 @@ namespace MOS.ExcelGrading.Core.Services
 
                         convertConfig.RequireNoTables ??= true;
                     }
+
+                    if (task.SpecialCondition.HyperlinkConfig != null)
+                    {
+                        var hyperlinkConfig = task.SpecialCondition.HyperlinkConfig;
+
+                        hyperlinkConfig.SourceFile = string.IsNullOrWhiteSpace(hyperlinkConfig.SourceFile)
+                            ? "word/document.xml"
+                            : NormalizeSourceFile(hyperlinkConfig.SourceFile);
+
+                        hyperlinkConfig.RelsFile = string.IsNullOrWhiteSpace(hyperlinkConfig.RelsFile)
+                            ? "word/_rels/document.xml.rels"
+                            : NormalizeSourceFile(hyperlinkConfig.RelsFile);
+
+                        hyperlinkConfig.DisplayText = string.IsNullOrWhiteSpace(hyperlinkConfig.DisplayText)
+                            ? null
+                            : NormalizePlainText(hyperlinkConfig.DisplayText);
+
+                        hyperlinkConfig.Url = string.IsNullOrWhiteSpace(hyperlinkConfig.Url)
+                            ? null
+                            : hyperlinkConfig.Url.Trim();
+
+                        hyperlinkConfig.CaseSensitiveText ??= false;
+                    }
                 }
             }
         }
@@ -788,7 +811,8 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 "word" => string.Equals(specialConditionType, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase),
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase),
                 "excel" => false,
                 "ppt" => false,
                 "powerpoint" => false,
@@ -1039,6 +1063,11 @@ namespace MOS.ExcelGrading.Core.Services
                 return EvaluateConvertTableToText(specialCondition.ConvertTableToTextConfig, package);
             }
 
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateHyperlink(specialCondition.HyperlinkConfig, package);
+            }
+
             return new SpecialConditionEvalOutcome
             {
                 IsPassed = false,
@@ -1075,6 +1104,114 @@ namespace MOS.ExcelGrading.Core.Services
         {
             public string Text { get; init; } = string.Empty;
             public int TabCount { get; init; }
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateHyperlink(
+            HyperlinkConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Hyperlink (hyperlinkConfig trong).");
+            }
+
+            var expectedText = NormalizePlainText(config.DisplayText);
+            var expectedUrl = config.Url?.Trim();
+
+            if (string.IsNullOrWhiteSpace(expectedText))
+            {
+                return Fail("hyperlinkConfig.displayText khong duoc rong.");
+            }
+
+            if (string.IsNullOrWhiteSpace(expectedUrl))
+            {
+                return Fail("hyperlinkConfig.url khong duoc rong.");
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : NormalizeSourceFile(config.SourceFile);
+
+            var relsFile = string.IsNullOrWhiteSpace(config.RelsFile)
+                ? "word/_rels/document.xml.rels"
+                : NormalizeSourceFile(config.RelsFile);
+
+            if (!package.XmlParts.TryGetValue(sourceFile, out var documentXml))
+            {
+                return Fail($"Khong tim thay {sourceFile} trong file hoc sinh.");
+            }
+
+            if (!package.XmlParts.TryGetValue(relsFile, out var relsXml))
+            {
+                return Fail($"Khong tim thay {relsFile} trong file hoc sinh.");
+            }
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+            XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
+
+            try
+            {
+                var document = XDocument.Parse(documentXml);
+                var relsDocument = XDocument.Parse(relsXml);
+                var relationships = relsDocument
+                    .Descendants(rel + "Relationship")
+                    .ToDictionary(
+                        relationship => relationship.Attribute("Id")?.Value ?? string.Empty,
+                        relationship => relationship.Attribute("Target")?.Value ?? string.Empty,
+                        StringComparer.Ordinal);
+
+                var textComparison = config.CaseSensitiveText == true
+                    ? StringComparison.Ordinal
+                    : StringComparison.OrdinalIgnoreCase;
+
+                string? matchingTextWrongUrl = null;
+
+                foreach (var hyperlink in document.Descendants(w + "hyperlink"))
+                {
+                    var relationshipId = hyperlink.Attribute(r + "id")?.Value;
+                    if (string.IsNullOrWhiteSpace(relationshipId))
+                    {
+                        continue;
+                    }
+
+                    var actualText = NormalizePlainText(string.Concat(hyperlink.Descendants(w + "t").Select(text => text.Value)));
+                    if (!string.Equals(actualText, expectedText, textComparison))
+                    {
+                        continue;
+                    }
+
+                    if (!relationships.TryGetValue(relationshipId, out var target) || string.IsNullOrWhiteSpace(target))
+                    {
+                        matchingTextWrongUrl = $"Tim thay hyperlink text '{actualText}' nhung khong co relationship target.";
+                        continue;
+                    }
+
+                    var actualUrl = target.Trim();
+                    if (string.Equals(actualUrl, expectedUrl, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return new SpecialConditionEvalOutcome
+                        {
+                            IsPassed = true,
+                            Message = $"Da tao hyperlink dung cho '{expectedText}'."
+                        };
+                    }
+
+                    matchingTextWrongUrl = $"Tim thay hyperlink text '{actualText}' nhung URL la '{actualUrl}' thay vi '{expectedUrl}'.";
+                }
+
+                return Fail(matchingTextWrongUrl ?? $"Khong tim thay hyperlink cho text '{expectedText}'.");
+            }
+            catch (XmlException ex)
+            {
+                return Fail($"Khong the phan tich XML: {ex.Message}");
+            }
         }
 
         private static SpecialConditionEvalOutcome EvaluateConvertTableToText(
@@ -2293,6 +2430,53 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase))
             {
                 ValidateConvertTableToTextSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateHyperlinkSpecialCondition(specialCondition, taskPrefix, result);
+            }
+        }
+
+        private static void ValidateHyperlinkSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.HyperlinkConfig;
+
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.hyperlinkConfig khong duoc null.");
+                return;
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : config.SourceFile;
+
+            var relsFile = string.IsNullOrWhiteSpace(config.RelsFile)
+                ? "word/_rels/document.xml.rels"
+                : config.RelsFile;
+
+            if (!IsSafeSourceFile(sourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.hyperlinkConfig.sourceFile khong hop le.");
+            }
+
+            if (!IsSafeSourceFile(relsFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.hyperlinkConfig.relsFile khong hop le.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.DisplayText))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.hyperlinkConfig.displayText khong duoc rong.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.Url))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.hyperlinkConfig.url khong duoc rong.");
             }
         }
 

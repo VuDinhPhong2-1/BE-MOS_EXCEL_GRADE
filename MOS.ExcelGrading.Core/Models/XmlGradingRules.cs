@@ -163,6 +163,10 @@ public static class ImageWrapTypes
         [JsonPropertyName("score")]
         public decimal Score { get; set; }
 
+        [BsonElement("feedback")]
+        [JsonPropertyName("feedback")]
+        public ConditionFeedback Feedback { get; set; } = new();
+
         [BsonElement("config")]
         [JsonPropertyName("config")]
         public PictureBulletConfig? Config { get; set; }

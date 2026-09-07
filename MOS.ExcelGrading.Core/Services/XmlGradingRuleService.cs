@@ -396,7 +396,10 @@ namespace MOS.ExcelGrading.Core.Services
 
                     if (specialResult.IsPassed)
                     {
-                        taskResult.Details.Add($"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}");
+                        var successDetail = taskRule.SpecialCondition!.Feedback?.SuccessDetail?.Trim() ?? string.Empty;
+                        taskResult.Details.Add(string.IsNullOrWhiteSpace(successDetail)
+                            ? $"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}"
+                            : successDetail);
 
                         // Cộng điểm riêng của specialCondition do người tạo ruleset cấu hình.
                         // Cho phép Task chỉ dùng specialCondition (0 condition XML) hoặc
@@ -405,14 +408,26 @@ namespace MOS.ExcelGrading.Core.Services
                     }
                     else
                     {
-                        var message = $"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}";
+                        var fallbackMessage = $"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}";
+                        var message = taskRule.SpecialCondition!.Feedback?.ErrorMessage?.Trim() ?? string.Empty;
+                        var fixAction = taskRule.SpecialCondition!.Feedback?.FixAction?.Trim() ?? string.Empty;
+                        if (string.IsNullOrWhiteSpace(message))
+                        {
+                            message = fallbackMessage;
+                        }
+
                         taskResult.Errors.Add(message);
                         taskResult.DisplayIssues.Add(new TaskDisplayIssue
                         {
                             Heading = string.IsNullOrWhiteSpace(taskRule.TaskName) ? taskRule.TaskId : taskRule.TaskName,
                             Message = message,
-                            FixAction = string.Empty,
+                            FixAction = fixAction,
                         });
+
+                        if (!string.IsNullOrWhiteSpace(fixAction))
+                        {
+                            taskResult.FixActions.Add(fixAction);
+                        }
                     }
                 }
 
@@ -541,6 +556,11 @@ namespace MOS.ExcelGrading.Core.Services
                     {
                         task.SpecialCondition.Score = 0m;
                     }
+
+                    task.SpecialCondition.Feedback ??= new ConditionFeedback();
+                    task.SpecialCondition.Feedback.SuccessDetail = task.SpecialCondition.Feedback.SuccessDetail?.Trim() ?? string.Empty;
+                    task.SpecialCondition.Feedback.ErrorMessage = task.SpecialCondition.Feedback.ErrorMessage?.Trim() ?? string.Empty;
+                    task.SpecialCondition.Feedback.FixAction = task.SpecialCondition.Feedback.FixAction?.Trim() ?? string.Empty;
 
                     // ===== Normalize cho type = pictureBullet =====
                     if (task.SpecialCondition.Config != null)

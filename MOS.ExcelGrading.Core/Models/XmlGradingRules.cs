@@ -50,6 +50,8 @@ namespace MOS.ExcelGrading.Core.Models
     public const string InsertedImage = "insertedImage"; // MỚI
     public const string ConvertTableToText = "convertTableToText";
     public const string Hyperlink = "hyperlink";
+    public const string SectionBreakBeforeText = "sectionBreakBeforeText";
+    public const string PictureStyle = "pictureStyle";
 
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
@@ -57,7 +59,9 @@ namespace MOS.ExcelGrading.Core.Models
             PictureBullet,
             InsertedImage,
             ConvertTableToText,
-            Hyperlink
+            Hyperlink,
+            SectionBreakBeforeText,
+            PictureStyle
         };
 }
 
@@ -183,7 +187,83 @@ public static class ImageWrapTypes
         [BsonElement("hyperlinkConfig")]
         [JsonPropertyName("hyperlinkConfig")]
         public HyperlinkConfig? HyperlinkConfig { get; set; }
+
+        [BsonElement("sectionBreakBeforeTextConfig")]
+        [JsonPropertyName("sectionBreakBeforeTextConfig")]
+        public SectionBreakBeforeTextConfig? SectionBreakBeforeTextConfig { get; set; }
+
+        [BsonElement("pictureStyleConfig")]
+        [JsonPropertyName("pictureStyleConfig")]
+        public PictureStyleConfig? PictureStyleConfig { get; set; }
 }
+
+    [BsonIgnoreExtraElements]
+    public class SectionBreakBeforeTextConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("targetText")]
+        [JsonPropertyName("targetText")]
+        public string? TargetText { get; set; }
+
+        [BsonElement("breakType")]
+        [JsonPropertyName("breakType")]
+        public string? BreakType { get; set; } = "continuous";
+
+        [BsonElement("targetOccurrence")]
+        [JsonPropertyName("targetOccurrence")]
+        public int? TargetOccurrence { get; set; } = 1;
+
+        [BsonElement("requireImmediateBefore")]
+        [JsonPropertyName("requireImmediateBefore")]
+        public bool? RequireImmediateBefore { get; set; } = true;
+
+        [BsonElement("allowSameParagraphSectPr")]
+        [JsonPropertyName("allowSameParagraphSectPr")]
+        public bool? AllowSameParagraphSectPr { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class PictureStyleConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("relsFile")]
+        [JsonPropertyName("relsFile")]
+        public string? RelsFile { get; set; } = "word/_rels/document.xml.rels";
+
+        [BsonElement("assetId")]
+        [JsonPropertyName("assetId")]
+        public string? AssetId { get; set; }
+
+        [BsonElement("imageHash")]
+        [JsonPropertyName("imageHash")]
+        public string? ImageHash { get; set; }
+
+        [BsonElement("perceptualHash")]
+        [JsonPropertyName("perceptualHash")]
+        public string? PerceptualHash { get; set; }
+
+        [BsonElement("targetImageIndex")]
+        [JsonPropertyName("targetImageIndex")]
+        public int? TargetImageIndex { get; set; } = 1;
+
+        [BsonElement("requiredLineColor")]
+        [JsonPropertyName("requiredLineColor")]
+        public string? RequiredLineColor { get; set; } = "000000";
+
+        [BsonElement("minLineWidth")]
+        [JsonPropertyName("minLineWidth")]
+        public int? MinLineWidth { get; set; }
+
+        [BsonElement("presetGeometry")]
+        [JsonPropertyName("presetGeometry")]
+        public string? PresetGeometry { get; set; } = "rect";
+    }
 
     [BsonIgnoreExtraElements]
     public class HyperlinkConfig
@@ -199,6 +279,10 @@ public static class ImageWrapTypes
         [BsonElement("displayText")]
         [JsonPropertyName("displayText")]
         public string? DisplayText { get; set; }
+
+        [BsonElement("anchorTextBefore")]
+        [JsonPropertyName("anchorTextBefore")]
+        public string? AnchorTextBefore { get; set; }
 
         [BsonElement("url")]
         [JsonPropertyName("url")]

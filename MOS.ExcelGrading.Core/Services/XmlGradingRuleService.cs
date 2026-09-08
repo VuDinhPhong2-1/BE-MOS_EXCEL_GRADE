@@ -655,11 +655,81 @@ namespace MOS.ExcelGrading.Core.Services
                             ? null
                             : NormalizePlainText(hyperlinkConfig.DisplayText);
 
+                        hyperlinkConfig.AnchorTextBefore = string.IsNullOrWhiteSpace(hyperlinkConfig.AnchorTextBefore)
+                            ? null
+                            : NormalizePlainText(hyperlinkConfig.AnchorTextBefore);
+
                         hyperlinkConfig.Url = string.IsNullOrWhiteSpace(hyperlinkConfig.Url)
                             ? null
                             : hyperlinkConfig.Url.Trim();
 
                         hyperlinkConfig.CaseSensitiveText ??= false;
+                    }
+
+                    if (task.SpecialCondition.SectionBreakBeforeTextConfig != null)
+                    {
+                        var sectionConfig = task.SpecialCondition.SectionBreakBeforeTextConfig;
+
+                        sectionConfig.SourceFile = string.IsNullOrWhiteSpace(sectionConfig.SourceFile)
+                            ? "word/document.xml"
+                            : NormalizeSourceFile(sectionConfig.SourceFile);
+
+                        sectionConfig.TargetText = string.IsNullOrWhiteSpace(sectionConfig.TargetText)
+                            ? null
+                            : NormalizePlainText(sectionConfig.TargetText);
+
+                        sectionConfig.BreakType = string.IsNullOrWhiteSpace(sectionConfig.BreakType)
+                            ? "continuous"
+                            : sectionConfig.BreakType.Trim();
+
+                        if (sectionConfig.TargetOccurrence <= 0)
+                        {
+                            sectionConfig.TargetOccurrence = 1;
+                        }
+
+                        sectionConfig.RequireImmediateBefore ??= true;
+                        sectionConfig.AllowSameParagraphSectPr ??= true;
+                    }
+
+                    if (task.SpecialCondition.PictureStyleConfig != null)
+                    {
+                        var pictureStyleConfig = task.SpecialCondition.PictureStyleConfig;
+
+                        pictureStyleConfig.SourceFile = string.IsNullOrWhiteSpace(pictureStyleConfig.SourceFile)
+                            ? "word/document.xml"
+                            : NormalizeSourceFile(pictureStyleConfig.SourceFile);
+
+                        pictureStyleConfig.RelsFile = string.IsNullOrWhiteSpace(pictureStyleConfig.RelsFile)
+                            ? "word/_rels/document.xml.rels"
+                            : NormalizeSourceFile(pictureStyleConfig.RelsFile);
+
+                        pictureStyleConfig.AssetId = string.IsNullOrWhiteSpace(pictureStyleConfig.AssetId)
+                            ? null
+                            : pictureStyleConfig.AssetId.Trim();
+
+                        pictureStyleConfig.ImageHash = string.IsNullOrWhiteSpace(pictureStyleConfig.ImageHash)
+                            ? null
+                            : ImageHashUtility.NormalizeHash(pictureStyleConfig.ImageHash);
+
+                        pictureStyleConfig.PerceptualHash = string.IsNullOrWhiteSpace(pictureStyleConfig.PerceptualHash)
+                            ? null
+                            : pictureStyleConfig.PerceptualHash.Trim().ToLowerInvariant();
+
+                        if (pictureStyleConfig.TargetImageIndex <= 0)
+                        {
+                            pictureStyleConfig.TargetImageIndex = 1;
+                        }
+
+                        pictureStyleConfig.RequiredLineColor = NormalizeHexColor(pictureStyleConfig.RequiredLineColor);
+
+                        if (pictureStyleConfig.MinLineWidth <= 0)
+                        {
+                            pictureStyleConfig.MinLineWidth = null;
+                        }
+
+                        pictureStyleConfig.PresetGeometry = string.IsNullOrWhiteSpace(pictureStyleConfig.PresetGeometry)
+                            ? "rect"
+                            : pictureStyleConfig.PresetGeometry.Trim();
                     }
                 }
             }
@@ -832,7 +902,9 @@ namespace MOS.ExcelGrading.Core.Services
                 "word" => string.Equals(specialConditionType, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase),
+                    || string.Equals(specialConditionType, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.SectionBreakBeforeText, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase),
                 "excel" => false,
                 "ppt" => false,
                 "powerpoint" => false,
@@ -1088,6 +1160,16 @@ namespace MOS.ExcelGrading.Core.Services
                 return EvaluateHyperlink(specialCondition.HyperlinkConfig, package);
             }
 
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.SectionBreakBeforeText, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateSectionBreakBeforeText(specialCondition.SectionBreakBeforeTextConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluatePictureStyle(specialCondition.PictureStyleConfig, package);
+            }
+
             return new SpecialConditionEvalOutcome
             {
                 IsPassed = false,
@@ -1124,6 +1206,281 @@ namespace MOS.ExcelGrading.Core.Services
         {
             public string Text { get; init; } = string.Empty;
             public int TabCount { get; init; }
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateSectionBreakBeforeText(
+            SectionBreakBeforeTextConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Section Break Before Text (sectionBreakBeforeTextConfig trong).");
+            }
+
+            var targetText = NormalizePlainText(config.TargetText);
+            if (string.IsNullOrWhiteSpace(targetText))
+            {
+                return Fail("sectionBreakBeforeTextConfig.targetText khong duoc rong.");
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : NormalizeSourceFile(config.SourceFile);
+
+            if (!package.XmlParts.TryGetValue(sourceFile, out var documentXml))
+            {
+                return Fail($"Khong tim thay {sourceFile} trong file hoc sinh.");
+            }
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+            try
+            {
+                var document = XDocument.Parse(documentXml);
+                var paragraphs = document.Descendants(w + "body").Elements(w + "p").ToList();
+                var matches = paragraphs
+                    .Select((paragraph, index) => new
+                    {
+                        Paragraph = paragraph,
+                        Index = index,
+                        Text = BuildParagraphTextSnapshot(paragraph, w).Text
+                    })
+                    .Where(item => item.Text.Contains(targetText, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (matches.Count == 0)
+                {
+                    return Fail($"Khong tim thay targetText '{targetText}' trong {sourceFile}.");
+                }
+
+                var occurrence = Math.Max(1, config.TargetOccurrence ?? 1);
+                if (matches.Count < occurrence)
+                {
+                    return Fail($"Chi tim thay {matches.Count} paragraph chua targetText '{targetText}', can occurrence {occurrence}.");
+                }
+
+                var target = matches[occurrence - 1];
+                var candidateParagraphs = new List<(XElement Paragraph, string Position)>();
+
+                if (config.AllowSameParagraphSectPr != false)
+                {
+                    candidateParagraphs.Add((target.Paragraph, "cung paragraph voi targetText"));
+                }
+
+                if (target.Index > 0)
+                {
+                    if (config.RequireImmediateBefore != false)
+                    {
+                        candidateParagraphs.Add((paragraphs[target.Index - 1], "paragraph ngay truoc targetText"));
+                    }
+                    else
+                    {
+                        candidateParagraphs.AddRange(
+                            paragraphs.Take(target.Index).Reverse().Select(paragraph => (paragraph, "paragraph nam truoc targetText")));
+                    }
+                }
+
+                var expectedType = string.IsNullOrWhiteSpace(config.BreakType)
+                    ? "continuous"
+                    : config.BreakType.Trim();
+
+                foreach (var candidate in candidateParagraphs)
+                {
+                    var sectPr = candidate.Paragraph.Element(w + "pPr")?.Element(w + "sectPr");
+                    if (sectPr == null)
+                    {
+                        continue;
+                    }
+
+                    var actualType = sectPr.Element(w + "type")?.Attribute(w + "val")?.Value;
+                    actualType = string.IsNullOrWhiteSpace(actualType) ? "nextPage" : actualType.Trim();
+
+                    if (string.Equals(actualType, expectedType, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return new SpecialConditionEvalOutcome
+                        {
+                            IsPassed = true,
+                            Message = $"Da tim thay section break '{expectedType}' {candidate.Position}."
+                        };
+                    }
+
+                    return Fail($"Tim thay section break {candidate.Position} nhung type la '{actualType}' thay vi '{expectedType}'.");
+                }
+
+                return Fail($"Khong tim thay section break '{expectedType}' ngay truoc targetText '{targetText}'.");
+            }
+            catch (XmlException ex)
+            {
+                return Fail($"Khong the phan tich XML: {ex.Message}");
+            }
+        }
+
+        private static SpecialConditionEvalOutcome EvaluatePictureStyle(
+            PictureStyleConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Picture Style (pictureStyleConfig trong).");
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : NormalizeSourceFile(config.SourceFile);
+
+            var relsFile = string.IsNullOrWhiteSpace(config.RelsFile)
+                ? "word/_rels/document.xml.rels"
+                : NormalizeSourceFile(config.RelsFile);
+
+            if (!package.XmlParts.TryGetValue(sourceFile, out var documentXml))
+            {
+                return Fail($"Khong tim thay {sourceFile} trong file hoc sinh.");
+            }
+
+            if (!package.XmlParts.TryGetValue(relsFile, out var relsXml))
+            {
+                return Fail($"Khong tim thay {relsFile} trong file hoc sinh.");
+            }
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+            XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
+            XNamespace pic = "http://schemas.openxmlformats.org/drawingml/2006/picture";
+            XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
+
+            try
+            {
+                var document = XDocument.Parse(documentXml);
+                var relsDocument = XDocument.Parse(relsXml);
+                var relationships = relsDocument
+                    .Descendants(rel + "Relationship")
+                    .ToDictionary(
+                        relationship => relationship.Attribute("Id")?.Value ?? string.Empty,
+                        relationship => relationship.Attribute("Target")?.Value ?? string.Empty,
+                        StringComparer.Ordinal);
+
+                var drawings = document.Descendants(w + "drawing").ToList();
+                if (drawings.Count == 0)
+                {
+                    return Fail("Khong tim thay hinh anh (w:drawing) nao trong tai lieu.");
+                }
+
+                var expectedHash = string.IsNullOrWhiteSpace(config.ImageHash)
+                    ? null
+                    : ImageHashUtility.NormalizeHash(config.ImageHash);
+                var expectedPerceptualHash = config.PerceptualHash;
+                var targetImageIndex = Math.Max(1, config.TargetImageIndex ?? 1);
+                var expectedLineColor = NormalizeHexColor(config.RequiredLineColor);
+                var expectedGeometry = string.IsNullOrWhiteSpace(config.PresetGeometry)
+                    ? null
+                    : config.PresetGeometry.Trim();
+
+                var imageOrdinal = 0;
+                string? lastMismatchInfo = null;
+
+                foreach (var drawing in drawings)
+                {
+                    imageOrdinal++;
+
+                    if (!string.IsNullOrWhiteSpace(expectedHash))
+                    {
+                        var relationshipId = drawing.Descendants(a + "blip").FirstOrDefault()?.Attribute(r + "embed")?.Value;
+                        if (string.IsNullOrWhiteSpace(relationshipId))
+                        {
+                            lastMismatchInfo = $"Anh thu {imageOrdinal} khong co relationship id.";
+                            continue;
+                        }
+
+                        if (!relationships.TryGetValue(relationshipId, out var target) || string.IsNullOrWhiteSpace(target))
+                        {
+                            lastMismatchInfo = $"Relationship {relationshipId} khong co Target hop le.";
+                            continue;
+                        }
+
+                        var imagePath = ResolveRelationshipTarget(sourceFile, target);
+                        if (!package.BinaryParts.TryGetValue(imagePath, out var imageBytes))
+                        {
+                            lastMismatchInfo = $"Khong doc duoc anh {imagePath} trong file hoc sinh.";
+                            continue;
+                        }
+
+                        var actualHash = ImageHashUtility.ComputeSha256(imageBytes);
+                        if (!IsImageMatch(imageBytes, actualHash, expectedHash, expectedPerceptualHash))
+                        {
+                            lastMismatchInfo = $"Anh thu {imageOrdinal} khong dung noi dung anh muc tieu.";
+                            continue;
+                        }
+                    }
+                    else if (imageOrdinal != targetImageIndex)
+                    {
+                        continue;
+                    }
+
+                    var picture = drawing.Descendants(pic + "pic").FirstOrDefault();
+                    var shapeProperties = picture?.Element(pic + "spPr");
+                    if (shapeProperties == null)
+                    {
+                        return Fail($"Anh thu {imageOrdinal} khong co pic:spPr de kiem tra picture style.");
+                    }
+
+                    var line = shapeProperties.Element(a + "ln");
+                    if (line == null)
+                    {
+                        return Fail($"Anh thu {imageOrdinal} chua co vien anh (a:ln).");
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(expectedLineColor))
+                    {
+                        var actualColor = GetLineColor(line, a);
+                        if (!DoesLineColorMatch(actualColor, expectedLineColor))
+                        {
+                            return Fail($"Vien anh thu {imageOrdinal} co mau '{actualColor ?? "unknown"}' thay vi '{expectedLineColor}'.");
+                        }
+                    }
+
+                    if (config.MinLineWidth.HasValue)
+                    {
+                        var actualWidth = ParseIntAttribute(line, "w") ?? 0;
+                        if (actualWidth < config.MinLineWidth.Value)
+                        {
+                            return Fail($"Vien anh thu {imageOrdinal} co do day {actualWidth}, can toi thieu {config.MinLineWidth.Value}.");
+                        }
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(expectedGeometry))
+                    {
+                        var actualGeometry = shapeProperties.Element(a + "prstGeom")?.Attribute("prst")?.Value;
+                        if (!string.Equals(actualGeometry, expectedGeometry, StringComparison.OrdinalIgnoreCase))
+                        {
+                            return Fail($"Anh thu {imageOrdinal} co geometry '{actualGeometry ?? "unknown"}' thay vi '{expectedGeometry}'.");
+                        }
+                    }
+
+                    return new SpecialConditionEvalOutcome
+                    {
+                        IsPassed = true,
+                        Message = $"Anh thu {imageOrdinal} da co picture style phu hop."
+                    };
+                }
+
+                return Fail(lastMismatchInfo ?? $"Khong tim thay anh muc tieu de kiem tra picture style.");
+            }
+            catch (XmlException ex)
+            {
+                return Fail($"Khong the phan tich XML: {ex.Message}");
+            }
         }
 
         private static SpecialConditionEvalOutcome EvaluateHyperlink(
@@ -1191,9 +1548,35 @@ namespace MOS.ExcelGrading.Core.Services
                     ? StringComparison.Ordinal
                     : StringComparison.OrdinalIgnoreCase;
 
+                var anchorTextBefore = NormalizePlainText(config.AnchorTextBefore);
                 string? matchingTextWrongUrl = null;
+                var sawAnchorParagraph = string.IsNullOrWhiteSpace(anchorTextBefore);
+                var candidateHyperlinks = document.Descendants(w + "p")
+                    .Where(paragraph =>
+                    {
+                        if (string.IsNullOrWhiteSpace(anchorTextBefore))
+                        {
+                            return true;
+                        }
 
-                foreach (var hyperlink in document.Descendants(w + "hyperlink"))
+                        var paragraphText = BuildParagraphTextSnapshot(paragraph, w).Text;
+                        var anchorIndex = paragraphText.IndexOf(anchorTextBefore, textComparison);
+                        if (anchorIndex < 0)
+                        {
+                            return false;
+                        }
+
+                        sawAnchorParagraph = true;
+                        var expectedTextIndex = paragraphText.IndexOf(
+                            expectedText,
+                            anchorIndex + anchorTextBefore.Length,
+                            textComparison);
+
+                        return expectedTextIndex >= 0;
+                    })
+                    .SelectMany(paragraph => paragraph.Descendants(w + "hyperlink"));
+
+                foreach (var hyperlink in candidateHyperlinks)
                 {
                     var relationshipId = hyperlink.Attribute(r + "id")?.Value;
                     if (string.IsNullOrWhiteSpace(relationshipId))
@@ -1224,6 +1607,16 @@ namespace MOS.ExcelGrading.Core.Services
                     }
 
                     matchingTextWrongUrl = $"Tim thay hyperlink text '{actualText}' nhung URL la '{actualUrl}' thay vi '{expectedUrl}'.";
+                }
+
+                if (!sawAnchorParagraph)
+                {
+                    return Fail($"Khong tim thay paragraph chua anchorTextBefore '{anchorTextBefore}'.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(anchorTextBefore) && matchingTextWrongUrl == null)
+                {
+                    return Fail($"Khong tim thay hyperlink cho text '{expectedText}' sau anchorTextBefore '{anchorTextBefore}'.");
                 }
 
                 return Fail(matchingTextWrongUrl ?? $"Khong tim thay hyperlink cho text '{expectedText}'.");
@@ -2497,6 +2890,11 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.IsNullOrWhiteSpace(config.Url))
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.hyperlinkConfig.url khong duoc rong.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.AnchorTextBefore))
+            {
+                result.Warnings.Add($"{taskPrefix}.specialCondition.hyperlinkConfig.anchorTextBefore nen duoc cau hinh neu displayText co the lap lai nhieu vi tri.");
             }
         }
 

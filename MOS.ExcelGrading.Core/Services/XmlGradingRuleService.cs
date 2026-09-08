@@ -1,6 +1,8 @@
 using MongoDB.Driver;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
+using Microsoft.Extensions.Logging;
+using System.Diagnostics;
 using System.IO.Compression;
 using System.Security;
 using System.Text;
@@ -24,10 +26,14 @@ namespace MOS.ExcelGrading.Core.Services
             "xmlns:x=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" " +
             "xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"";
         private readonly IMongoCollection<GradingRuleSet> _ruleSets;
+        private readonly ILogger<XmlGradingRuleService>? _logger;
 
-        public XmlGradingRuleService(IMongoDatabase database)
+        public XmlGradingRuleService(
+            IMongoDatabase database,
+            ILogger<XmlGradingRuleService>? logger = null)
         {
             _ruleSets = database.GetCollection<GradingRuleSet>("grading_rule_sets");
+            _logger = logger;
         }
 
         public async Task<List<GradingRuleSet>> GetRuleSetsAsync(string? subject = null, bool? isActive = null)
@@ -312,7 +318,17 @@ namespace MOS.ExcelGrading.Core.Services
                     ruleSet => ruleSet.Projects,
                     project => project.ProjectCode == normalizedProjectCode));
 
-            return await _ruleSets.Find(filter).FirstOrDefaultAsync();
+            var projection = Builders<GradingRuleSet>.Projection
+                .Include(ruleSet => ruleSet.Id)
+                .Include(ruleSet => ruleSet.Subject)
+                .Include(ruleSet => ruleSet.Version)
+                .Include(ruleSet => ruleSet.IsActive)
+                .ElemMatch(ruleSet => ruleSet.Projects, project => project.ProjectCode == normalizedProjectCode);
+
+            return await _ruleSets
+                .Find(filter)
+                .Project<GradingRuleSet>(projection)
+                .FirstOrDefaultAsync();
         }
 
         public Task<XmlRuleValidationResult> ValidateRuleSetAsync(GradingRuleSet ruleSet)
@@ -352,14 +368,22 @@ namespace MOS.ExcelGrading.Core.Services
 
         public async Task<GradingResult> GradeAsync(Stream studentFile, string subject, string projectCode)
         {
+            var totalStopwatch = Stopwatch.StartNew();
+            var phaseStopwatch = Stopwatch.StartNew();
+
             var ruleSet = await GetActiveRuleSetAsync(subject, projectCode)
                 ?? throw new InvalidOperationException($"Không tìm thấy XML grading ruleset active cho {subject}/{projectCode}.");
+
+            var rulesetMs = phaseStopwatch.ElapsedMilliseconds;
 
             var projectRule = ruleSet.Projects.FirstOrDefault(project =>
                 string.Equals(project.ProjectCode, NormalizeKey(projectCode), StringComparison.OrdinalIgnoreCase))
                 ?? throw new InvalidOperationException($"Không tìm thấy project rule cho {projectCode}.");
 
-            var package = ReadOfficePackage(studentFile);
+            phaseStopwatch.Restart();
+            var requiredParts = CollectRequiredOfficeParts(projectRule);
+            var package = ReadOfficePackage(studentFile, requiredParts);
+            var packageMs = phaseStopwatch.ElapsedMilliseconds;
 
             var result = new GradingResult
             {
@@ -369,6 +393,8 @@ namespace MOS.ExcelGrading.Core.Services
             };
 
             var evaluationCache = new XmlEvaluationCache();
+            long specialMs = 0;
+            long conditionsMs = 0;
 
             foreach (var taskRule in projectRule.Tasks)
             {
@@ -391,7 +417,9 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (hasSpecialCondition)
                 {
+                    phaseStopwatch.Restart();
                     var specialResult = EvaluateTaskSpecialCondition(taskRule.SpecialCondition!, package, ruleSet.Subject);
+                    specialMs += phaseStopwatch.ElapsedMilliseconds;
                     specialConditionPassed = specialResult.IsPassed;
 
                     if (specialResult.IsPassed)
@@ -432,6 +460,7 @@ namespace MOS.ExcelGrading.Core.Services
                 }
 
                 // ===== NORMAL XML CONDITIONS =====
+                phaseStopwatch.Restart();
                 foreach (var condition in taskRule.Conditions)
                 {
                     var conditionResult = EvaluateCondition(condition, package, evaluationCache);
@@ -474,6 +503,7 @@ namespace MOS.ExcelGrading.Core.Services
                     }
                 }
                 // Special condition FAIL -> zero toàn bộ Task, kể cả khi có conditions XML đã đạt điểm.
+                conditionsMs += phaseStopwatch.ElapsedMilliseconds;
                 if (hasSpecialCondition && !specialConditionPassed)
                 {
                     taskResult.Score = 0m;
@@ -488,6 +518,19 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             ApplyProjectScoringModel(result);
+            totalStopwatch.Stop();
+            _logger?.LogInformation(
+                "XML grading timing subject={Subject} project={ProjectCode} tasks={TaskCount} rulesetMs={RuleSetMs} packageMs={PackageMs} specialMs={SpecialMs} conditionsMs={ConditionsMs} totalMs={TotalMs} xmlParts={XmlPartCount} binaryParts={BinaryPartCount}",
+                NormalizeKey(subject),
+                NormalizeKey(projectCode),
+                projectRule.Tasks.Count,
+                rulesetMs,
+                packageMs,
+                specialMs,
+                conditionsMs,
+                totalStopwatch.ElapsedMilliseconds,
+                package.XmlParts.Count,
+                package.BinaryParts.Count);
             return result;
         }
 
@@ -916,6 +959,12 @@ namespace MOS.ExcelGrading.Core.Services
             };
         }
 
+        private sealed class RequiredOfficeParts
+        {
+            public HashSet<string> XmlParts { get; } = new(StringComparer.OrdinalIgnoreCase);
+            public bool ReadRelatedImages { get; set; }
+        }
+
         private sealed class OfficePackage
         {
             public Dictionary<string, string> XmlParts { get; } =
@@ -1079,7 +1128,7 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
-        private static OfficePackage ReadOfficePackage(Stream studentFile)
+        private static OfficePackage ReadOfficePackage(Stream studentFile, RequiredOfficeParts? requiredParts = null)
         {
             if (studentFile.CanSeek)
             {
@@ -1092,37 +1141,213 @@ namespace MOS.ExcelGrading.Core.Services
                 leaveOpen: true);
 
             var package = new OfficePackage();
+            var entriesByPath = archive.Entries
+                .Where(entry => !string.IsNullOrWhiteSpace(entry.FullName))
+                .GroupBy(entry => NormalizeSourceFile(entry.FullName), StringComparer.OrdinalIgnoreCase)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
-            foreach (var entry in archive.Entries)
+            if (requiredParts == null || requiredParts.XmlParts.Count == 0)
             {
-                var normalizedPath = NormalizeSourceFile(entry.FullName);
-
-                if (string.IsNullOrWhiteSpace(normalizedPath))
+                foreach (var entry in archive.Entries)
                 {
-                    continue;
+                    var normalizedPath = NormalizeSourceFile(entry.FullName);
+
+                    if (string.IsNullOrWhiteSpace(normalizedPath))
+                    {
+                        continue;
+                    }
+
+                    if (normalizedPath.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+                        || normalizedPath.EndsWith(".rels", StringComparison.OrdinalIgnoreCase))
+                    {
+                        package.XmlParts[normalizedPath] = ReadEntryText(entry);
+                    }
+                    else if (IsSupportedImage(normalizedPath))
+                    {
+                        package.BinaryParts[normalizedPath] = ReadEntryBytes(entry);
+                    }
                 }
 
-                using var entryStream = entry.Open();
+                return package;
+            }
 
-                if (normalizedPath.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
-                    || normalizedPath.EndsWith(".rels", StringComparison.OrdinalIgnoreCase))
+            foreach (var xmlPart in requiredParts.XmlParts)
+            {
+                var normalizedPath = NormalizeSourceFile(xmlPart);
+                if (entriesByPath.TryGetValue(normalizedPath, out var entry))
                 {
-                    using var reader = new StreamReader(
-                        entryStream,
-                        Encoding.UTF8,
-                        detectEncodingFromByteOrderMarks: true);
-
-                    package.XmlParts[normalizedPath] = reader.ReadToEnd();
+                    package.XmlParts[normalizedPath] = ReadEntryText(entry);
                 }
-                else if (IsSupportedImage(normalizedPath))
+            }
+
+            if (requiredParts.ReadRelatedImages)
+            {
+                foreach (var imagePath in CollectRelatedImageParts(package))
                 {
-                    using var memoryStream = new MemoryStream();
-                    entryStream.CopyTo(memoryStream);
-                    package.BinaryParts[normalizedPath] = memoryStream.ToArray();
+                    if (entriesByPath.TryGetValue(imagePath, out var entry))
+                    {
+                        package.BinaryParts[imagePath] = ReadEntryBytes(entry);
+                    }
                 }
             }
 
             return package;
+        }
+
+        private static string ReadEntryText(ZipArchiveEntry entry)
+        {
+            using var entryStream = entry.Open();
+            using var reader = new StreamReader(
+                entryStream,
+                Encoding.UTF8,
+                detectEncodingFromByteOrderMarks: true);
+
+            return reader.ReadToEnd();
+        }
+
+        private static byte[] ReadEntryBytes(ZipArchiveEntry entry)
+        {
+            using var entryStream = entry.Open();
+            using var memoryStream = new MemoryStream();
+            entryStream.CopyTo(memoryStream);
+            return memoryStream.ToArray();
+        }
+
+        private static RequiredOfficeParts CollectRequiredOfficeParts(ProjectXmlRule projectRule)
+        {
+            var requiredParts = new RequiredOfficeParts();
+
+            void AddXmlPart(string? path, string fallback)
+            {
+                var normalizedPath = string.IsNullOrWhiteSpace(path)
+                    ? fallback
+                    : NormalizeSourceFile(path);
+
+                if (!string.IsNullOrWhiteSpace(normalizedPath))
+                {
+                    requiredParts.XmlParts.Add(normalizedPath);
+                }
+            }
+
+            foreach (var task in projectRule.Tasks)
+            {
+                foreach (var condition in task.Conditions)
+                {
+                    AddXmlPart(condition.SourceFile, "word/document.xml");
+                }
+
+                var specialCondition = task.SpecialCondition;
+                if (specialCondition == null || string.IsNullOrWhiteSpace(specialCondition.Type))
+                {
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart("word/document.xml", "word/document.xml");
+                    AddXmlPart("word/numbering.xml", "word/numbering.xml");
+                    AddXmlPart("word/_rels/numbering.xml.rels", "word/_rels/numbering.xml.rels");
+                    requiredParts.ReadRelatedImages = true;
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart("word/document.xml", "word/document.xml");
+                    AddXmlPart("word/_rels/document.xml.rels", "word/_rels/document.xml.rels");
+                    requiredParts.ReadRelatedImages = true;
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.ConvertTableToTextConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.HyperlinkConfig?.SourceFile, "word/document.xml");
+                    AddXmlPart(specialCondition.HyperlinkConfig?.RelsFile, "word/_rels/document.xml.rels");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.SectionBreakBeforeText, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.SectionBreakBeforeTextConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.PictureStyleConfig?.SourceFile, "word/document.xml");
+                    if (!string.IsNullOrWhiteSpace(specialCondition.PictureStyleConfig?.ImageHash))
+                    {
+                        AddXmlPart(specialCondition.PictureStyleConfig?.RelsFile, "word/_rels/document.xml.rels");
+                        requiredParts.ReadRelatedImages = true;
+                    }
+                }
+            }
+
+            return requiredParts;
+        }
+
+        private static IEnumerable<string> CollectRelatedImageParts(OfficePackage package)
+        {
+            var imageParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var (relsPath, relsXml) in package.XmlParts
+                .Where(part => part.Key.EndsWith(".rels", StringComparison.OrdinalIgnoreCase)))
+            {
+                XDocument relationshipsDocument;
+                try
+                {
+                    relationshipsDocument = XDocument.Parse(relsXml);
+                }
+                catch (XmlException)
+                {
+                    continue;
+                }
+
+                var sourcePart = ResolveRelationshipsSourcePart(relsPath);
+                XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
+
+                foreach (var relationship in relationshipsDocument.Descendants(rel + "Relationship"))
+                {
+                    var target = relationship.Attribute("Target")?.Value;
+                    if (string.IsNullOrWhiteSpace(target))
+                    {
+                        continue;
+                    }
+
+                    var imagePath = ResolveRelationshipTarget(sourcePart, target);
+                    if (IsSupportedImage(imagePath))
+                    {
+                        imageParts.Add(imagePath);
+                    }
+                }
+            }
+
+            return imageParts;
+        }
+
+        private static string ResolveRelationshipsSourcePart(string relsPath)
+        {
+            var normalizedPath = NormalizeSourceFile(relsPath);
+            const string relsMarker = "/_rels/";
+
+            var markerIndex = normalizedPath.LastIndexOf(relsMarker, StringComparison.OrdinalIgnoreCase);
+            if (markerIndex < 0 || !normalizedPath.EndsWith(".rels", StringComparison.OrdinalIgnoreCase))
+            {
+                return normalizedPath;
+            }
+
+            var directory = normalizedPath[..markerIndex];
+            var fileName = normalizedPath[(markerIndex + relsMarker.Length)..^5];
+
+            return string.IsNullOrWhiteSpace(directory)
+                ? fileName
+                : $"{directory}/{fileName}";
         }
 
         private static bool IsSupportedImage(string path)
@@ -1477,11 +1702,6 @@ namespace MOS.ExcelGrading.Core.Services
                 return Fail(documentError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
             }
 
-            if (!package.TryGetRelationships(relsFile, out var relationships, out var relsError))
-            {
-                return Fail(relsError ?? $"Khong tim thay {relsFile} trong file hoc sinh.");
-            }
-
             XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
             XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
             XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
@@ -1510,6 +1730,13 @@ namespace MOS.ExcelGrading.Core.Services
 
                 var imageOrdinal = 0;
                 string? lastMismatchInfo = null;
+                Dictionary<string, string>? relationships = null;
+
+                if (!string.IsNullOrWhiteSpace(expectedHash)
+                    && !package.TryGetRelationships(relsFile, out relationships, out var relsError))
+                {
+                    return Fail(relsError ?? $"Khong tim thay {relsFile} trong file hoc sinh.");
+                }
 
                 foreach (var drawing in drawings)
                 {
@@ -1524,7 +1751,9 @@ namespace MOS.ExcelGrading.Core.Services
                             continue;
                         }
 
-                        if (!relationships.TryGetValue(relationshipId, out var target) || string.IsNullOrWhiteSpace(target))
+                        if (relationships == null
+                            || !relationships.TryGetValue(relationshipId, out var target)
+                            || string.IsNullOrWhiteSpace(target))
                         {
                             lastMismatchInfo = $"Relationship {relationshipId} khong co Target hop le.";
                             continue;

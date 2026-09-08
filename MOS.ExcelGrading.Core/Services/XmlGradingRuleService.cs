@@ -720,6 +720,10 @@ namespace MOS.ExcelGrading.Core.Services
                             pictureStyleConfig.TargetImageIndex = 1;
                         }
 
+                        pictureStyleConfig.StylePreset = string.IsNullOrWhiteSpace(pictureStyleConfig.StylePreset)
+                            ? "simpleFrameBlack"
+                            : pictureStyleConfig.StylePreset.Trim();
+
                         pictureStyleConfig.RequiredLineColor = NormalizeHexColor(pictureStyleConfig.RequiredLineColor);
 
                         if (pictureStyleConfig.MinLineWidth <= 0)
@@ -919,6 +923,106 @@ namespace MOS.ExcelGrading.Core.Services
 
             public Dictionary<string, byte[]> BinaryParts { get; } =
                 new(StringComparer.OrdinalIgnoreCase);
+
+            private readonly Dictionary<string, XDocument> _xmlDocuments =
+                new(StringComparer.OrdinalIgnoreCase);
+
+            private readonly Dictionary<string, Dictionary<string, string>> _relationshipMaps =
+                new(StringComparer.OrdinalIgnoreCase);
+
+            private readonly Dictionary<string, string> _sha256Hashes =
+                new(StringComparer.OrdinalIgnoreCase);
+
+            private readonly Dictionary<string, string> _perceptualHashes =
+                new(StringComparer.OrdinalIgnoreCase);
+
+            public bool TryGetXmlDocument(string sourceFile, out XDocument document, out string? errorMessage)
+            {
+                document = null!;
+                errorMessage = null;
+                var normalizedSourceFile = NormalizeSourceFile(sourceFile);
+
+                if (_xmlDocuments.TryGetValue(normalizedSourceFile, out document!))
+                {
+                    return true;
+                }
+
+                if (!XmlParts.TryGetValue(normalizedSourceFile, out var xml))
+                {
+                    errorMessage = $"Khong tim thay {normalizedSourceFile} trong file hoc sinh.";
+                    return false;
+                }
+
+                try
+                {
+                    document = XDocument.Parse(xml);
+                    _xmlDocuments[normalizedSourceFile] = document;
+                    return true;
+                }
+                catch (XmlException ex)
+                {
+                    errorMessage = $"Khong the phan tich XML {normalizedSourceFile}: {ex.Message}";
+                    return false;
+                }
+            }
+
+            public bool TryGetRelationships(string relsFile, out Dictionary<string, string> relationships, out string? errorMessage)
+            {
+                relationships = null!;
+                errorMessage = null;
+                var normalizedRelsFile = NormalizeSourceFile(relsFile);
+
+                if (_relationshipMaps.TryGetValue(normalizedRelsFile, out relationships!))
+                {
+                    return true;
+                }
+
+                if (!TryGetXmlDocument(normalizedRelsFile, out var relsDocument, out errorMessage))
+                {
+                    return false;
+                }
+
+                XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
+                relationships = relsDocument
+                    .Descendants(rel + "Relationship")
+                    .Where(relationship => !string.IsNullOrWhiteSpace(relationship.Attribute("Id")?.Value))
+                    .GroupBy(
+                        relationship => relationship.Attribute("Id")!.Value,
+                        StringComparer.Ordinal)
+                    .ToDictionary(
+                        group => group.Key,
+                        group => group.First().Attribute("Target")?.Value ?? string.Empty,
+                        StringComparer.Ordinal);
+
+                _relationshipMaps[normalizedRelsFile] = relationships;
+                return true;
+            }
+
+            public string GetSha256(string imagePath, byte[] imageBytes)
+            {
+                var normalizedPath = NormalizeSourceFile(imagePath);
+                if (_sha256Hashes.TryGetValue(normalizedPath, out var hash))
+                {
+                    return hash;
+                }
+
+                hash = ImageHashUtility.ComputeSha256(imageBytes);
+                _sha256Hashes[normalizedPath] = hash;
+                return hash;
+            }
+
+            public string GetPerceptualHash(string imagePath, byte[] imageBytes)
+            {
+                var normalizedPath = NormalizeSourceFile(imagePath);
+                if (_perceptualHashes.TryGetValue(normalizedPath, out var hash))
+                {
+                    return hash;
+                }
+
+                hash = ImageHashUtility.ComputePerceptualHash(imageBytes);
+                _perceptualHashes[normalizedPath] = hash;
+                return hash;
+            }
         }
 
         private static string BuildIgnoreAttributesKey(IReadOnlyList<string>? ignoreAttributes)
@@ -1202,6 +1306,31 @@ namespace MOS.ExcelGrading.Core.Services
             return string.Equals(actualSha256Hash, expectedSha256Hash, StringComparison.OrdinalIgnoreCase);
         }
 
+        private static bool IsImageMatch(
+            OfficePackage package,
+            string imagePath,
+            byte[] imageBytes,
+            string expectedSha256Hash,
+            string? expectedPerceptualHash)
+        {
+            var actualSha256Hash = package.GetSha256(imagePath, imageBytes);
+
+            if (!string.IsNullOrWhiteSpace(expectedPerceptualHash))
+            {
+                try
+                {
+                    var actualPerceptualHash = package.GetPerceptualHash(imagePath, imageBytes);
+                    return ImageHashUtility.IsPerceptuallySimilar(actualPerceptualHash, expectedPerceptualHash, PerceptualHashThreshold);
+                }
+                catch
+                {
+                    return string.Equals(actualSha256Hash, expectedSha256Hash, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+
+            return string.Equals(actualSha256Hash, expectedSha256Hash, StringComparison.OrdinalIgnoreCase);
+        }
+
         private sealed class ParagraphTextSnapshot
         {
             public string Text { get; init; } = string.Empty;
@@ -1233,16 +1362,15 @@ namespace MOS.ExcelGrading.Core.Services
                 ? "word/document.xml"
                 : NormalizeSourceFile(config.SourceFile);
 
-            if (!package.XmlParts.TryGetValue(sourceFile, out var documentXml))
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var documentError))
             {
-                return Fail($"Khong tim thay {sourceFile} trong file hoc sinh.");
+                return Fail(documentError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
             }
 
             XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
             try
             {
-                var document = XDocument.Parse(documentXml);
                 var paragraphs = document.Descendants(w + "body").Elements(w + "p").ToList();
                 var matches = paragraphs
                     .Select((paragraph, index) => new
@@ -1344,33 +1472,23 @@ namespace MOS.ExcelGrading.Core.Services
                 ? "word/_rels/document.xml.rels"
                 : NormalizeSourceFile(config.RelsFile);
 
-            if (!package.XmlParts.TryGetValue(sourceFile, out var documentXml))
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var documentError))
             {
-                return Fail($"Khong tim thay {sourceFile} trong file hoc sinh.");
+                return Fail(documentError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
             }
 
-            if (!package.XmlParts.TryGetValue(relsFile, out var relsXml))
+            if (!package.TryGetRelationships(relsFile, out var relationships, out var relsError))
             {
-                return Fail($"Khong tim thay {relsFile} trong file hoc sinh.");
+                return Fail(relsError ?? $"Khong tim thay {relsFile} trong file hoc sinh.");
             }
 
             XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
             XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
             XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
             XNamespace pic = "http://schemas.openxmlformats.org/drawingml/2006/picture";
-            XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
 
             try
             {
-                var document = XDocument.Parse(documentXml);
-                var relsDocument = XDocument.Parse(relsXml);
-                var relationships = relsDocument
-                    .Descendants(rel + "Relationship")
-                    .ToDictionary(
-                        relationship => relationship.Attribute("Id")?.Value ?? string.Empty,
-                        relationship => relationship.Attribute("Target")?.Value ?? string.Empty,
-                        StringComparer.Ordinal);
-
                 var drawings = document.Descendants(w + "drawing").ToList();
                 if (drawings.Count == 0)
                 {
@@ -1382,6 +1500,9 @@ namespace MOS.ExcelGrading.Core.Services
                     : ImageHashUtility.NormalizeHash(config.ImageHash);
                 var expectedPerceptualHash = config.PerceptualHash;
                 var targetImageIndex = Math.Max(1, config.TargetImageIndex ?? 1);
+                var stylePreset = string.IsNullOrWhiteSpace(config.StylePreset)
+                    ? "simpleFrameBlack"
+                    : config.StylePreset.Trim();
                 var expectedLineColor = NormalizeHexColor(config.RequiredLineColor);
                 var expectedGeometry = string.IsNullOrWhiteSpace(config.PresetGeometry)
                     ? null
@@ -1416,8 +1537,7 @@ namespace MOS.ExcelGrading.Core.Services
                             continue;
                         }
 
-                        var actualHash = ImageHashUtility.ComputeSha256(imageBytes);
-                        if (!IsImageMatch(imageBytes, actualHash, expectedHash, expectedPerceptualHash))
+                        if (!IsImageMatch(package, imagePath, imageBytes, expectedHash, expectedPerceptualHash))
                         {
                             lastMismatchInfo = $"Anh thu {imageOrdinal} khong dung noi dung anh muc tieu.";
                             continue;
@@ -1466,6 +1586,12 @@ namespace MOS.ExcelGrading.Core.Services
                         {
                             return Fail($"Anh thu {imageOrdinal} co geometry '{actualGeometry ?? "unknown"}' thay vi '{expectedGeometry}'.");
                         }
+                    }
+
+                    if (string.Equals(stylePreset, "simpleFrameBlack", StringComparison.OrdinalIgnoreCase)
+                        && HasVisiblePictureEffects(picture!, shapeProperties, a, pic))
+                    {
+                        return Fail($"Anh thu {imageOrdinal} co effect/shadow nen khong phai Simple Frame, Black.");
                     }
 
                     return new SpecialConditionEvalOutcome
@@ -1519,31 +1645,21 @@ namespace MOS.ExcelGrading.Core.Services
                 ? "word/_rels/document.xml.rels"
                 : NormalizeSourceFile(config.RelsFile);
 
-            if (!package.XmlParts.TryGetValue(sourceFile, out var documentXml))
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var documentError))
             {
-                return Fail($"Khong tim thay {sourceFile} trong file hoc sinh.");
+                return Fail(documentError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
             }
 
-            if (!package.XmlParts.TryGetValue(relsFile, out var relsXml))
+            if (!package.TryGetRelationships(relsFile, out var relationships, out var relsError))
             {
-                return Fail($"Khong tim thay {relsFile} trong file hoc sinh.");
+                return Fail(relsError ?? $"Khong tim thay {relsFile} trong file hoc sinh.");
             }
 
             XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
             XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
-            XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
 
             try
             {
-                var document = XDocument.Parse(documentXml);
-                var relsDocument = XDocument.Parse(relsXml);
-                var relationships = relsDocument
-                    .Descendants(rel + "Relationship")
-                    .ToDictionary(
-                        relationship => relationship.Attribute("Id")?.Value ?? string.Empty,
-                        relationship => relationship.Attribute("Target")?.Value ?? string.Empty,
-                        StringComparer.Ordinal);
-
                 var textComparison = config.CaseSensitiveText == true
                     ? StringComparison.Ordinal
                     : StringComparison.OrdinalIgnoreCase;
@@ -1643,17 +1759,15 @@ namespace MOS.ExcelGrading.Core.Services
                 ? "word/document.xml"
                 : NormalizeSourceFile(config.SourceFile);
 
-            if (!package.XmlParts.TryGetValue(sourceFile, out var documentXml))
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var documentError))
             {
-                return Fail($"Khong tim thay {sourceFile} trong file hoc sinh.");
+                return Fail(documentError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
             }
 
             XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
 
             try
             {
-                var document = XDocument.Parse(documentXml);
-
                 if (config.RequireNoTables != false && document.Descendants(w + "tbl").Any())
                 {
                     return Fail("Tai lieu van con bang Word (w:tbl), chua convert table thanh text.");
@@ -1776,12 +1890,12 @@ namespace MOS.ExcelGrading.Core.Services
             const string documentPart = "word/document.xml";
             const string documentRelsPath = "word/_rels/document.xml.rels";
 
-            if (!package.XmlParts.TryGetValue(documentPart, out var documentXml))
+            if (!package.TryGetXmlDocument(documentPart, out var documentDocument, out var documentError))
             {
                 return Fail($"Không tìm thấy {documentPart} trong file học sinh.");
             }
 
-            if (!package.XmlParts.TryGetValue(documentRelsPath, out var relsXml))
+            if (!package.TryGetRelationships(documentRelsPath, out var relationships, out var relsError))
             {
                 return Fail("Không tìm thấy word/_rels/document.xml.rels.");
             }
@@ -1790,12 +1904,9 @@ namespace MOS.ExcelGrading.Core.Services
             XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
             XNamespace wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
             XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
-            XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
 
             try
             {
-                var documentDocument = XDocument.Parse(documentXml);
-                var relsDocument = XDocument.Parse(relsXml);
                 var expectedHash = ImageHashUtility.NormalizeHash(config.ImageHash);
                 var expectedPerceptualHash = config.PerceptualHash;
                 var expectedWrap = string.IsNullOrWhiteSpace(config.WrapType) ? null : config.WrapType.Trim();
@@ -1818,12 +1929,7 @@ namespace MOS.ExcelGrading.Core.Services
                         continue;
                     }
 
-                    var relationship = relsDocument
-                        .Descendants(rel + "Relationship")
-                        .FirstOrDefault(e => string.Equals(e.Attribute("Id")?.Value, relationshipId, StringComparison.Ordinal));
-
-                    var target = relationship?.Attribute("Target")?.Value;
-                    if (string.IsNullOrWhiteSpace(target))
+                    if (!relationships.TryGetValue(relationshipId, out var target) || string.IsNullOrWhiteSpace(target))
                     {
                         lastMismatchInfo = $"Relationship {relationshipId} không có Target hợp lệ.";
                         continue;
@@ -1837,9 +1943,7 @@ namespace MOS.ExcelGrading.Core.Services
                         continue;
                     }
 
-                    var actualHash = ImageHashUtility.ComputeSha256(imageBytes);
-
-                    if (!IsImageMatch(imageBytes, actualHash, expectedHash, expectedPerceptualHash))
+                    if (!IsImageMatch(package, imagePath, imageBytes, expectedHash, expectedPerceptualHash))
                     {
                         lastMismatchInfo = $"Tìm thấy ảnh {imagePath} nhưng không đúng nội dung yêu cầu.";
                         continue;
@@ -1932,17 +2036,17 @@ namespace MOS.ExcelGrading.Core.Services
             const string numberingPath = "word/numbering.xml";
             const string numberingRelsPath = "word/_rels/numbering.xml.rels";
 
-            if (!package.XmlParts.TryGetValue(documentPart, out var documentXml))
+            if (!package.TryGetXmlDocument(documentPart, out var documentDocument, out var documentError))
             {
                 return Fail($"Không tìm thấy {documentPart} trong file học sinh.");
             }
 
-            if (!package.XmlParts.TryGetValue(numberingPath, out var numberingXml))
+            if (!package.TryGetXmlDocument(numberingPath, out var numberingDocument, out var numberingError))
             {
                 return Fail("File học sinh không có word/numbering.xml.");
             }
 
-            if (!package.XmlParts.TryGetValue(numberingRelsPath, out var relsXml))
+            if (!package.TryGetRelationships(numberingRelsPath, out var relationships, out var relsError))
             {
                 return Fail("Không tìm thấy word/_rels/numbering.xml.rels.");
             }
@@ -1951,20 +2055,27 @@ namespace MOS.ExcelGrading.Core.Services
             XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
             XNamespace v = "urn:schemas-microsoft-com:vml";
             XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
-            XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
 
             try
             {
-                var documentDocument = XDocument.Parse(documentXml);
-                var numberingDocument = XDocument.Parse(numberingXml);
-                var relsDocument = XDocument.Parse(relsXml);
-
                 var expectedHash = ImageHashUtility.NormalizeHash(config.ImageHash);
                 var expectedPerceptualHash = config.PerceptualHash;
 
                 // Duyệt toàn bộ paragraph trong document.xml, tìm bất kỳ paragraph nào
                 // dùng picture bullet ở đúng Level (nếu có chỉ định) mà ảnh khớp expectedHash.
                 var allParagraphs = documentDocument.Descendants(w + "p").ToList();
+                var numById = numberingDocument.Descendants(w + "num")
+                    .Where(element => !string.IsNullOrWhiteSpace(element.Attribute(w + "numId")?.Value))
+                    .GroupBy(element => element.Attribute(w + "numId")!.Value, StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+                var abstractNumById = numberingDocument.Descendants(w + "abstractNum")
+                    .Where(element => !string.IsNullOrWhiteSpace(element.Attribute(w + "abstractNumId")?.Value))
+                    .GroupBy(element => element.Attribute(w + "abstractNumId")!.Value, StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
+                var numPicBulletById = numberingDocument.Descendants(w + "numPicBullet")
+                    .Where(element => !string.IsNullOrWhiteSpace(element.Attribute(w + "numPicBulletId")?.Value))
+                    .GroupBy(element => element.Attribute(w + "numPicBulletId")!.Value, StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal);
 
                 var checkedAnyBulletParagraph = false;
                 string? lastMismatchInfo = null;
@@ -1992,11 +2103,7 @@ namespace MOS.ExcelGrading.Core.Services
                     }
 
                     // numId -> w:num -> abstractNumId
-                    var numElement = numberingDocument
-                        .Descendants(w + "num")
-                        .FirstOrDefault(e => e.Attribute(w + "numId")?.Value == numId.ToString());
-
-                    if (numElement == null)
+                    if (!numById.TryGetValue(numId.ToString(), out var numElement))
                     {
                         continue;
                     }
@@ -2008,11 +2115,7 @@ namespace MOS.ExcelGrading.Core.Services
                     }
 
                     // abstractNumId -> abstractNum -> lvl[ilvl] -> lvlPicBulletId
-                    var abstractNumElement = numberingDocument
-                        .Descendants(w + "abstractNum")
-                        .FirstOrDefault(e => e.Attribute(w + "abstractNumId")?.Value == abstractNumId.ToString());
-
-                    if (abstractNumElement == null)
+                    if (!abstractNumById.TryGetValue(abstractNumId.ToString(), out var abstractNumElement))
                     {
                         continue;
                     }
@@ -2031,11 +2134,7 @@ namespace MOS.ExcelGrading.Core.Services
                     checkedAnyBulletParagraph = true;
 
                     // lvlPicBulletId -> numPicBullet -> r:id ảnh
-                    var numPicBulletElement = numberingDocument
-                        .Descendants(w + "numPicBullet")
-                        .FirstOrDefault(e => e.Attribute(w + "numPicBulletId")?.Value == lvlPicBulletId.ToString());
-
-                    if (numPicBulletElement == null)
+                    if (!numPicBulletById.TryGetValue(lvlPicBulletId.ToString(), out var numPicBulletElement))
                     {
                         lastMismatchInfo = $"numPicBulletId={lvlPicBulletId} không tồn tại trong numbering.xml.";
                         continue;
@@ -2051,13 +2150,7 @@ namespace MOS.ExcelGrading.Core.Services
                         continue;
                     }
 
-                    var relationship = relsDocument
-                        .Descendants(rel + "Relationship")
-                        .FirstOrDefault(e => string.Equals(
-                            e.Attribute("Id")?.Value, relationshipId, StringComparison.Ordinal));
-
-                    var target = relationship?.Attribute("Target")?.Value;
-                    if (string.IsNullOrWhiteSpace(target))
+                    if (!relationships.TryGetValue(relationshipId, out var target) || string.IsNullOrWhiteSpace(target))
                     {
                         lastMismatchInfo = $"Relationship {relationshipId} không có Target hợp lệ.";
                         continue;
@@ -2071,9 +2164,7 @@ namespace MOS.ExcelGrading.Core.Services
                         continue;
                     }
 
-                    var actualHash = ImageHashUtility.ComputeSha256(imageBytes);
-
-                    if (IsImageMatch(imageBytes, actualHash, expectedHash, expectedPerceptualHash))
+                    if (IsImageMatch(package, imagePath, imageBytes, expectedHash, expectedPerceptualHash))
                     {
                         return new SpecialConditionEvalOutcome
                         {
@@ -2625,6 +2716,44 @@ namespace MOS.ExcelGrading.Core.Services
             return false;
         }
 
+        private static bool HasVisiblePictureEffects(
+            XElement picture,
+            XElement shapeProperties,
+            XNamespace a,
+            XNamespace pic)
+        {
+            var effectElements = new[]
+            {
+                "outerShdw",
+                "innerShdw",
+                "prstShdw",
+                "reflection",
+                "glow",
+                "softEdge",
+                "scene3d",
+                "sp3d"
+            };
+
+            if (shapeProperties.Descendants(a + "effectDag").Any())
+            {
+                return true;
+            }
+
+            if (effectElements.Any(name => shapeProperties.Descendants(a + name).Any()))
+            {
+                return true;
+            }
+
+            var styleEffectRefIndex = picture
+                .Element(pic + "style")
+                ?.Element(a + "effectRef")
+                ?.Attribute("idx")
+                ?.Value;
+
+            return !string.IsNullOrWhiteSpace(styleEffectRefIndex)
+                && !string.Equals(styleEffectRefIndex, "0", StringComparison.OrdinalIgnoreCase);
+        }
+
         private static string StripXmlDeclaration(string xml)
         {
             var trimmed = xml.Trim();
@@ -3005,6 +3134,20 @@ namespace MOS.ExcelGrading.Core.Services
             if (config.TargetImageIndex.HasValue && config.TargetImageIndex.Value <= 0)
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.pictureStyleConfig.targetImageIndex phai lon hon 0.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.StylePreset))
+            {
+                var supportedStylePresets = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "simpleFrameBlack",
+                    "custom"
+                };
+
+                if (!supportedStylePresets.Contains(config.StylePreset.Trim()))
+                {
+                    result.Errors.Add($"{taskPrefix}.specialCondition.pictureStyleConfig.stylePreset khong hop le.");
+                }
             }
 
             if (!string.IsNullOrWhiteSpace(config.RequiredLineColor)

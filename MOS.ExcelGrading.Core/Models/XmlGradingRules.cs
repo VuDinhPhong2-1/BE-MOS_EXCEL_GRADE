@@ -252,6 +252,10 @@ public static class ImageWrapTypes
         [JsonPropertyName("targetImageIndex")]
         public int? TargetImageIndex { get; set; } = 1;
 
+        [BsonElement("stylePreset")]
+        [JsonPropertyName("stylePreset")]
+        public string? StylePreset { get; set; } = "simpleFrameBlack";
+
         [BsonElement("requiredLineColor")]
         [JsonPropertyName("requiredLineColor")]
         public string? RequiredLineColor { get; set; } = "000000";

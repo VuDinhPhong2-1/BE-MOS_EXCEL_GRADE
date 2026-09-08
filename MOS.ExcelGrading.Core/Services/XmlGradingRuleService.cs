@@ -728,7 +728,7 @@ namespace MOS.ExcelGrading.Core.Services
                         }
 
                         pictureStyleConfig.PresetGeometry = string.IsNullOrWhiteSpace(pictureStyleConfig.PresetGeometry)
-                            ? "rect"
+                            ? null
                             : pictureStyleConfig.PresetGeometry.Trim();
                     }
                 }

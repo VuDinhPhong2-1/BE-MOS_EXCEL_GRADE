@@ -2948,6 +2948,22 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.sectionBreakBeforeTextConfig.breakType khong duoc rong.");
             }
+            else
+            {
+                var supportedBreakTypes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "continuous",
+                    "nextPage",
+                    "evenPage",
+                    "oddPage",
+                    "nextColumn"
+                };
+
+                if (!supportedBreakTypes.Contains(config.BreakType.Trim()))
+                {
+                    result.Errors.Add($"{taskPrefix}.specialCondition.sectionBreakBeforeTextConfig.breakType khong hop le.");
+                }
+            }
 
             if (config.TargetOccurrence.HasValue && config.TargetOccurrence.Value <= 0)
             {

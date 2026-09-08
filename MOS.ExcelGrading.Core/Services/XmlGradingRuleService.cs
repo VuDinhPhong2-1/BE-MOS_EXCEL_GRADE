@@ -2569,6 +2569,62 @@ namespace MOS.ExcelGrading.Core.Services
             return normalized;
         }
 
+        private static string? NormalizeHexColor(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            var normalized = value.Trim().TrimStart('#').ToUpperInvariant();
+            return Regex.IsMatch(normalized, "^[0-9A-F]{6}$") ? normalized : value.Trim();
+        }
+
+        private static int? ParseIntAttribute(XElement element, string localName)
+        {
+            var value = element.Attributes().FirstOrDefault(attribute =>
+                string.Equals(attribute.Name.LocalName, localName, StringComparison.OrdinalIgnoreCase))?.Value;
+
+            return int.TryParse(value, out var parsed) ? parsed : null;
+        }
+
+        private static string? GetLineColor(XElement line, XNamespace a)
+        {
+            var solidFill = line.Element(a + "solidFill");
+            var srgb = solidFill?.Element(a + "srgbClr")?.Attribute("val")?.Value;
+            if (!string.IsNullOrWhiteSpace(srgb))
+            {
+                return NormalizeHexColor(srgb);
+            }
+
+            var scheme = solidFill?.Element(a + "schemeClr")?.Attribute("val")?.Value;
+            return string.IsNullOrWhiteSpace(scheme) ? null : scheme.Trim();
+        }
+
+        private static bool DoesLineColorMatch(string? actualColor, string expectedColor)
+        {
+            if (string.IsNullOrWhiteSpace(actualColor))
+            {
+                return false;
+            }
+
+            var actual = NormalizeHexColor(actualColor);
+            var expected = NormalizeHexColor(expectedColor);
+
+            if (string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(expected, "000000", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(actual, "tx1", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(actual, "dk1", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
         private static string StripXmlDeclaration(string xml)
         {
             var trimmed = xml.Trim();
@@ -2848,6 +2904,107 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase))
             {
                 ValidateHyperlinkSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.SectionBreakBeforeText, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateSectionBreakBeforeTextSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidatePictureStyleSpecialCondition(specialCondition, taskPrefix, result);
+            }
+        }
+
+        private static void ValidateSectionBreakBeforeTextSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.SectionBreakBeforeTextConfig;
+
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.sectionBreakBeforeTextConfig khong duoc null.");
+                return;
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : config.SourceFile;
+
+            if (!IsSafeSourceFile(sourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.sectionBreakBeforeTextConfig.sourceFile khong hop le.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.TargetText))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.sectionBreakBeforeTextConfig.targetText khong duoc rong.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.BreakType))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.sectionBreakBeforeTextConfig.breakType khong duoc rong.");
+            }
+
+            if (config.TargetOccurrence.HasValue && config.TargetOccurrence.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.sectionBreakBeforeTextConfig.targetOccurrence phai lon hon 0.");
+            }
+        }
+
+        private static void ValidatePictureStyleSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.PictureStyleConfig;
+
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pictureStyleConfig khong duoc null.");
+                return;
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : config.SourceFile;
+
+            var relsFile = string.IsNullOrWhiteSpace(config.RelsFile)
+                ? "word/_rels/document.xml.rels"
+                : config.RelsFile;
+
+            if (!IsSafeSourceFile(sourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pictureStyleConfig.sourceFile khong hop le.");
+            }
+
+            if (!IsSafeSourceFile(relsFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pictureStyleConfig.relsFile khong hop le.");
+            }
+
+            if (config.TargetImageIndex.HasValue && config.TargetImageIndex.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pictureStyleConfig.targetImageIndex phai lon hon 0.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.RequiredLineColor)
+                && !Regex.IsMatch(config.RequiredLineColor.Trim().TrimStart('#'), "^[0-9A-Fa-f]{6}$"))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pictureStyleConfig.requiredLineColor phai la ma mau hex 6 ky tu.");
+            }
+
+            if (config.MinLineWidth.HasValue && config.MinLineWidth.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pictureStyleConfig.minLineWidth phai lon hon 0.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.ImageHash))
+            {
+                result.Warnings.Add($"{taskPrefix}.specialCondition.pictureStyleConfig.imageHash nen duoc cau hinh de tranh cham nham anh khi tai lieu co nhieu anh.");
             }
         }
 

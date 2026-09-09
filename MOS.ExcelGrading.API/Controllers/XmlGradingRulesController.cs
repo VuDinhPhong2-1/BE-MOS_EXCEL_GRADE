@@ -24,8 +24,17 @@ namespace MOS.ExcelGrading.API.Controllers
 
         [HttpGet]
         [RequirePermission(Permissions.ViewXmlRules)]
-        public async Task<ActionResult<List<GradingRuleSet>>> GetRuleSets([FromQuery] string? subject, [FromQuery] bool? isActive)
+        public async Task<ActionResult> GetRuleSets(
+            [FromQuery] string? subject,
+            [FromQuery] bool? isActive,
+            [FromQuery] bool summary = false)
         {
+            if (summary)
+            {
+                var summaries = await _xmlGradingRuleService.GetRuleSetSummariesAsync(subject, isActive);
+                return Ok(summaries);
+            }
+
             var ruleSets = await _xmlGradingRuleService.GetRuleSetsAsync(subject, isActive);
             return Ok(ruleSets);
         }

@@ -112,6 +112,18 @@ public static class ImageWrapTypes
         public List<ProjectXmlRule> Projects { get; set; } = new();
     }
 
+    public class GradingRuleSetSummary
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Subject { get; set; } = string.Empty;
+        public string Version { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public int ProjectCount { get; set; }
+        public int TaskCount { get; set; }
+        public int ConditionCount { get; set; }
+        public decimal MaxScore { get; set; }
+    }
+
     [BsonIgnoreExtraElements]
     public class ProjectXmlRule
     {

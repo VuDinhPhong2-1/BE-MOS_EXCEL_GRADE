@@ -5,6 +5,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
     public interface IXmlGradingRuleService
     {
         Task<List<GradingRuleSet>> GetRuleSetsAsync(string? subject = null, bool? isActive = null);
+        Task<List<GradingRuleSetSummary>> GetRuleSetSummariesAsync(string? subject = null, bool? isActive = null);
         Task<GradingRuleSet?> GetRuleSetByIdAsync(string id);
         Task<GradingRuleSet> CreateRuleSetAsync(GradingRuleSet ruleSet);
         Task<GradingRuleSet?> UpdateRuleSetAsync(string id, GradingRuleSet ruleSet);

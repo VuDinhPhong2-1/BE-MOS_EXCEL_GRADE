@@ -38,6 +38,45 @@ namespace MOS.ExcelGrading.Core.Services
 
         public async Task<List<GradingRuleSet>> GetRuleSetsAsync(string? subject = null, bool? isActive = null)
         {
+            var filter = BuildRuleSetListFilter(subject, isActive);
+
+            return await _ruleSets.Find(filter).ToListAsync();
+        }
+
+        public async Task<List<GradingRuleSetSummary>> GetRuleSetSummariesAsync(string? subject = null, bool? isActive = null)
+        {
+            var projection = Builders<GradingRuleSet>.Projection
+                .Include(ruleSet => ruleSet.Id)
+                .Include(ruleSet => ruleSet.Subject)
+                .Include(ruleSet => ruleSet.Version)
+                .Include(ruleSet => ruleSet.IsActive)
+                .Include("projects.projectCode")
+                .Include("projects.maxScore")
+                .Include("projects.tasks.taskId")
+                .Include("projects.tasks.conditions.conditionId");
+
+            var lightRuleSets = await _ruleSets
+                .Find(BuildRuleSetListFilter(subject, isActive))
+                .Project<GradingRuleSet>(projection)
+                .ToListAsync();
+
+            return lightRuleSets
+                .Select(ruleSet => new GradingRuleSetSummary
+                {
+                    Id = ruleSet.Id,
+                    Subject = ruleSet.Subject,
+                    Version = ruleSet.Version,
+                    IsActive = ruleSet.IsActive,
+                    ProjectCount = ruleSet.Projects.Count,
+                    TaskCount = ruleSet.Projects.Sum(project => project.Tasks.Count),
+                    ConditionCount = ruleSet.Projects.Sum(project => project.Tasks.Sum(task => task.Conditions.Count)),
+                    MaxScore = ruleSet.Projects.Sum(project => project.MaxScore)
+                })
+                .ToList();
+        }
+
+        private static FilterDefinition<GradingRuleSet> BuildRuleSetListFilter(string? subject, bool? isActive)
+        {
             var filters = new List<FilterDefinition<GradingRuleSet>>();
             var normalizedSubject = NormalizeKey(subject ?? string.Empty);
 
@@ -51,11 +90,9 @@ namespace MOS.ExcelGrading.Core.Services
                 filters.Add(Builders<GradingRuleSet>.Filter.Eq(ruleSet => ruleSet.IsActive, isActive.Value));
             }
 
-            var filter = filters.Count == 0
+            return filters.Count == 0
                 ? Builders<GradingRuleSet>.Filter.Empty
                 : Builders<GradingRuleSet>.Filter.And(filters);
-
-            return await _ruleSets.Find(filter).ToListAsync();
         }
 
         public async Task<GradingRuleSet?> GetRuleSetByIdAsync(string id)

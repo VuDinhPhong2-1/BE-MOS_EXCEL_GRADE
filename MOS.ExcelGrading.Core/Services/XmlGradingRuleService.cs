@@ -847,6 +847,11 @@ namespace MOS.ExcelGrading.Core.Services
                             .Where(value => !string.IsNullOrWhiteSpace(value))
                             .Select(value => value!)
                             .ToList() ?? new List<string>();
+
+                        textBoxConfig.ForbiddenRunProperties = textBoxConfig.ForbiddenRunProperties?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(value => value.Trim())
+                            .ToList() ?? new List<string>();
                     }
 
                     if (task.SpecialCondition.PageMarginsConfig != null)
@@ -1780,6 +1785,12 @@ namespace MOS.ExcelGrading.Core.Services
                 }
 
                 if (config.RequireDefaultPaste != false
+                    && TryGetForbiddenTextBoxRunProperty(target.TextBox, w, config.ForbiddenRunProperties, out var forbiddenProperty))
+                {
+                    return Fail($"Textbox thu {target.Index} co dinh dang '{forbiddenProperty}', co the da Paste Merge Formatting.");
+                }
+
+                if (config.RequireDefaultPaste != false
                     && TryGetForbiddenTextBoxColor(target.TextBox, w, config.ForbiddenTextColors, out var forbiddenColor))
                 {
                     return Fail($"Textbox thu {target.Index} co mau chu '{forbiddenColor}' giong style cua textbox, co the da Paste Merge Formatting.");
@@ -1831,6 +1842,42 @@ namespace MOS.ExcelGrading.Core.Services
                 if (!string.IsNullOrWhiteSpace(style)
                     && !string.Equals(style, "Normal", StringComparison.OrdinalIgnoreCase))
                 {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetForbiddenTextBoxRunProperty(
+            XElement textBoxContent,
+            XNamespace w,
+            IReadOnlyList<string>? configuredForbiddenProperties,
+            out string? forbiddenProperty)
+        {
+            forbiddenProperty = null;
+            var forbiddenProperties = new HashSet<string>(
+                configuredForbiddenProperties == null || configuredForbiddenProperties.Count == 0
+                    ? new[] { "caps", "smallCaps", "b", "i", "u", "color", "highlight", "rFonts", "sz", "szCs" }
+                    : configuredForbiddenProperties,
+                StringComparer.OrdinalIgnoreCase);
+
+            var runPropertyContainers = textBoxContent
+                .Descendants(w + "p")
+                .Select(paragraph => paragraph.Element(w + "pPr")?.Element(w + "rPr"))
+                .Concat(textBoxContent.Descendants(w + "r").Select(run => run.Element(w + "rPr")))
+                .Where(runProperties => runProperties != null)
+                .Cast<XElement>();
+
+            foreach (var runProperties in runPropertyContainers)
+            {
+                var matched = runProperties.Elements()
+                    .Select(element => element.Name.LocalName)
+                    .FirstOrDefault(name => forbiddenProperties.Contains(name));
+
+                if (!string.IsNullOrWhiteSpace(matched))
+                {
+                    forbiddenProperty = matched;
                     return true;
                 }
             }

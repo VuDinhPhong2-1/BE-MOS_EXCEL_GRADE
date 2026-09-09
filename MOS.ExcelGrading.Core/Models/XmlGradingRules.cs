@@ -261,6 +261,10 @@ public static class ImageWrapTypes
         [BsonElement("forbiddenTextColors")]
         [JsonPropertyName("forbiddenTextColors")]
         public List<string> ForbiddenTextColors { get; set; } = new();
+
+        [BsonElement("forbiddenRunProperties")]
+        [JsonPropertyName("forbiddenRunProperties")]
+        public List<string> ForbiddenRunProperties { get; set; } = new();
     }
 
     [BsonIgnoreExtraElements]

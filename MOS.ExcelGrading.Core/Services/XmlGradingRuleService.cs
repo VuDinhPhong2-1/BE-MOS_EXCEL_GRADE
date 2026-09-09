@@ -1802,7 +1802,7 @@ namespace MOS.ExcelGrading.Core.Services
                         .Descendants(w + "body")
                         .Elements(w + "p")
                         .Where(paragraph => !paragraph.Ancestors(w + "txbxContent").Any())
-                        .Select(paragraph => BuildParagraphTextSnapshot(paragraph, w).Text)
+                        .Select(paragraph => BuildParagraphTextSnapshot(paragraph, w, excludeTextBoxContent: true).Text)
                         .Where(text => !string.IsNullOrWhiteSpace(text))
                         .ToList();
 
@@ -1856,11 +1856,18 @@ namespace MOS.ExcelGrading.Core.Services
             out string? forbiddenProperty)
         {
             forbiddenProperty = null;
-            var forbiddenProperties = new HashSet<string>(
-                configuredForbiddenProperties == null || configuredForbiddenProperties.Count == 0
-                    ? new[] { "caps", "smallCaps", "b", "i", "u", "color", "highlight", "rFonts", "sz", "szCs" }
-                    : configuredForbiddenProperties,
+            var defaultTextBoxProperties = new HashSet<string>(
+                new[] { "caps", "szCs", "noProof" },
                 StringComparer.OrdinalIgnoreCase);
+            var forbiddenProperties = new HashSet<string>(
+                (configuredForbiddenProperties ?? Array.Empty<string>())
+                    .Where(property => !defaultTextBoxProperties.Contains(property)),
+                StringComparer.OrdinalIgnoreCase);
+
+            if (forbiddenProperties.Count == 0)
+            {
+                return false;
+            }
 
             var runPropertyContainers = textBoxContent
                 .Descendants(w + "p")
@@ -2609,13 +2616,21 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
-        private static ParagraphTextSnapshot BuildParagraphTextSnapshot(XElement paragraph, XNamespace w)
+        private static ParagraphTextSnapshot BuildParagraphTextSnapshot(
+            XElement paragraph,
+            XNamespace w,
+            bool excludeTextBoxContent = false)
         {
             var text = new StringBuilder();
             var tabCount = 0;
 
             foreach (var node in paragraph.Descendants())
             {
+                if (excludeTextBoxContent && node.Ancestors(w + "txbxContent").Any())
+                {
+                    continue;
+                }
+
                 if (node.Name == w + "tab")
                 {
                     text.Append('\t');

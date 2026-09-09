@@ -1720,45 +1720,45 @@ namespace MOS.ExcelGrading.Core.Services
                         ? "word/_rels/document.xml.rels"
                         : config.RelsFile;
 
-                    if (!IsSafeSourceFile(sourceFile))
-                    {
-                        result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sourceFile khong hop le.");
-                    }
+                    // if (!IsSafeSourceFile(sourceFile))
+                    // {
+                    //     result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sourceFile khong hop le.");
+                    // }
 
-                    if (!IsSafeSourceFile(relsFile))
-                    {
-                        result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.relsFile khong hop le.");
-                    }
+                    // if (!IsSafeSourceFile(relsFile))
+                    // {
+                    //     result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.relsFile khong hop le.");
+                    // }
 
-                    if (config.PositionConfig?.RequireBetween == true
-                        && string.IsNullOrWhiteSpace(config.PositionConfig.AfterText)
-                        && string.IsNullOrWhiteSpace(config.PositionConfig.BeforeText))
-                    {
-                        result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.positionConfig phai co afterText hoac beforeText khi bat requireBetween.");
-                    }
+                    // if (config.PositionConfig?.RequireBetween == true
+                    //     && string.IsNullOrWhiteSpace(config.PositionConfig.AfterText)
+                    //     && string.IsNullOrWhiteSpace(config.PositionConfig.BeforeText))
+                    // {
+                    //     result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.positionConfig phai co afterText hoac beforeText khi bat requireBetween.");
+                    // }
 
-                    if (config.SizeConfig != null)
-                    {
-                        if (!config.SizeConfig.ExpectedWidthEmu.HasValue && !config.SizeConfig.ExpectedHeightEmu.HasValue)
-                        {
-                            result.Warnings.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig dang trong nen se khong kiem tra kich thuoc.");
-                        }
+                    // if (config.SizeConfig != null)
+                    // {
+                    //     if (!config.SizeConfig.ExpectedWidthEmu.HasValue && !config.SizeConfig.ExpectedHeightEmu.HasValue)
+                    //     {
+                    //         result.Warnings.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig dang trong nen se khong kiem tra kich thuoc.");
+                    //     }
 
-                        if (config.SizeConfig.ExpectedWidthEmu.HasValue && config.SizeConfig.ExpectedWidthEmu.Value <= 0)
-                        {
-                            result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.expectedWidthEmu phai lon hon 0.");
-                        }
+                    //     if (config.SizeConfig.ExpectedWidthEmu.HasValue && config.SizeConfig.ExpectedWidthEmu.Value <= 0)
+                    //     {
+                    //         result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.expectedWidthEmu phai lon hon 0.");
+                    //     }
 
-                        if (config.SizeConfig.ExpectedHeightEmu.HasValue && config.SizeConfig.ExpectedHeightEmu.Value <= 0)
-                        {
-                            result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.expectedHeightEmu phai lon hon 0.");
-                        }
+                    //     if (config.SizeConfig.ExpectedHeightEmu.HasValue && config.SizeConfig.ExpectedHeightEmu.Value <= 0)
+                    //     {
+                    //         result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.expectedHeightEmu phai lon hon 0.");
+                    //     }
 
-                        if (config.SizeConfig.ToleranceEmu.HasValue && config.SizeConfig.ToleranceEmu.Value < 0)
-                        {
-                            result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.toleranceEmu phai >= 0.");
-                        }
-                    }
+                    //     if (config.SizeConfig.ToleranceEmu.HasValue && config.SizeConfig.ToleranceEmu.Value < 0)
+                    //     {
+                    //         result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.toleranceEmu phai >= 0.");
+                    //     }
+                    // }
                 }
             }
 

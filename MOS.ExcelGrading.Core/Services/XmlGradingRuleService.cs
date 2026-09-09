@@ -1768,9 +1768,9 @@ namespace MOS.ExcelGrading.Core.Services
 
                 var target = matches[occurrence - 1];
 
-                if (config.RequireDefaultPaste != false && HasNonDefaultTextBoxPasteFormatting(target.TextBox, w))
+                if (config.RequireDefaultPaste != false && HasNonDefaultTextBoxParagraphStyle(target.TextBox, w))
                 {
-                    return Fail($"Textbox thu {target.Index} co direct formatting/style rieng, co the khong phai paste mac dinh.");
+                    return Fail($"Textbox thu {target.Index} co paragraph style rieng, co the khong phai paste mac dinh.");
                 }
 
                 if (config.RequireRemovedFromBody != false)
@@ -1811,7 +1811,7 @@ namespace MOS.ExcelGrading.Core.Services
                 : string.Equals(actual, expected, comparison);
         }
 
-        private static bool HasNonDefaultTextBoxPasteFormatting(XElement textBoxContent, XNamespace w)
+        private static bool HasNonDefaultTextBoxParagraphStyle(XElement textBoxContent, XNamespace w)
         {
             foreach (var paragraph in textBoxContent.Descendants(w + "p"))
             {
@@ -1820,14 +1820,6 @@ namespace MOS.ExcelGrading.Core.Services
                     && !string.Equals(style, "Normal", StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
-                }
-
-                foreach (var runProperties in paragraph.Descendants(w + "rPr"))
-                {
-                    if (runProperties.Elements().Any())
-                    {
-                        return true;
-                    }
                 }
             }
 

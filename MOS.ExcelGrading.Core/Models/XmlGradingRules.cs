@@ -257,6 +257,10 @@ public static class ImageWrapTypes
         [BsonElement("requireRemovedFromBody")]
         [JsonPropertyName("requireRemovedFromBody")]
         public bool? RequireRemovedFromBody { get; set; } = true;
+
+        [BsonElement("forbiddenTextColors")]
+        [JsonPropertyName("forbiddenTextColors")]
+        public List<string> ForbiddenTextColors { get; set; } = new();
     }
 
     [BsonIgnoreExtraElements]

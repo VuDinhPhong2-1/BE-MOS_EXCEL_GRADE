@@ -841,6 +841,12 @@ namespace MOS.ExcelGrading.Core.Services
 
                         textBoxConfig.RequireDefaultPaste ??= true;
                         textBoxConfig.RequireRemovedFromBody ??= true;
+                        textBoxConfig.ForbiddenTextColors = textBoxConfig.ForbiddenTextColors?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(NormalizeHexColor)
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(value => value!)
+                            .ToList() ?? new List<string>();
                     }
 
                     if (task.SpecialCondition.PageMarginsConfig != null)
@@ -1773,6 +1779,12 @@ namespace MOS.ExcelGrading.Core.Services
                     return Fail($"Textbox thu {target.Index} co paragraph style rieng, co the khong phai paste mac dinh.");
                 }
 
+                if (config.RequireDefaultPaste != false
+                    && TryGetForbiddenTextBoxColor(target.TextBox, w, config.ForbiddenTextColors, out var forbiddenColor))
+                {
+                    return Fail($"Textbox thu {target.Index} co mau chu '{forbiddenColor}' giong style cua textbox, co the da Paste Merge Formatting.");
+                }
+
                 if (config.RequireRemovedFromBody != false)
                 {
                     var bodyParagraphsOutsideTextBoxes = document
@@ -1819,6 +1831,50 @@ namespace MOS.ExcelGrading.Core.Services
                 if (!string.IsNullOrWhiteSpace(style)
                     && !string.Equals(style, "Normal", StringComparison.OrdinalIgnoreCase))
                 {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetForbiddenTextBoxColor(
+            XElement textBoxContent,
+            XNamespace w,
+            IReadOnlyList<string>? configuredForbiddenColors,
+            out string? forbiddenColor)
+        {
+            forbiddenColor = null;
+            var forbiddenColors = new HashSet<string>(
+                (configuredForbiddenColors == null || configuredForbiddenColors.Count == 0
+                    ? new[] { "FFFFFF", "background1", "bg1", "lt1" }
+                    : configuredForbiddenColors)
+                .Select(NormalizeHexColor)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var run in textBoxContent.Descendants(w + "r"))
+            {
+                var runText = NormalizePlainText(string.Concat(run.Descendants(w + "t").Select(text => text.Value)));
+                if (string.IsNullOrWhiteSpace(runText))
+                {
+                    continue;
+                }
+
+                var color = run.Element(w + "rPr")?.Element(w + "color");
+                var colorValues = new[]
+                {
+                    color?.Attribute(w + "val")?.Value,
+                    color?.Attribute(w + "themeColor")?.Value
+                }
+                    .Select(NormalizeHexColor)
+                    .Where(value => !string.IsNullOrWhiteSpace(value));
+
+                var matchedColor = colorValues.FirstOrDefault(value => forbiddenColors.Contains(value!));
+                if (!string.IsNullOrWhiteSpace(matchedColor))
+                {
+                    forbiddenColor = matchedColor;
                     return true;
                 }
             }

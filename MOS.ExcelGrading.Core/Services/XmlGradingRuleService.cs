@@ -21,6 +21,11 @@ namespace MOS.ExcelGrading.Core.Services
             "xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\" " +
             "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\" " +
             "xmlns:wp=\"http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing\" " +
+            "xmlns:wps=\"http://schemas.microsoft.com/office/word/2010/wordprocessingShape\" " +
+            "xmlns:v=\"urn:schemas-microsoft-com:vml\" " +
+            "xmlns:o=\"urn:schemas-microsoft-com:office:office\" " +
+            "xmlns:w10=\"urn:schemas-microsoft-com:office:word\" " +
+            "xmlns:wp14=\"http://schemas.microsoft.com/office/word/2010/wordprocessingDrawing\" " +
             "xmlns:a=\"http://schemas.openxmlformats.org/drawingml/2006/main\" " +
             "xmlns:pic=\"http://schemas.openxmlformats.org/drawingml/2006/picture\" " +
             "xmlns:x=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" " +

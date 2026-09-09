@@ -815,6 +815,71 @@ namespace MOS.ExcelGrading.Core.Services
                             ? null
                             : pictureStyleConfig.PresetGeometry.Trim();
                     }
+
+                    if (task.SpecialCondition.TextBoxContainsTextConfig != null)
+                    {
+                        var textBoxConfig = task.SpecialCondition.TextBoxContainsTextConfig;
+
+                        textBoxConfig.SourceFile = string.IsNullOrWhiteSpace(textBoxConfig.SourceFile)
+                            ? "word/document.xml"
+                            : NormalizeSourceFile(textBoxConfig.SourceFile);
+
+                        textBoxConfig.ExpectedText = string.IsNullOrWhiteSpace(textBoxConfig.ExpectedText)
+                            ? null
+                            : NormalizePlainText(textBoxConfig.ExpectedText);
+
+                        textBoxConfig.MatchMode = string.IsNullOrWhiteSpace(textBoxConfig.MatchMode)
+                            ? "exact"
+                            : textBoxConfig.MatchMode.Trim();
+
+                        textBoxConfig.CaseSensitive ??= false;
+
+                        if (textBoxConfig.TargetOccurrence <= 0)
+                        {
+                            textBoxConfig.TargetOccurrence = 1;
+                        }
+
+                        textBoxConfig.RequireDefaultPaste ??= true;
+                        textBoxConfig.RequireRemovedFromBody ??= true;
+                    }
+
+                    if (task.SpecialCondition.PageMarginsConfig != null)
+                    {
+                        var marginsConfig = task.SpecialCondition.PageMarginsConfig;
+
+                        marginsConfig.SourceFile = string.IsNullOrWhiteSpace(marginsConfig.SourceFile)
+                            ? "word/document.xml"
+                            : NormalizeSourceFile(marginsConfig.SourceFile);
+
+                        marginsConfig.RequireAllSections ??= true;
+                    }
+
+                    if (task.SpecialCondition.DocumentStyleSetConfig != null)
+                    {
+                        var styleSetConfig = task.SpecialCondition.DocumentStyleSetConfig;
+
+                        styleSetConfig.SourceFile = string.IsNullOrWhiteSpace(styleSetConfig.SourceFile)
+                            ? "word/styles.xml"
+                            : NormalizeSourceFile(styleSetConfig.SourceFile);
+
+                        styleSetConfig.StyleSetName = string.IsNullOrWhiteSpace(styleSetConfig.StyleSetName)
+                            ? null
+                            : styleSetConfig.StyleSetName.Trim();
+
+                        styleSetConfig.ExpectedFragments = styleSetConfig.ExpectedFragments?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(value => value.Trim())
+                            .ToList() ?? new List<string>();
+
+                        styleSetConfig.IgnoreAttributes = styleSetConfig.IgnoreAttributes?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(value => value.Trim())
+                            .ToList() ?? new List<string>();
+
+                        styleSetConfig.MatchPolicy = string.IsNullOrWhiteSpace(styleSetConfig.MatchPolicy)
+                            ? XmlGradingMatchPolicies.All
+                            : styleSetConfig.MatchPolicy.Trim();
+                    }
                 }
             }
         }
@@ -988,7 +1053,10 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.SectionBreakBeforeText, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase),
+                    || string.Equals(specialConditionType, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.TextBoxContainsText, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase),
                 "excel" => false,
                 "ppt" => false,
                 "powerpoint" => false,
@@ -1323,6 +1391,25 @@ namespace MOS.ExcelGrading.Core.Services
                         AddXmlPart(specialCondition.PictureStyleConfig?.RelsFile, "word/_rels/document.xml.rels");
                         requiredParts.ReadRelatedImages = true;
                     }
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.TextBoxContainsText, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.TextBoxContainsTextConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.PageMarginsConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.DocumentStyleSetConfig?.SourceFile, "word/styles.xml");
+                    continue;
                 }
             }
 
@@ -1536,6 +1623,21 @@ namespace MOS.ExcelGrading.Core.Services
                 return EvaluatePictureStyle(specialCondition.PictureStyleConfig, package);
             }
 
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.TextBoxContainsText, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateTextBoxContainsText(specialCondition.TextBoxContainsTextConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluatePageMargins(specialCondition.PageMarginsConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateDocumentStyleSet(specialCondition.DocumentStyleSetConfig, package);
+            }
+
             return new SpecialConditionEvalOutcome
             {
                 IsPassed = false,
@@ -1597,6 +1699,312 @@ namespace MOS.ExcelGrading.Core.Services
         {
             public string Text { get; init; } = string.Empty;
             public int TabCount { get; init; }
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateTextBoxContainsText(
+            TextBoxContainsTextConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh TextBox Contains Text (textBoxContainsTextConfig trong).");
+            }
+
+            var expectedText = NormalizePlainText(config.ExpectedText);
+            if (string.IsNullOrWhiteSpace(expectedText))
+            {
+                return Fail("textBoxContainsTextConfig.expectedText khong duoc rong.");
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : NormalizeSourceFile(config.SourceFile);
+
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var documentError))
+            {
+                return Fail(documentError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
+            }
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+            try
+            {
+                var comparison = config.CaseSensitive == true
+                    ? StringComparison.Ordinal
+                    : StringComparison.OrdinalIgnoreCase;
+                var matchMode = string.IsNullOrWhiteSpace(config.MatchMode) ? "exact" : config.MatchMode.Trim();
+                var occurrence = Math.Max(1, config.TargetOccurrence ?? 1);
+
+                var textBoxes = document.Descendants(w + "txbxContent").ToList();
+                if (textBoxes.Count == 0)
+                {
+                    return Fail("Khong tim thay textbox nao trong tai lieu.");
+                }
+
+                var matches = textBoxes
+                    .Select((textBox, index) => new
+                    {
+                        TextBox = textBox,
+                        Index = index + 1,
+                        Text = NormalizePlainText(string.Join(
+                            " ",
+                            textBox.Descendants(w + "p")
+                                .Select(paragraph => BuildParagraphTextSnapshot(paragraph, w).Text)
+                                .Where(text => !string.IsNullOrWhiteSpace(text))))
+                    })
+                    .Where(item => TextMatches(item.Text, expectedText, matchMode, comparison))
+                    .ToList();
+
+                if (matches.Count < occurrence)
+                {
+                    return Fail($"Chi tim thay {matches.Count} textbox chua dung noi dung can cham, can occurrence {occurrence}.");
+                }
+
+                var target = matches[occurrence - 1];
+
+                if (config.RequireDefaultPaste != false && HasNonDefaultTextBoxPasteFormatting(target.TextBox, w))
+                {
+                    return Fail($"Textbox thu {target.Index} co direct formatting/style rieng, co the khong phai paste mac dinh.");
+                }
+
+                if (config.RequireRemovedFromBody != false)
+                {
+                    var bodyParagraphsOutsideTextBoxes = document
+                        .Descendants(w + "body")
+                        .Elements(w + "p")
+                        .Where(paragraph => !paragraph.Ancestors(w + "txbxContent").Any())
+                        .Select(paragraph => BuildParagraphTextSnapshot(paragraph, w).Text)
+                        .Where(text => !string.IsNullOrWhiteSpace(text))
+                        .ToList();
+
+                    if (bodyParagraphsOutsideTextBoxes.Any(text => TextMatches(text, expectedText, matchMode, comparison)))
+                    {
+                        return Fail("Doan van can dua vao textbox van con nam ngoai than tai lieu, co the hoc sinh copy thay vi cut.");
+                    }
+                }
+
+                return new SpecialConditionEvalOutcome
+                {
+                    IsPassed = true,
+                    Message = $"Textbox thu {target.Index} chua dung noi dung yeu cau."
+                };
+            }
+            catch (XmlException ex)
+            {
+                return Fail($"Khong the phan tich XML: {ex.Message}");
+            }
+        }
+
+        private static bool TextMatches(string actualText, string expectedText, string matchMode, StringComparison comparison)
+        {
+            var actual = NormalizePlainText(actualText);
+            var expected = NormalizePlainText(expectedText);
+
+            return string.Equals(matchMode, "contains", StringComparison.OrdinalIgnoreCase)
+                ? actual.Contains(expected, comparison)
+                : string.Equals(actual, expected, comparison);
+        }
+
+        private static bool HasNonDefaultTextBoxPasteFormatting(XElement textBoxContent, XNamespace w)
+        {
+            foreach (var paragraph in textBoxContent.Descendants(w + "p"))
+            {
+                var style = paragraph.Element(w + "pPr")?.Element(w + "pStyle")?.Attribute(w + "val")?.Value;
+                if (!string.IsNullOrWhiteSpace(style)
+                    && !string.Equals(style, "Normal", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                foreach (var runProperties in paragraph.Descendants(w + "rPr"))
+                {
+                    if (runProperties.Elements().Any())
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static SpecialConditionEvalOutcome EvaluatePageMargins(
+            PageMarginsConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Page Margins (pageMarginsConfig trong).");
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : NormalizeSourceFile(config.SourceFile);
+
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var documentError))
+            {
+                return Fail(documentError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
+            }
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+            try
+            {
+                var margins = document.Descendants(w + "sectPr")
+                    .Select(section => section.Element(w + "pgMar"))
+                    .Where(pgMar => pgMar != null)
+                    .Cast<XElement>()
+                    .ToList();
+
+                if (margins.Count == 0)
+                {
+                    return Fail("Khong tim thay w:pgMar trong section properties.");
+                }
+
+                var requireAllSections = config.RequireAllSections != false;
+                var checkedMargins = requireAllSections ? margins : margins.TakeLast(1).ToList();
+                var sectionNumber = requireAllSections ? 1 : margins.Count;
+
+                foreach (var margin in checkedMargins)
+                {
+                    var mismatch = GetMarginMismatch(margin, w, config);
+                    if (mismatch != null)
+                    {
+                        return Fail(requireAllSections
+                            ? $"Section {sectionNumber}: {mismatch}"
+                            : mismatch);
+                    }
+
+                    sectionNumber++;
+                }
+
+                return new SpecialConditionEvalOutcome
+                {
+                    IsPassed = true,
+                    Message = requireAllSections
+                        ? $"Tat ca {margins.Count} section co margin dung yeu cau."
+                        : "Section cuoi co margin dung yeu cau."
+                };
+            }
+            catch (XmlException ex)
+            {
+                return Fail($"Khong the phan tich XML: {ex.Message}");
+            }
+        }
+
+        private static string? GetMarginMismatch(XElement margin, XNamespace w, PageMarginsConfig config)
+        {
+            string? Check(string attributeName, int? expected)
+            {
+                if (!expected.HasValue)
+                {
+                    return null;
+                }
+
+                var actualValue = margin.Attribute(w + attributeName)?.Value;
+                if (!int.TryParse(actualValue, out var actual))
+                {
+                    return $"Khong doc duoc margin {attributeName}.";
+                }
+
+                return actual == expected.Value
+                    ? null
+                    : $"Margin {attributeName} la {actual}, can {expected.Value}.";
+            }
+
+            return Check("top", config.Top)
+                ?? Check("bottom", config.Bottom)
+                ?? Check("left", config.Left)
+                ?? Check("right", config.Right)
+                ?? Check("gutter", config.Gutter);
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateDocumentStyleSet(
+            DocumentStyleSetConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Document Style Set (documentStyleSetConfig trong).");
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/styles.xml"
+                : NormalizeSourceFile(config.SourceFile);
+
+            if (!package.XmlParts.TryGetValue(sourceFile, out var actualXml))
+            {
+                return Fail($"Khong tim thay {sourceFile} trong file hoc sinh.");
+            }
+
+            var expectedFragments = config.ExpectedFragments?
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToList() ?? new List<string>();
+
+            if (expectedFragments.Count == 0)
+            {
+                return Fail("documentStyleSetConfig.expectedFragments khong duoc rong.");
+            }
+
+            var matchPolicy = string.IsNullOrWhiteSpace(config.MatchPolicy)
+                ? XmlGradingMatchPolicies.All
+                : config.MatchPolicy.Trim();
+            var cache = new XmlEvaluationCache();
+            var matches = expectedFragments
+                .Select(fragment => MatchStyleSetFragment(sourceFile, actualXml, fragment, config.IgnoreAttributes, cache))
+                .ToList();
+            var passed = string.Equals(matchPolicy, XmlGradingMatchPolicies.Any, StringComparison.OrdinalIgnoreCase)
+                ? matches.Any(match => match.IsMatched)
+                : matches.All(match => match.IsMatched);
+
+            if (!passed)
+            {
+                var missing = matches.Count(match => !match.IsMatched);
+                var styleName = string.IsNullOrWhiteSpace(config.StyleSetName) ? "style set" : config.StyleSetName!.Trim();
+                return Fail($"{styleName}: thieu {missing}/{matches.Count} dau hieu XML trong {sourceFile}.");
+            }
+
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = true,
+                Message = string.IsNullOrWhiteSpace(config.StyleSetName)
+                    ? $"Document style set khop {matches.Count} dau hieu XML."
+                    : $"Document style set '{config.StyleSetName}' khop {matches.Count} dau hieu XML."
+            };
+        }
+
+        private static ExpectedMatchResult MatchStyleSetFragment(
+            string sourceFile,
+            string actualXml,
+            string expectedFragment,
+            IReadOnlyList<string>? ignoreAttributes,
+            XmlEvaluationCache cache)
+        {
+            var trimmed = expectedFragment.Trim();
+            if (trimmed.StartsWith("<", StringComparison.Ordinal))
+            {
+                return XmlContainsNormalized(sourceFile, actualXml, trimmed, ignoreAttributes ?? Array.Empty<string>(), cache);
+            }
+
+            return RawContains(actualXml, trimmed, trim: true);
         }
 
         private static SpecialConditionEvalOutcome EvaluateSectionBreakBeforeText(
@@ -3309,6 +3717,145 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase))
             {
                 ValidatePictureStyleSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.TextBoxContainsText, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateTextBoxContainsTextSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidatePageMarginsSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateDocumentStyleSetSpecialCondition(specialCondition, taskPrefix, result);
+            }
+        }
+
+        private static void ValidateTextBoxContainsTextSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.TextBoxContainsTextConfig;
+
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.textBoxContainsTextConfig khong duoc null.");
+                return;
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : config.SourceFile;
+
+            if (!IsSafeSourceFile(sourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.textBoxContainsTextConfig.sourceFile khong hop le.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.ExpectedText))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.textBoxContainsTextConfig.expectedText khong duoc rong.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.MatchMode))
+            {
+                var supportedMatchModes = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+                {
+                    "exact",
+                    "contains"
+                };
+
+                if (!supportedMatchModes.Contains(config.MatchMode.Trim()))
+                {
+                    result.Errors.Add($"{taskPrefix}.specialCondition.textBoxContainsTextConfig.matchMode khong hop le.");
+                }
+            }
+
+            if (config.TargetOccurrence.HasValue && config.TargetOccurrence.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.textBoxContainsTextConfig.targetOccurrence phai lon hon 0.");
+            }
+        }
+
+        private static void ValidatePageMarginsSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.PageMarginsConfig;
+
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pageMarginsConfig khong duoc null.");
+                return;
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : config.SourceFile;
+
+            if (!IsSafeSourceFile(sourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pageMarginsConfig.sourceFile khong hop le.");
+            }
+
+            if (!config.Top.HasValue && !config.Bottom.HasValue && !config.Left.HasValue && !config.Right.HasValue && !config.Gutter.HasValue)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pageMarginsConfig phai co it nhat 1 margin can cham.");
+            }
+
+            foreach (var (name, value) in new[]
+            {
+                ("top", config.Top),
+                ("bottom", config.Bottom),
+                ("left", config.Left),
+                ("right", config.Right),
+                ("gutter", config.Gutter)
+            })
+            {
+                if (value.HasValue && value.Value < 0)
+                {
+                    result.Errors.Add($"{taskPrefix}.specialCondition.pageMarginsConfig.{name} phai >= 0.");
+                }
+            }
+        }
+
+        private static void ValidateDocumentStyleSetSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.DocumentStyleSetConfig;
+
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.documentStyleSetConfig khong duoc null.");
+                return;
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/styles.xml"
+                : config.SourceFile;
+
+            if (!IsSafeSourceFile(sourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.documentStyleSetConfig.sourceFile khong hop le.");
+            }
+
+            if (config.ExpectedFragments == null || config.ExpectedFragments.Count == 0 || config.ExpectedFragments.All(string.IsNullOrWhiteSpace))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.documentStyleSetConfig.expectedFragments phai co it nhat 1 fragment.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.MatchPolicy)
+                && !XmlGradingMatchPolicies.Supported.Contains(config.MatchPolicy.Trim()))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.documentStyleSetConfig.matchPolicy khong duoc ho tro: {config.MatchPolicy}.");
             }
         }
 

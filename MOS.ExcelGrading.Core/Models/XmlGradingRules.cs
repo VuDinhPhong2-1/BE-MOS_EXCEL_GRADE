@@ -52,6 +52,9 @@ namespace MOS.ExcelGrading.Core.Models
     public const string Hyperlink = "hyperlink";
     public const string SectionBreakBeforeText = "sectionBreakBeforeText";
     public const string PictureStyle = "pictureStyle";
+    public const string TextBoxContainsText = "textBoxContainsText";
+    public const string PageMargins = "pageMargins";
+    public const string DocumentStyleSet = "documentStyleSet";
 
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
@@ -61,7 +64,10 @@ namespace MOS.ExcelGrading.Core.Models
             ConvertTableToText,
             Hyperlink,
             SectionBreakBeforeText,
-            PictureStyle
+            PictureStyle,
+            TextBoxContainsText,
+            PageMargins,
+            DocumentStyleSet
         };
 }
 
@@ -207,7 +213,107 @@ public static class ImageWrapTypes
         [BsonElement("pictureStyleConfig")]
         [JsonPropertyName("pictureStyleConfig")]
         public PictureStyleConfig? PictureStyleConfig { get; set; }
+
+        [BsonElement("textBoxContainsTextConfig")]
+        [JsonPropertyName("textBoxContainsTextConfig")]
+        public TextBoxContainsTextConfig? TextBoxContainsTextConfig { get; set; }
+
+        [BsonElement("pageMarginsConfig")]
+        [JsonPropertyName("pageMarginsConfig")]
+        public PageMarginsConfig? PageMarginsConfig { get; set; }
+
+        [BsonElement("documentStyleSetConfig")]
+        [JsonPropertyName("documentStyleSetConfig")]
+        public DocumentStyleSetConfig? DocumentStyleSetConfig { get; set; }
 }
+
+    [BsonIgnoreExtraElements]
+    public class TextBoxContainsTextConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("expectedText")]
+        [JsonPropertyName("expectedText")]
+        public string? ExpectedText { get; set; }
+
+        [BsonElement("matchMode")]
+        [JsonPropertyName("matchMode")]
+        public string? MatchMode { get; set; } = "exact";
+
+        [BsonElement("caseSensitive")]
+        [JsonPropertyName("caseSensitive")]
+        public bool? CaseSensitive { get; set; } = false;
+
+        [BsonElement("targetOccurrence")]
+        [JsonPropertyName("targetOccurrence")]
+        public int? TargetOccurrence { get; set; } = 1;
+
+        [BsonElement("requireDefaultPaste")]
+        [JsonPropertyName("requireDefaultPaste")]
+        public bool? RequireDefaultPaste { get; set; } = true;
+
+        [BsonElement("requireRemovedFromBody")]
+        [JsonPropertyName("requireRemovedFromBody")]
+        public bool? RequireRemovedFromBody { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class PageMarginsConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("top")]
+        [JsonPropertyName("top")]
+        public int? Top { get; set; }
+
+        [BsonElement("bottom")]
+        [JsonPropertyName("bottom")]
+        public int? Bottom { get; set; }
+
+        [BsonElement("left")]
+        [JsonPropertyName("left")]
+        public int? Left { get; set; }
+
+        [BsonElement("right")]
+        [JsonPropertyName("right")]
+        public int? Right { get; set; }
+
+        [BsonElement("gutter")]
+        [JsonPropertyName("gutter")]
+        public int? Gutter { get; set; }
+
+        [BsonElement("requireAllSections")]
+        [JsonPropertyName("requireAllSections")]
+        public bool? RequireAllSections { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class DocumentStyleSetConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/styles.xml";
+
+        [BsonElement("styleSetName")]
+        [JsonPropertyName("styleSetName")]
+        public string? StyleSetName { get; set; }
+
+        [BsonElement("expectedFragments")]
+        [JsonPropertyName("expectedFragments")]
+        public List<string> ExpectedFragments { get; set; } = new();
+
+        [BsonElement("ignoreAttributes")]
+        [JsonPropertyName("ignoreAttributes")]
+        public List<string> IgnoreAttributes { get; set; } = new();
+
+        [BsonElement("matchPolicy")]
+        [JsonPropertyName("matchPolicy")]
+        public string? MatchPolicy { get; set; } = XmlGradingMatchPolicies.All;
+    }
 
     [BsonIgnoreExtraElements]
     public class SectionBreakBeforeTextConfig

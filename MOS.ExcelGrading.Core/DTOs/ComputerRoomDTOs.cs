@@ -20,6 +20,10 @@ namespace MOS.ExcelGrading.Core.DTOs
         [Range(0, 1000, ErrorMessage = "Số máy hỏng phải >= 0")]
         public int BrokenMachineCount { get; set; } = 0;
 
+        // THÊM
+        [StringLength(1000)]
+        public string? BrokenMachinesDetail { get; set; }
+
         [StringLength(120)]
         public string? NetSupportStatus { get; set; }
 
@@ -53,6 +57,10 @@ namespace MOS.ExcelGrading.Core.DTOs
         [Range(0, 1000, ErrorMessage = "Số máy hỏng phải >= 0")]
         public int? BrokenMachineCount { get; set; }
 
+        // THÊM
+        [StringLength(1000)]
+        public string? BrokenMachinesDetail { get; set; }
+
         [StringLength(120)]
         public string? NetSupportStatus { get; set; }
 
@@ -80,18 +88,25 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string SchoolId { get; set; } = string.Empty;
         public string OwnerId { get; set; } = string.Empty;
         public string Name { get; set; } = string.Empty;
+
         public int StudentMachineCount { get; set; }
         public int TeacherMachineCount { get; set; }
         public int BrokenMachineCount { get; set; }
+
+        // THÊM
+        public string? BrokenMachinesDetail { get; set; }
+
         public int AvailableStudentMachines { get; set; }
         public int TotalMachineCount { get; set; }
         public string TotalMachinesText { get; set; } = string.Empty;
+
         public string NetSupportStatus { get; set; } = string.Empty;
         public string AudioStatus { get; set; } = string.Empty;
         public string CoolingStatus { get; set; } = string.Empty;
         public string DevicesPoweredOffStatus { get; set; } = string.Empty;
         public string SeatingOrderStatus { get; set; } = string.Empty;
         public string RoomHygieneStatus { get; set; } = string.Empty;
+
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }

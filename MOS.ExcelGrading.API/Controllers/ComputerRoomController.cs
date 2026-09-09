@@ -91,15 +91,56 @@ namespace MOS.ExcelGrading.API.Controllers
                 SchoolId = school.Id!,
                 OwnerId = school.OwnerId,
                 Name = request.Name.Trim(),
-                StudentMachineCount = Math.Max(0, request.StudentMachineCount),
-                TeacherMachineCount = Math.Max(0, request.TeacherMachineCount),
-                BrokenMachineCount = Math.Max(0, request.BrokenMachineCount),
-                NetSupportStatus = CleanOrDefault(request.NetSupportStatus, "Tốt"),
-                AudioStatus = CleanOrDefault(request.AudioStatus, "Tốt"),
-                CoolingStatus = CleanOrDefault(request.CoolingStatus, "Tốt"),
-                DevicesPoweredOffStatus = CleanOrDefault(request.DevicesPoweredOffStatus, "Rồi"),
-                SeatingOrderStatus = CleanOrDefault(request.SeatingOrderStatus, "Tốt"),
-                RoomHygieneStatus = CleanOrDefault(request.RoomHygieneStatus, "Tốt"),
+
+                StudentMachineCount = Math.Max(
+         0,
+         request.StudentMachineCount
+     ),
+
+                TeacherMachineCount = Math.Max(
+         0,
+         request.TeacherMachineCount
+     ),
+
+                BrokenMachineCount = Math.Max(
+         0,
+         request.BrokenMachineCount
+     ),
+
+                BrokenMachinesDetail = CleanNullable(
+         request.BrokenMachinesDetail
+     ),
+
+                NetSupportStatus = CleanOrDefault(
+         request.NetSupportStatus,
+         "Tốt"
+     ),
+
+                AudioStatus = CleanOrDefault(
+         request.AudioStatus,
+         "Tốt"
+     ),
+
+                CoolingStatus = CleanOrDefault(
+         request.CoolingStatus,
+         "Tốt"
+     ),
+
+                DevicesPoweredOffStatus = CleanOrDefault(
+         request.DevicesPoweredOffStatus,
+         "Rồi"
+     ),
+
+                SeatingOrderStatus = CleanOrDefault(
+         request.SeatingOrderStatus,
+         "Tốt"
+     ),
+
+                RoomHygieneStatus = CleanOrDefault(
+         request.RoomHygieneStatus,
+         "Tốt"
+     ),
+
                 IsActive = true
             };
 
@@ -175,6 +216,11 @@ namespace MOS.ExcelGrading.API.Controllers
             existing.StudentMachineCount = Math.Max(0, request.StudentMachineCount ?? existing.StudentMachineCount);
             existing.TeacherMachineCount = Math.Max(0, request.TeacherMachineCount ?? existing.TeacherMachineCount);
             existing.BrokenMachineCount = Math.Max(0, request.BrokenMachineCount ?? existing.BrokenMachineCount);
+            if (request.BrokenMachinesDetail is not null)
+            {
+                existing.BrokenMachinesDetail =
+                    CleanNullable(request.BrokenMachinesDetail);
+            }
             existing.NetSupportStatus = CleanOrDefault(request.NetSupportStatus, existing.NetSupportStatus, "Tốt");
             existing.AudioStatus = CleanOrDefault(request.AudioStatus, existing.AudioStatus, "Tốt");
             existing.CoolingStatus = CleanOrDefault(request.CoolingStatus, existing.CoolingStatus, "Tốt");
@@ -213,33 +259,69 @@ namespace MOS.ExcelGrading.API.Controllers
             return Ok(new { message = "Đã xóa phòng máy" });
         }
 
-        private static ComputerRoomResponse ToResponse(ComputerRoom room)
+        private static ComputerRoomResponse ToResponse(
+    ComputerRoom room
+)
         {
-            var availableStudentMachines = Math.Max(0, room.StudentMachineCount - room.BrokenMachineCount);
+            var availableStudentMachines = Math.Max(
+                0,
+                room.StudentMachineCount -
+                room.BrokenMachineCount
+            );
+
             return new ComputerRoomResponse
             {
                 Id = room.Id ?? string.Empty,
                 SchoolId = room.SchoolId,
                 OwnerId = room.OwnerId,
                 Name = room.Name,
-                StudentMachineCount = room.StudentMachineCount,
-                TeacherMachineCount = room.TeacherMachineCount,
-                BrokenMachineCount = room.BrokenMachineCount,
-                AvailableStudentMachines = availableStudentMachines,
-                TotalMachineCount = room.StudentMachineCount + room.TeacherMachineCount,
-                TotalMachinesText = $"{room.StudentMachineCount} + {room.TeacherMachineCount} GV",
-                NetSupportStatus = room.NetSupportStatus,
-                AudioStatus = room.AudioStatus,
-                CoolingStatus = room.CoolingStatus,
-                DevicesPoweredOffStatus = room.DevicesPoweredOffStatus,
-                SeatingOrderStatus = room.SeatingOrderStatus,
-                RoomHygieneStatus = room.RoomHygieneStatus,
+
+                StudentMachineCount =
+                    room.StudentMachineCount,
+
+                TeacherMachineCount =
+                    room.TeacherMachineCount,
+
+                BrokenMachineCount =
+                    room.BrokenMachineCount,
+
+                // THÊM
+                BrokenMachinesDetail =
+                    room.BrokenMachinesDetail,
+
+                AvailableStudentMachines =
+                    availableStudentMachines,
+
+                TotalMachineCount =
+                    room.StudentMachineCount +
+                    room.TeacherMachineCount,
+
+                TotalMachinesText =
+                    $"{room.StudentMachineCount} + {room.TeacherMachineCount} GV",
+
+                NetSupportStatus =
+                    room.NetSupportStatus,
+
+                AudioStatus =
+                    room.AudioStatus,
+
+                CoolingStatus =
+                    room.CoolingStatus,
+
+                DevicesPoweredOffStatus =
+                    room.DevicesPoweredOffStatus,
+
+                SeatingOrderStatus =
+                    room.SeatingOrderStatus,
+
+                RoomHygieneStatus =
+                    room.RoomHygieneStatus,
+
                 IsActive = room.IsActive,
                 CreatedAt = room.CreatedAt,
                 UpdatedAt = room.UpdatedAt
             };
         }
-
         private static string CleanOrDefault(string? value, string @default)
         {
             var cleaned = value?.Trim();
@@ -260,6 +342,14 @@ namespace MOS.ExcelGrading.API.Controllers
             }
 
             return @default;
+        }
+        private static string? CleanNullable(string? value)
+        {
+            var cleaned = value?.Trim();
+
+            return string.IsNullOrWhiteSpace(cleaned)
+                ? null
+                : cleaned;
         }
     }
 }

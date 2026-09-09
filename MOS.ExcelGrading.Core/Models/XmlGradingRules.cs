@@ -55,6 +55,7 @@ namespace MOS.ExcelGrading.Core.Models
     public const string TextBoxContainsText = "textBoxContainsText";
     public const string PageMargins = "pageMargins";
     public const string DocumentStyleSet = "documentStyleSet";
+    public const string PageBorder = "pageBorder";
 
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
@@ -67,7 +68,8 @@ namespace MOS.ExcelGrading.Core.Models
             PictureStyle,
             TextBoxContainsText,
             PageMargins,
-            DocumentStyleSet
+            DocumentStyleSet,
+            PageBorder
         };
 }
 
@@ -225,6 +227,10 @@ public static class ImageWrapTypes
         [BsonElement("documentStyleSetConfig")]
         [JsonPropertyName("documentStyleSetConfig")]
         public DocumentStyleSetConfig? DocumentStyleSetConfig { get; set; }
+
+        [BsonElement("pageBorderConfig")]
+        [JsonPropertyName("pageBorderConfig")]
+        public PageBorderConfig? PageBorderConfig { get; set; }
 }
 
     [BsonIgnoreExtraElements]
@@ -321,6 +327,42 @@ public static class ImageWrapTypes
         [BsonElement("matchPolicy")]
         [JsonPropertyName("matchPolicy")]
         public string? MatchPolicy { get; set; } = XmlGradingMatchPolicies.All;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class PageBorderConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("requiredStyle")]
+        [JsonPropertyName("requiredStyle")]
+        public string? RequiredStyle { get; set; } = "single";
+
+        [BsonElement("requiredWidth")]
+        [JsonPropertyName("requiredWidth")]
+        public int? RequiredWidth { get; set; } = 12;
+
+        [BsonElement("minWidth")]
+        [JsonPropertyName("minWidth")]
+        public int? MinWidth { get; set; }
+
+        [BsonElement("requiredColor")]
+        [JsonPropertyName("requiredColor")]
+        public string? RequiredColor { get; set; } = "00B0F0";
+
+        [BsonElement("allowedColors")]
+        [JsonPropertyName("allowedColors")]
+        public List<string> AllowedColors { get; set; } = new();
+
+        [BsonElement("requireBox")]
+        [JsonPropertyName("requireBox")]
+        public bool? RequireBox { get; set; } = true;
+
+        [BsonElement("requireAllSections")]
+        [JsonPropertyName("requireAllSections")]
+        public bool? RequireAllSections { get; set; } = true;
     }
 
     [BsonIgnoreExtraElements]
@@ -490,6 +532,14 @@ public static class ImageWrapTypes
     [BsonIgnoreExtraElements]
     public class ImageInsertConfig
     {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("relsFile")]
+        [JsonPropertyName("relsFile")]
+        public string? RelsFile { get; set; } = "word/_rels/document.xml.rels";
+
         [BsonElement("assetId")]
         [JsonPropertyName("assetId")]
         public string? AssetId { get; set; }
@@ -508,6 +558,50 @@ public static class ImageWrapTypes
         [BsonElement("perceptualHash")]
         [JsonPropertyName("perceptualHash")]
         public string? PerceptualHash { get; set; }
+
+        [BsonElement("positionConfig")]
+        [JsonPropertyName("positionConfig")]
+        public ImagePositionConfig? PositionConfig { get; set; }
+
+        [BsonElement("sizeConfig")]
+        [JsonPropertyName("sizeConfig")]
+        public ImageSizeConfig? SizeConfig { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ImagePositionConfig
+    {
+        [BsonElement("afterText")]
+        [JsonPropertyName("afterText")]
+        public string? AfterText { get; set; }
+
+        [BsonElement("beforeText")]
+        [JsonPropertyName("beforeText")]
+        public string? BeforeText { get; set; }
+
+        [BsonElement("requireBetween")]
+        [JsonPropertyName("requireBetween")]
+        public bool? RequireBetween { get; set; } = true;
+
+        [BsonElement("caseSensitive")]
+        [JsonPropertyName("caseSensitive")]
+        public bool? CaseSensitive { get; set; } = false;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ImageSizeConfig
+    {
+        [BsonElement("expectedWidthEmu")]
+        [JsonPropertyName("expectedWidthEmu")]
+        public long? ExpectedWidthEmu { get; set; }
+
+        [BsonElement("expectedHeightEmu")]
+        [JsonPropertyName("expectedHeightEmu")]
+        public long? ExpectedHeightEmu { get; set; }
+
+        [BsonElement("toleranceEmu")]
+        [JsonPropertyName("toleranceEmu")]
+        public long? ToleranceEmu { get; set; } = 0;
     }
 
     [BsonIgnoreExtraElements]

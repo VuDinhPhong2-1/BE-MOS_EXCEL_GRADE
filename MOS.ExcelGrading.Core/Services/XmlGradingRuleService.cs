@@ -673,6 +673,14 @@ namespace MOS.ExcelGrading.Core.Services
                     {
                         var imageInsertConfig = task.SpecialCondition.ImageInsertConfig;
 
+                        imageInsertConfig.SourceFile = string.IsNullOrWhiteSpace(imageInsertConfig.SourceFile)
+                            ? "word/document.xml"
+                            : NormalizeSourceFile(imageInsertConfig.SourceFile);
+
+                        imageInsertConfig.RelsFile = string.IsNullOrWhiteSpace(imageInsertConfig.RelsFile)
+                            ? "word/_rels/document.xml.rels"
+                            : NormalizeSourceFile(imageInsertConfig.RelsFile);
+
                         imageInsertConfig.AssetId = string.IsNullOrWhiteSpace(imageInsertConfig.AssetId)
                             ? null
                             : imageInsertConfig.AssetId.Trim();
@@ -692,6 +700,38 @@ namespace MOS.ExcelGrading.Core.Services
                         imageInsertConfig.WrapType = string.IsNullOrWhiteSpace(imageInsertConfig.WrapType)
                             ? null
                             : imageInsertConfig.WrapType.Trim();
+
+                        if (imageInsertConfig.PositionConfig != null)
+                        {
+                            imageInsertConfig.PositionConfig.AfterText = string.IsNullOrWhiteSpace(imageInsertConfig.PositionConfig.AfterText)
+                                ? null
+                                : NormalizePlainText(imageInsertConfig.PositionConfig.AfterText);
+
+                            imageInsertConfig.PositionConfig.BeforeText = string.IsNullOrWhiteSpace(imageInsertConfig.PositionConfig.BeforeText)
+                                ? null
+                                : NormalizePlainText(imageInsertConfig.PositionConfig.BeforeText);
+
+                            imageInsertConfig.PositionConfig.RequireBetween ??= true;
+                            imageInsertConfig.PositionConfig.CaseSensitive ??= false;
+                        }
+
+                        if (imageInsertConfig.SizeConfig != null)
+                        {
+                            if (imageInsertConfig.SizeConfig.ExpectedWidthEmu <= 0)
+                            {
+                                imageInsertConfig.SizeConfig.ExpectedWidthEmu = null;
+                            }
+
+                            if (imageInsertConfig.SizeConfig.ExpectedHeightEmu <= 0)
+                            {
+                                imageInsertConfig.SizeConfig.ExpectedHeightEmu = null;
+                            }
+
+                            if (imageInsertConfig.SizeConfig.ToleranceEmu < 0)
+                            {
+                                imageInsertConfig.SizeConfig.ToleranceEmu = 0;
+                            }
+                        }
                     }
 
                     if (task.SpecialCondition.ConvertTableToTextConfig != null)
@@ -896,6 +936,47 @@ namespace MOS.ExcelGrading.Core.Services
                             ? XmlGradingMatchPolicies.All
                             : styleSetConfig.MatchPolicy.Trim();
                     }
+
+                    if (task.SpecialCondition.PageBorderConfig != null)
+                    {
+                        var pageBorderConfig = task.SpecialCondition.PageBorderConfig;
+
+                        pageBorderConfig.SourceFile = string.IsNullOrWhiteSpace(pageBorderConfig.SourceFile)
+                            ? "word/document.xml"
+                            : NormalizeSourceFile(pageBorderConfig.SourceFile);
+
+                        pageBorderConfig.RequiredStyle = string.IsNullOrWhiteSpace(pageBorderConfig.RequiredStyle)
+                            ? "single"
+                            : pageBorderConfig.RequiredStyle.Trim();
+
+                        if (pageBorderConfig.RequiredWidth <= 0)
+                        {
+                            pageBorderConfig.RequiredWidth = null;
+                        }
+
+                        if (pageBorderConfig.MinWidth <= 0)
+                        {
+                            pageBorderConfig.MinWidth = null;
+                        }
+
+                        pageBorderConfig.RequiredColor = NormalizeBorderColor(pageBorderConfig.RequiredColor);
+                        pageBorderConfig.AllowedColors = pageBorderConfig.AllowedColors?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(NormalizeBorderColor)
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(value => value!)
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList() ?? new List<string>();
+
+                        if (!string.IsNullOrWhiteSpace(pageBorderConfig.RequiredColor)
+                            && !pageBorderConfig.AllowedColors.Contains(pageBorderConfig.RequiredColor, StringComparer.OrdinalIgnoreCase))
+                        {
+                            pageBorderConfig.AllowedColors.Insert(0, pageBorderConfig.RequiredColor);
+                        }
+
+                        pageBorderConfig.RequireBox ??= true;
+                        pageBorderConfig.RequireAllSections ??= true;
+                    }
                 }
             }
         }
@@ -1072,7 +1153,8 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.TextBoxContainsText, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase),
+                    || string.Equals(specialConditionType, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.PageBorder, StringComparison.OrdinalIgnoreCase),
                 "excel" => false,
                 "ppt" => false,
                 "powerpoint" => false,
@@ -1374,8 +1456,8 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase))
                 {
-                    AddXmlPart("word/document.xml", "word/document.xml");
-                    AddXmlPart("word/_rels/document.xml.rels", "word/_rels/document.xml.rels");
+                    AddXmlPart(specialCondition.ImageInsertConfig?.SourceFile, "word/document.xml");
+                    AddXmlPart(specialCondition.ImageInsertConfig?.RelsFile, "word/_rels/document.xml.rels");
                     requiredParts.ReadRelatedImages = true;
                     continue;
                 }
@@ -1425,6 +1507,12 @@ namespace MOS.ExcelGrading.Core.Services
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase))
                 {
                     AddXmlPart(specialCondition.DocumentStyleSetConfig?.SourceFile, "word/styles.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageBorder, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.PageBorderConfig?.SourceFile, "word/document.xml");
                     continue;
                 }
             }
@@ -1619,6 +1707,61 @@ namespace MOS.ExcelGrading.Core.Services
                 return EvaluateInsertedImage(specialCondition.ImageInsertConfig, package);
             }
 
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase))
+            {
+                var config = specialCondition.ImageInsertConfig;
+                if (config != null)
+                {
+                    var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                        ? "word/document.xml"
+                        : config.SourceFile;
+
+                    var relsFile = string.IsNullOrWhiteSpace(config.RelsFile)
+                        ? "word/_rels/document.xml.rels"
+                        : config.RelsFile;
+
+                    if (!IsSafeSourceFile(sourceFile))
+                    {
+                        result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sourceFile khong hop le.");
+                    }
+
+                    if (!IsSafeSourceFile(relsFile))
+                    {
+                        result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.relsFile khong hop le.");
+                    }
+
+                    if (config.PositionConfig?.RequireBetween == true
+                        && string.IsNullOrWhiteSpace(config.PositionConfig.AfterText)
+                        && string.IsNullOrWhiteSpace(config.PositionConfig.BeforeText))
+                    {
+                        result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.positionConfig phai co afterText hoac beforeText khi bat requireBetween.");
+                    }
+
+                    if (config.SizeConfig != null)
+                    {
+                        if (!config.SizeConfig.ExpectedWidthEmu.HasValue && !config.SizeConfig.ExpectedHeightEmu.HasValue)
+                        {
+                            result.Warnings.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig dang trong nen se khong kiem tra kich thuoc.");
+                        }
+
+                        if (config.SizeConfig.ExpectedWidthEmu.HasValue && config.SizeConfig.ExpectedWidthEmu.Value <= 0)
+                        {
+                            result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.expectedWidthEmu phai lon hon 0.");
+                        }
+
+                        if (config.SizeConfig.ExpectedHeightEmu.HasValue && config.SizeConfig.ExpectedHeightEmu.Value <= 0)
+                        {
+                            result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.expectedHeightEmu phai lon hon 0.");
+                        }
+
+                        if (config.SizeConfig.ToleranceEmu.HasValue && config.SizeConfig.ToleranceEmu.Value < 0)
+                        {
+                            result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.toleranceEmu phai >= 0.");
+                        }
+                    }
+                }
+            }
+
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateConvertTableToText(specialCondition.ConvertTableToTextConfig, package);
@@ -1652,6 +1795,11 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateDocumentStyleSet(specialCondition.DocumentStyleSetConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageBorder, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluatePageBorder(specialCondition.PageBorderConfig, package);
             }
 
             return new SpecialConditionEvalOutcome
@@ -1715,6 +1863,12 @@ namespace MOS.ExcelGrading.Core.Services
         {
             public string Text { get; init; } = string.Empty;
             public int TabCount { get; init; }
+        }
+
+        private sealed class InsertedImageCandidate
+        {
+            public XElement Drawing { get; init; } = null!;
+            public int ParagraphIndex { get; init; }
         }
 
         private static SpecialConditionEvalOutcome EvaluateTextBoxContainsText(
@@ -2036,6 +2190,204 @@ namespace MOS.ExcelGrading.Core.Services
                 ?? Check("left", config.Left)
                 ?? Check("right", config.Right)
                 ?? Check("gutter", config.Gutter);
+        }
+
+        private static SpecialConditionEvalOutcome EvaluatePageBorder(
+            PageBorderConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Page Border (pageBorderConfig trong).");
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : NormalizeSourceFile(config.SourceFile);
+
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var documentError))
+            {
+                return Fail(documentError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
+            }
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+
+            try
+            {
+                var pageBorders = document.Descendants(w + "sectPr")
+                    .Select(section => section.Element(w + "pgBorders"))
+                    .Where(pgBorders => pgBorders != null)
+                    .Cast<XElement>()
+                    .ToList();
+
+                if (pageBorders.Count == 0)
+                {
+                    return Fail("Khong tim thay w:pgBorders trong section properties.");
+                }
+
+                var requireAllSections = config.RequireAllSections != false;
+                var checkedBorders = requireAllSections ? pageBorders : pageBorders.TakeLast(1).ToList();
+                var sectionNumber = requireAllSections ? 1 : pageBorders.Count;
+
+                foreach (var pageBorder in checkedBorders)
+                {
+                    var mismatch = GetPageBorderMismatch(pageBorder, w, config);
+                    if (mismatch != null)
+                    {
+                        return Fail(requireAllSections
+                            ? $"Section {sectionNumber}: {mismatch}"
+                            : mismatch);
+                    }
+
+                    sectionNumber++;
+                }
+
+                return new SpecialConditionEvalOutcome
+                {
+                    IsPassed = true,
+                    Message = requireAllSections
+                        ? $"Tat ca {pageBorders.Count} section co page border dung yeu cau."
+                        : "Section cuoi co page border dung yeu cau."
+                };
+            }
+            catch (XmlException ex)
+            {
+                return Fail($"Khong the phan tich XML: {ex.Message}");
+            }
+        }
+
+        private static string? GetPageBorderMismatch(XElement pageBorder, XNamespace w, PageBorderConfig config)
+        {
+            var requiredSides = config.RequireBox != false
+                ? new[] { "top", "left", "bottom", "right" }
+                : pageBorder.Elements().Select(element => element.Name.LocalName).ToArray();
+
+            if (requiredSides.Length == 0)
+            {
+                return "Khong co canh border nao de kiem tra.";
+            }
+
+            foreach (var sideName in requiredSides)
+            {
+                var side = pageBorder.Element(w + sideName);
+                if (side == null)
+                {
+                    return $"Thieu border canh {sideName}.";
+                }
+
+                var styleMismatch = GetPageBorderStyleMismatch(side, w, config.RequiredStyle);
+                if (styleMismatch != null)
+                {
+                    return $"Canh {sideName}: {styleMismatch}";
+                }
+
+                var widthMismatch = GetPageBorderWidthMismatch(side, w, config.RequiredWidth, config.MinWidth);
+                if (widthMismatch != null)
+                {
+                    return $"Canh {sideName}: {widthMismatch}";
+                }
+
+                var colorMismatch = GetPageBorderColorMismatch(side, w, config);
+                if (colorMismatch != null)
+                {
+                    return $"Canh {sideName}: {colorMismatch}";
+                }
+            }
+
+            return null;
+        }
+
+        private static string? GetPageBorderStyleMismatch(XElement borderSide, XNamespace w, string? expectedStyle)
+        {
+            if (string.IsNullOrWhiteSpace(expectedStyle))
+            {
+                return null;
+            }
+
+            var actualStyle = borderSide.Attribute(w + "val")?.Value;
+            if (string.Equals(actualStyle, expectedStyle.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return $"style la '{actualStyle ?? "(rong)"}', can '{expectedStyle.Trim()}'.";
+        }
+
+        private static string? GetPageBorderWidthMismatch(XElement borderSide, XNamespace w, int? requiredWidth, int? minWidth)
+        {
+            if (!requiredWidth.HasValue && !minWidth.HasValue)
+            {
+                return null;
+            }
+
+            var actualWidthText = borderSide.Attribute(w + "sz")?.Value;
+            if (!int.TryParse(actualWidthText, out var actualWidth))
+            {
+                return "khong doc duoc do rong border w:sz.";
+            }
+
+            if (requiredWidth.HasValue && actualWidth != requiredWidth.Value)
+            {
+                return $"do rong la {actualWidth}, can {requiredWidth.Value}.";
+            }
+
+            if (minWidth.HasValue && actualWidth < minWidth.Value)
+            {
+                return $"do rong la {actualWidth}, can toi thieu {minWidth.Value}.";
+            }
+
+            return null;
+        }
+
+        private static string? GetPageBorderColorMismatch(XElement borderSide, XNamespace w, PageBorderConfig config)
+        {
+            var expectedColors = config.AllowedColors?
+                .Select(NormalizeBorderColor)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!)
+                .ToList() ?? new List<string>();
+
+            if (!string.IsNullOrWhiteSpace(config.RequiredColor))
+            {
+                expectedColors.Insert(0, NormalizeBorderColor(config.RequiredColor)!);
+            }
+
+            expectedColors = expectedColors
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+
+            if (expectedColors.Count == 0)
+            {
+                return null;
+            }
+
+            var actualColors = new[]
+            {
+                borderSide.Attribute(w + "color")?.Value,
+                borderSide.Attribute(w + "themeColor")?.Value
+            }
+                .Select(NormalizeBorderColor)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value!)
+                .ToList();
+
+            if (actualColors.Count == 0)
+            {
+                return "khong doc duoc mau border.";
+            }
+
+            if (actualColors.Any(actual => expectedColors.Any(expected => DoesBorderColorMatch(actual, expected))))
+            {
+                return null;
+            }
+
+            return $"mau la '{string.Join("/", actualColors)}', can mot trong '{string.Join("/", expectedColors)}'.";
         }
 
         private static SpecialConditionEvalOutcome EvaluateDocumentStyleSet(
@@ -2676,8 +3028,12 @@ namespace MOS.ExcelGrading.Core.Services
                 return Fail("Chưa có imageHash — ảnh chuẩn chưa được upload/tạo hash ở BE.");
             }
 
-            const string documentPart = "word/document.xml";
-            const string documentRelsPath = "word/_rels/document.xml.rels";
+            var documentPart = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : NormalizeSourceFile(config.SourceFile);
+            var documentRelsPath = string.IsNullOrWhiteSpace(config.RelsFile)
+                ? "word/_rels/document.xml.rels"
+                : NormalizeSourceFile(config.RelsFile);
 
             if (!package.TryGetXmlDocument(documentPart, out var documentDocument, out var documentError))
             {
@@ -2700,7 +3056,16 @@ namespace MOS.ExcelGrading.Core.Services
                 var expectedPerceptualHash = config.PerceptualHash;
                 var expectedWrap = string.IsNullOrWhiteSpace(config.WrapType) ? null : config.WrapType.Trim();
 
-                var drawings = documentDocument.Descendants(w + "drawing").ToList();
+                var paragraphs = documentDocument.Descendants(w + "body").Elements(w + "p").ToList();
+                var drawings = paragraphs
+                    .SelectMany((paragraph, paragraphIndex) => paragraph
+                        .Descendants(w + "drawing")
+                        .Select(drawing => new InsertedImageCandidate
+                        {
+                            Drawing = drawing,
+                            ParagraphIndex = paragraphIndex
+                        }))
+                    .ToList();
 
                 if (drawings.Count == 0)
                 {
@@ -2709,8 +3074,9 @@ namespace MOS.ExcelGrading.Core.Services
 
                 string? lastMismatchInfo = null;
 
-                foreach (var drawing in drawings)
+                foreach (var candidate in drawings)
                 {
+                    var drawing = candidate.Drawing;
                     var relationshipId = drawing.Descendants(a + "blip").FirstOrDefault()?.Attribute(r + "embed")?.Value;
 
                     if (string.IsNullOrWhiteSpace(relationshipId))
@@ -2737,6 +3103,37 @@ namespace MOS.ExcelGrading.Core.Services
                         lastMismatchInfo = $"Tìm thấy ảnh {imagePath} nhưng không đúng nội dung yêu cầu.";
                         continue;
                     }
+
+                    var wrapMismatch = GetInsertedImageWrapMismatch(drawing, wp, expectedWrap);
+                    if (wrapMismatch != null)
+                    {
+                        lastMismatchInfo = wrapMismatch;
+                        continue;
+                    }
+
+                    var positionMismatch = GetInsertedImagePositionMismatch(
+                        paragraphs,
+                        w,
+                        candidate.ParagraphIndex,
+                        config.PositionConfig);
+                    if (positionMismatch != null)
+                    {
+                        lastMismatchInfo = positionMismatch;
+                        continue;
+                    }
+
+                    var sizeMismatch = GetInsertedImageSizeMismatch(drawing, wp, config.SizeConfig);
+                    if (sizeMismatch != null)
+                    {
+                        lastMismatchInfo = sizeMismatch;
+                        continue;
+                    }
+
+                    return new SpecialConditionEvalOutcome
+                    {
+                        IsPassed = true,
+                        Message = BuildInsertedImageSuccessMessage(expectedWrap, config.PositionConfig, config.SizeConfig)
+                    };
 
                     if (expectedWrap == null)
                     {
@@ -2774,6 +3171,159 @@ namespace MOS.ExcelGrading.Core.Services
         /// wrapSquare/wrapTight/wrapThrough/wrapTopAndBottom/wrapNone
         /// (behind/inFront phân biệt bằng attribute behindDoc trên wp:anchor).
         /// </summary>
+        private static string? GetInsertedImageWrapMismatch(XElement drawing, XNamespace wp, string? expectedWrap)
+        {
+            if (string.IsNullOrWhiteSpace(expectedWrap))
+            {
+                return null;
+            }
+
+            var actualWrap = DetectWrapType(drawing, wp);
+            return string.Equals(actualWrap, expectedWrap, StringComparison.OrdinalIgnoreCase)
+                ? null
+                : $"Da tim thay dung anh nhung wrap la '{actualWrap}' thay vi '{expectedWrap}'.";
+        }
+
+        private static string? GetInsertedImagePositionMismatch(
+            IReadOnlyList<XElement> paragraphs,
+            XNamespace w,
+            int imageParagraphIndex,
+            ImagePositionConfig? config)
+        {
+            if (config == null || config.RequireBetween == false)
+            {
+                return null;
+            }
+
+            var afterText = NormalizePlainText(config.AfterText);
+            var beforeText = NormalizePlainText(config.BeforeText);
+
+            if (string.IsNullOrWhiteSpace(afterText) && string.IsNullOrWhiteSpace(beforeText))
+            {
+                return null;
+            }
+
+            var comparison = config.CaseSensitive == true
+                ? StringComparison.Ordinal
+                : StringComparison.OrdinalIgnoreCase;
+
+            var paragraphTexts = paragraphs
+                .Select(paragraph => BuildParagraphTextSnapshot(paragraph, w, excludeTextBoxContent: true).Text)
+                .ToList();
+
+            if (!string.IsNullOrWhiteSpace(afterText))
+            {
+                var afterIndex = paragraphTexts.FindLastIndex(
+                    Math.Max(0, imageParagraphIndex),
+                    text => text.Contains(afterText, comparison));
+
+                if (afterIndex < 0)
+                {
+                    return $"Khong tim thay moc afterText '{afterText}' truoc anh.";
+                }
+
+                if (afterIndex >= imageParagraphIndex)
+                {
+                    return $"Anh khong nam sau afterText '{afterText}'.";
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(beforeText))
+            {
+                var beforeIndex = paragraphTexts.FindIndex(
+                    imageParagraphIndex + 1,
+                    text => text.Contains(beforeText, comparison));
+
+                if (beforeIndex < 0)
+                {
+                    return $"Khong tim thay moc beforeText '{beforeText}' sau anh.";
+                }
+
+                if (beforeIndex <= imageParagraphIndex)
+                {
+                    return $"Anh khong nam truoc beforeText '{beforeText}'.";
+                }
+            }
+
+            return null;
+        }
+
+        private static string? GetInsertedImageSizeMismatch(
+            XElement drawing,
+            XNamespace wp,
+            ImageSizeConfig? config)
+        {
+            if (config == null || (!config.ExpectedWidthEmu.HasValue && !config.ExpectedHeightEmu.HasValue))
+            {
+                return null;
+            }
+
+            var extent = drawing.Element(wp + "inline")?.Element(wp + "extent")
+                ?? drawing.Element(wp + "anchor")?.Element(wp + "extent");
+            if (extent == null)
+            {
+                return "Khong doc duoc kich thuoc anh (wp:extent).";
+            }
+
+            var actualWidth = ParseLongAttribute(extent, "cx");
+            var actualHeight = ParseLongAttribute(extent, "cy");
+            var tolerance = Math.Max(0, config.ToleranceEmu ?? 0);
+
+            if (config.ExpectedWidthEmu.HasValue)
+            {
+                if (!actualWidth.HasValue)
+                {
+                    return "Khong doc duoc chieu rong anh.";
+                }
+
+                if (Math.Abs(actualWidth.Value - config.ExpectedWidthEmu.Value) > tolerance)
+                {
+                    return $"Chieu rong anh la {actualWidth.Value} EMU, can {config.ExpectedWidthEmu.Value} EMU (+/- {tolerance}).";
+                }
+            }
+
+            if (config.ExpectedHeightEmu.HasValue)
+            {
+                if (!actualHeight.HasValue)
+                {
+                    return "Khong doc duoc chieu cao anh.";
+                }
+
+                if (Math.Abs(actualHeight.Value - config.ExpectedHeightEmu.Value) > tolerance)
+                {
+                    return $"Chieu cao anh la {actualHeight.Value} EMU, can {config.ExpectedHeightEmu.Value} EMU (+/- {tolerance}).";
+                }
+            }
+
+            return null;
+        }
+
+        private static string BuildInsertedImageSuccessMessage(
+            string? expectedWrap,
+            ImagePositionConfig? positionConfig,
+            ImageSizeConfig? sizeConfig)
+        {
+            var checks = new List<string> { "dung anh" };
+
+            if (!string.IsNullOrWhiteSpace(expectedWrap))
+            {
+                checks.Add($"wrap {expectedWrap.Trim()}");
+            }
+
+            if (positionConfig?.RequireBetween != false
+                && (!string.IsNullOrWhiteSpace(positionConfig?.AfterText) || !string.IsNullOrWhiteSpace(positionConfig?.BeforeText)))
+            {
+                checks.Add("dung vi tri");
+            }
+
+            if (sizeConfig != null && (sizeConfig.ExpectedWidthEmu.HasValue || sizeConfig.ExpectedHeightEmu.HasValue))
+            {
+                checks.Add("dung kich thuoc");
+            }
+
+            return $"Da chen hinh anh {string.Join(", ", checks)}.";
+        }
+
         private static string DetectWrapType(XElement drawing, XNamespace wp)
         {
             if (drawing.Element(wp + "inline") != null)
@@ -3460,12 +4010,67 @@ namespace MOS.ExcelGrading.Core.Services
             return Regex.IsMatch(normalized, "^[0-9A-F]{6}$") ? normalized : value.Trim();
         }
 
+        private static string? NormalizeBorderColor(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            var normalized = value.Trim().TrimStart('#');
+            var compact = Regex.Replace(normalized, "[\\s_-]+", string.Empty).ToLowerInvariant();
+
+            return compact switch
+            {
+                "lightblue" => "00B0F0",
+                "black" => "000000",
+                "blue" => "0000FF",
+                "red" => "FF0000",
+                "green" => "00B050",
+                "accent1" => "accent1",
+                "accent2" => "accent2",
+                "accent3" => "accent3",
+                "accent4" => "accent4",
+                "accent5" => "accent5",
+                "accent6" => "accent6",
+                _ => NormalizeHexColor(normalized)
+            };
+        }
+
+        private static bool DoesBorderColorMatch(string actualColor, string expectedColor)
+        {
+            var actual = NormalizeBorderColor(actualColor);
+            var expected = NormalizeBorderColor(expectedColor);
+
+            if (string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.Equals(expected, "00B0F0", StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Equals(actual, "accent1", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(actual, "5B9BD5", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(actual, "4F81BD", StringComparison.OrdinalIgnoreCase);
+            }
+
+            return false;
+        }
+
         private static int? ParseIntAttribute(XElement element, string localName)
         {
             var value = element.Attributes().FirstOrDefault(attribute =>
                 string.Equals(attribute.Name.LocalName, localName, StringComparison.OrdinalIgnoreCase))?.Value;
 
             return int.TryParse(value, out var parsed) ? parsed : null;
+        }
+
+        private static long? ParseLongAttribute(XElement element, string localName)
+        {
+            var value = element.Attributes().FirstOrDefault(attribute =>
+                string.Equals(attribute.Name.LocalName, localName, StringComparison.OrdinalIgnoreCase))?.Value;
+
+            return long.TryParse(value, out var parsed) ? parsed : null;
         }
 
         private static string? GetLineColor(XElement line, XNamespace a)
@@ -3848,6 +4453,11 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 ValidateDocumentStyleSetSpecialCondition(specialCondition, taskPrefix, result);
             }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageBorder, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidatePageBorderSpecialCondition(specialCondition, taskPrefix, result);
+            }
         }
 
         private static void ValidateTextBoxContainsTextSpecialCondition(
@@ -3971,6 +4581,50 @@ namespace MOS.ExcelGrading.Core.Services
                 && !XmlGradingMatchPolicies.Supported.Contains(config.MatchPolicy.Trim()))
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.documentStyleSetConfig.matchPolicy khong duoc ho tro: {config.MatchPolicy}.");
+            }
+        }
+
+        private static void ValidatePageBorderSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.PageBorderConfig;
+
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pageBorderConfig khong duoc null.");
+                return;
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
+                ? "word/document.xml"
+                : config.SourceFile;
+
+            if (!IsSafeSourceFile(sourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pageBorderConfig.sourceFile khong hop le.");
+            }
+
+            if (config.RequiredWidth.HasValue && config.RequiredWidth.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pageBorderConfig.requiredWidth phai lon hon 0.");
+            }
+
+            if (config.MinWidth.HasValue && config.MinWidth.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.pageBorderConfig.minWidth phai lon hon 0.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.RequiredStyle))
+            {
+                result.Warnings.Add($"{taskPrefix}.specialCondition.pageBorderConfig.requiredStyle dang trong nen se khong kiem tra kieu net.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.RequiredColor)
+                && (config.AllowedColors == null || config.AllowedColors.Count == 0 || config.AllowedColors.All(string.IsNullOrWhiteSpace)))
+            {
+                result.Warnings.Add($"{taskPrefix}.specialCondition.pageBorderConfig khong co mau can cham nen se khong kiem tra mau border.");
             }
         }
 

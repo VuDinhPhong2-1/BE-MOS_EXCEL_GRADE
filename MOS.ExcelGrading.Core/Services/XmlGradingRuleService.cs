@@ -2179,17 +2179,17 @@ namespace MOS.ExcelGrading.Core.Services
                 }
 
                 var connectionHaystack = NormalizePlainText(connectionsXml);
-                if (!string.IsNullOrWhiteSpace(config.SourceFileName)
-                    && !connectionHaystack.Contains(config.SourceFileName.Trim(), StringComparison.OrdinalIgnoreCase))
-                {
-                    return Fail($"Khong tim thay connection tham chieu file '{config.SourceFileName}'.");
-                }
-
                 if (!string.IsNullOrWhiteSpace(config.ExpectedConnectionName)
                     && !connectionHaystack.Contains(config.ExpectedConnectionName.Trim(), StringComparison.OrdinalIgnoreCase))
                 {
                     return Fail($"Khong tim thay connection ten '{config.ExpectedConnectionName}'.");
                 }
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.SourceFileName)
+                && !ExcelPackageContainsText(package, config.SourceFileName.Trim()))
+            {
+                return Fail($"Khong tim thay dau hieu file nguon '{config.SourceFileName}' trong workbook.");
             }
 
             if (config.RequireDataModel != false)
@@ -2199,7 +2199,14 @@ namespace MOS.ExcelGrading.Core.Services
                     || path.StartsWith("xl/model/item", StringComparison.OrdinalIgnoreCase))
                     || package.PartNames.Any(path =>
                         path.Contains("datamodel", StringComparison.OrdinalIgnoreCase)
-                        || path.Contains("dataModel", StringComparison.Ordinal));
+                        || path.Contains("dataModel", StringComparison.Ordinal))
+                    || (package.XmlParts.TryGetValue("xl/connections.xml", out var connectionsXml)
+                        && ContainsAnyText(
+                            connectionsXml,
+                            "modelConnection",
+                            "worksheetDataModel",
+                            "Data Model",
+                            "ModelConnection"));
 
                 if (!hasModelPart)
                 {
@@ -2212,6 +2219,31 @@ namespace MOS.ExcelGrading.Core.Services
                 IsPassed = true,
                 Message = "Workbook co connection import va dau hieu Data Model dung cau hinh."
             };
+        }
+
+        private static bool ExcelPackageContainsText(OfficePackage package, string expectedText)
+        {
+            if (string.IsNullOrWhiteSpace(expectedText))
+            {
+                return true;
+            }
+
+            var normalizedExpected = NormalizePlainText(expectedText);
+            var partNameHaystack = NormalizePlainText(string.Join(" ", package.PartNames));
+            if (partNameHaystack.Contains(normalizedExpected, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return package.XmlParts.Values.Any(xml =>
+                NormalizePlainText(xml).Contains(normalizedExpected, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static bool ContainsAnyText(string value, params string[] expectedTexts)
+        {
+            return expectedTexts.Any(expected =>
+                !string.IsNullOrWhiteSpace(expected)
+                && value.Contains(expected, StringComparison.OrdinalIgnoreCase));
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelCompatibilityReport(

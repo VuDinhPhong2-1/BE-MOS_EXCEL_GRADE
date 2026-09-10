@@ -56,6 +56,11 @@ namespace MOS.ExcelGrading.Core.Models
     public const string PageMargins = "pageMargins";
     public const string DocumentStyleSet = "documentStyleSet";
     public const string PageBorder = "pageBorder";
+    public const string ExcelTableName = "excelTableName";
+    public const string ExcelWorksheetPageSetup = "excelWorksheetPageSetup";
+    public const string ExcelClearCellFormatting = "excelClearCellFormatting";
+    public const string ExcelDataModelImport = "excelDataModelImport";
+    public const string ExcelCompatibilityReport = "excelCompatibilityReport";
 
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
@@ -69,7 +74,12 @@ namespace MOS.ExcelGrading.Core.Models
             TextBoxContainsText,
             PageMargins,
             DocumentStyleSet,
-            PageBorder
+            PageBorder,
+            ExcelTableName,
+            ExcelWorksheetPageSetup,
+            ExcelClearCellFormatting,
+            ExcelDataModelImport,
+            ExcelCompatibilityReport
         };
 }
 
@@ -231,7 +241,123 @@ public static class ImageWrapTypes
         [BsonElement("pageBorderConfig")]
         [JsonPropertyName("pageBorderConfig")]
         public PageBorderConfig? PageBorderConfig { get; set; }
+
+        [BsonElement("excelTableNameConfig")]
+        [JsonPropertyName("excelTableNameConfig")]
+        public ExcelTableNameConfig? ExcelTableNameConfig { get; set; }
+
+        [BsonElement("excelWorksheetPageSetupConfig")]
+        [JsonPropertyName("excelWorksheetPageSetupConfig")]
+        public ExcelWorksheetPageSetupConfig? ExcelWorksheetPageSetupConfig { get; set; }
+
+        [BsonElement("excelClearCellFormattingConfig")]
+        [JsonPropertyName("excelClearCellFormattingConfig")]
+        public ExcelClearCellFormattingConfig? ExcelClearCellFormattingConfig { get; set; }
+
+        [BsonElement("excelDataModelImportConfig")]
+        [JsonPropertyName("excelDataModelImportConfig")]
+        public ExcelDataModelImportConfig? ExcelDataModelImportConfig { get; set; }
+
+        [BsonElement("excelCompatibilityReportConfig")]
+        [JsonPropertyName("excelCompatibilityReportConfig")]
+        public ExcelCompatibilityReportConfig? ExcelCompatibilityReportConfig { get; set; }
 }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelTableNameConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("expectedName")]
+        [JsonPropertyName("expectedName")]
+        public string? ExpectedName { get; set; }
+
+        [BsonElement("originalName")]
+        [JsonPropertyName("originalName")]
+        public string? OriginalName { get; set; }
+
+        [BsonElement("requireOriginalNameAbsent")]
+        [JsonPropertyName("requireOriginalNameAbsent")]
+        public bool? RequireOriginalNameAbsent { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelWorksheetPageSetupConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("orientation")]
+        [JsonPropertyName("orientation")]
+        public string? Orientation { get; set; } = "landscape";
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelClearCellFormattingConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("range")]
+        [JsonPropertyName("range")]
+        public string? Range { get; set; }
+
+        [BsonElement("defaultStyleId")]
+        [JsonPropertyName("defaultStyleId")]
+        public int? DefaultStyleId { get; set; } = 0;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelDataModelImportConfig
+    {
+        [BsonElement("sourceFileName")]
+        [JsonPropertyName("sourceFileName")]
+        public string? SourceFileName { get; set; }
+
+        [BsonElement("expectedConnectionName")]
+        [JsonPropertyName("expectedConnectionName")]
+        public string? ExpectedConnectionName { get; set; }
+
+        [BsonElement("requireConnection")]
+        [JsonPropertyName("requireConnection")]
+        public bool? RequireConnection { get; set; } = true;
+
+        [BsonElement("requireDataModel")]
+        [JsonPropertyName("requireDataModel")]
+        public bool? RequireDataModel { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelCompatibilityReportConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("expectedTexts")]
+        [JsonPropertyName("expectedTexts")]
+        public List<string> ExpectedTexts { get; set; } = new();
+
+        [BsonElement("requireNewWorksheet")]
+        [JsonPropertyName("requireNewWorksheet")]
+        public bool? RequireNewWorksheet { get; set; } = true;
+    }
 
     [BsonIgnoreExtraElements]
     public class TextBoxContainsTextConfig

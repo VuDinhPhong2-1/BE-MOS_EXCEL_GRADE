@@ -977,6 +977,56 @@ namespace MOS.ExcelGrading.Core.Services
                         pageBorderConfig.RequireBox ??= true;
                         pageBorderConfig.RequireAllSections ??= true;
                     }
+
+                    if (task.SpecialCondition.ExcelTableNameConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelTableNameConfig;
+                        config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
+                        config.SourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? null : NormalizeSourceFile(config.SourceFile);
+                        config.ExpectedName = string.IsNullOrWhiteSpace(config.ExpectedName) ? null : config.ExpectedName.Trim();
+                        config.OriginalName = string.IsNullOrWhiteSpace(config.OriginalName) ? null : config.OriginalName.Trim();
+                        config.RequireOriginalNameAbsent ??= true;
+                    }
+
+                    if (task.SpecialCondition.ExcelWorksheetPageSetupConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelWorksheetPageSetupConfig;
+                        config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
+                        config.SourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? null : NormalizeSourceFile(config.SourceFile);
+                        config.Orientation = string.IsNullOrWhiteSpace(config.Orientation) ? "landscape" : config.Orientation.Trim();
+                    }
+
+                    if (task.SpecialCondition.ExcelClearCellFormattingConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelClearCellFormattingConfig;
+                        config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
+                        config.SourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? null : NormalizeSourceFile(config.SourceFile);
+                        config.Range = string.IsNullOrWhiteSpace(config.Range) ? null : config.Range.Trim().ToUpperInvariant();
+                        if (config.DefaultStyleId < 0)
+                        {
+                            config.DefaultStyleId = 0;
+                        }
+                    }
+
+                    if (task.SpecialCondition.ExcelDataModelImportConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelDataModelImportConfig;
+                        config.SourceFileName = string.IsNullOrWhiteSpace(config.SourceFileName) ? null : config.SourceFileName.Trim();
+                        config.ExpectedConnectionName = string.IsNullOrWhiteSpace(config.ExpectedConnectionName) ? null : config.ExpectedConnectionName.Trim();
+                        config.RequireConnection ??= true;
+                        config.RequireDataModel ??= true;
+                    }
+
+                    if (task.SpecialCondition.ExcelCompatibilityReportConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelCompatibilityReportConfig;
+                        config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
+                        config.ExpectedTexts = config.ExpectedTexts?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(NormalizePlainText)
+                            .ToList() ?? new List<string>();
+                        config.RequireNewWorksheet ??= true;
+                    }
                 }
             }
         }
@@ -1155,7 +1205,11 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.PageBorder, StringComparison.OrdinalIgnoreCase),
-                "excel" => false,
+                "excel" => string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelWorksheetPageSetup, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelClearCellFormatting, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelDataModelImport, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelCompatibilityReport, StringComparison.OrdinalIgnoreCase),
                 "ppt" => false,
                 "powerpoint" => false,
                 _ => false
@@ -1166,10 +1220,14 @@ namespace MOS.ExcelGrading.Core.Services
         {
             public HashSet<string> XmlParts { get; } = new(StringComparer.OrdinalIgnoreCase);
             public bool ReadRelatedImages { get; set; }
+            public bool ReadAllXmlParts { get; set; }
         }
 
         private sealed class OfficePackage
         {
+            public HashSet<string> PartNames { get; } =
+                new(StringComparer.OrdinalIgnoreCase);
+
             public Dictionary<string, string> XmlParts { get; } =
                 new(StringComparer.OrdinalIgnoreCase);
 
@@ -1349,7 +1407,12 @@ namespace MOS.ExcelGrading.Core.Services
                 .GroupBy(entry => NormalizeSourceFile(entry.FullName), StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(group => group.Key, group => group.First(), StringComparer.OrdinalIgnoreCase);
 
-            if (requiredParts == null || requiredParts.XmlParts.Count == 0)
+            foreach (var path in entriesByPath.Keys)
+            {
+                package.PartNames.Add(path);
+            }
+
+            if (requiredParts == null || requiredParts.XmlParts.Count == 0 || requiredParts.ReadAllXmlParts)
             {
                 foreach (var entry in archive.Entries)
                 {
@@ -1513,6 +1576,16 @@ namespace MOS.ExcelGrading.Core.Services
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageBorder, StringComparison.OrdinalIgnoreCase))
                 {
                     AddXmlPart(specialCondition.PageBorderConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelWorksheetPageSetup, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelClearCellFormatting, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelDataModelImport, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelCompatibilityReport, StringComparison.OrdinalIgnoreCase))
+                {
+                    requiredParts.ReadAllXmlParts = true;
                     continue;
                 }
             }
@@ -1802,6 +1875,31 @@ namespace MOS.ExcelGrading.Core.Services
                 return EvaluatePageBorder(specialCondition.PageBorderConfig, package);
             }
 
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelTableName(specialCondition.ExcelTableNameConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelWorksheetPageSetup, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelWorksheetPageSetup(specialCondition.ExcelWorksheetPageSetupConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelClearCellFormatting, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelClearCellFormatting(specialCondition.ExcelClearCellFormattingConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelDataModelImport, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelDataModelImport(specialCondition.ExcelDataModelImportConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelCompatibilityReport, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelCompatibilityReport(specialCondition.ExcelCompatibilityReportConfig, package);
+            }
+
             return new SpecialConditionEvalOutcome
             {
                 IsPassed = false,
@@ -1869,6 +1967,599 @@ namespace MOS.ExcelGrading.Core.Services
         {
             public XElement Drawing { get; init; } = null!;
             public int ParagraphIndex { get; init; }
+        }
+
+        private sealed class ExcelWorksheetInfo
+        {
+            public string Name { get; init; } = string.Empty;
+            public string RelationshipId { get; init; } = string.Empty;
+            public string SourceFile { get; init; } = string.Empty;
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelTableName(
+            ExcelTableNameConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Excel Table Name (excelTableNameConfig trong).");
+            }
+
+            var expectedName = config.ExpectedName?.Trim();
+            if (string.IsNullOrWhiteSpace(expectedName))
+            {
+                return Fail("excelTableNameConfig.expectedName khong duoc rong.");
+            }
+
+            var tableParts = ResolveExcelTableParts(package, config.WorksheetName, config.SourceFile);
+            if (tableParts.Count == 0)
+            {
+                return Fail("Khong tim thay table XML can kiem tra trong workbook.");
+            }
+
+            var matchingTables = tableParts
+                .Select(path => new { Path = path, Document = TryParsePackageXml(package, path) })
+                .Where(item => item.Document != null)
+                .Select(item => new
+                {
+                    item.Path,
+                    Table = item.Document!.Root,
+                    Name = item.Document!.Root?.Attribute("name")?.Value,
+                    DisplayName = item.Document!.Root?.Attribute("displayName")?.Value
+                })
+                .ToList();
+
+            var expectedMatch = matchingTables.FirstOrDefault(item =>
+                string.Equals(item.Name, expectedName, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.DisplayName, expectedName, StringComparison.OrdinalIgnoreCase));
+
+            if (expectedMatch == null)
+            {
+                return Fail($"Khong tim thay table co ten '{expectedName}'.");
+            }
+
+            if (config.RequireOriginalNameAbsent != false && !string.IsNullOrWhiteSpace(config.OriginalName))
+            {
+                var oldNameStillExists = matchingTables.Any(item =>
+                    string.Equals(item.Name, config.OriginalName, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(item.DisplayName, config.OriginalName, StringComparison.OrdinalIgnoreCase));
+
+                if (oldNameStillExists)
+                {
+                    return Fail($"Van con table ten cu '{config.OriginalName}'.");
+                }
+            }
+
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = true,
+                Message = $"Table '{expectedName}' ton tai trong {expectedMatch.Path}."
+            };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelWorksheetPageSetup(
+            ExcelWorksheetPageSetupConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Excel Worksheet Page Setup (excelWorksheetPageSetupConfig trong).");
+            }
+
+            var expectedOrientation = string.IsNullOrWhiteSpace(config.Orientation)
+                ? "landscape"
+                : config.Orientation.Trim();
+
+            if (!TryResolveExcelWorksheet(package, config.WorksheetName, config.SourceFile, out var worksheetPath, out var worksheetError))
+            {
+                return Fail(worksheetError);
+            }
+
+            var document = TryParsePackageXml(package, worksheetPath);
+            if (document?.Root == null)
+            {
+                return Fail($"Khong the doc worksheet XML {worksheetPath}.");
+            }
+
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var pageSetup = document.Root.Element(x + "pageSetup");
+            var actualOrientation = pageSetup?.Attribute("orientation")?.Value;
+
+            if (!string.Equals(actualOrientation, expectedOrientation, StringComparison.OrdinalIgnoreCase))
+            {
+                return Fail($"Worksheet {worksheetPath} co orientation '{actualOrientation ?? "(rong)"}', can '{expectedOrientation}'.");
+            }
+
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = true,
+                Message = $"Worksheet {worksheetPath} co orientation '{expectedOrientation}'."
+            };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelClearCellFormatting(
+            ExcelClearCellFormattingConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Excel Clear Cell Formatting (excelClearCellFormattingConfig trong).");
+            }
+
+            if (!TryParseExcelRange(config.Range, out var startColumn, out var startRow, out var endColumn, out var endRow))
+            {
+                return Fail("excelClearCellFormattingConfig.range khong hop le. Vi du hop le: A4:D4.");
+            }
+
+            if (!TryResolveExcelWorksheet(package, config.WorksheetName, config.SourceFile, out var worksheetPath, out var worksheetError))
+            {
+                return Fail(worksheetError);
+            }
+
+            var document = TryParsePackageXml(package, worksheetPath);
+            if (document?.Root == null)
+            {
+                return Fail($"Khong the doc worksheet XML {worksheetPath}.");
+            }
+
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var defaultStyleId = config.DefaultStyleId ?? 0;
+            var cellsByAddress = document.Descendants(x + "c")
+                .Where(cell => !string.IsNullOrWhiteSpace(cell.Attribute("r")?.Value))
+                .ToDictionary(cell => cell.Attribute("r")!.Value.ToUpperInvariant(), cell => cell, StringComparer.OrdinalIgnoreCase);
+
+            for (var row = startRow; row <= endRow; row++)
+            {
+                for (var column = startColumn; column <= endColumn; column++)
+                {
+                    var address = $"{GetExcelColumnName(column)}{row}";
+                    if (!cellsByAddress.TryGetValue(address, out var cell))
+                    {
+                        continue;
+                    }
+
+                    var styleText = cell.Attribute("s")?.Value;
+                    if (string.IsNullOrWhiteSpace(styleText))
+                    {
+                        continue;
+                    }
+
+                    if (!int.TryParse(styleText, out var styleId) || styleId != defaultStyleId)
+                    {
+                        return Fail($"O {address} van co style id '{styleText}', can clear formatting ve style {defaultStyleId}.");
+                    }
+                }
+            }
+
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = true,
+                Message = $"Range {config.Range} tren {worksheetPath} da clear formatting."
+            };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelDataModelImport(
+            ExcelDataModelImportConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Excel Data Model Import (excelDataModelImportConfig trong).");
+            }
+
+            if (config.RequireConnection != false)
+            {
+                if (!package.XmlParts.TryGetValue("xl/connections.xml", out var connectionsXml))
+                {
+                    return Fail("Khong tim thay xl/connections.xml de kiem tra connection import.");
+                }
+
+                var connectionHaystack = NormalizePlainText(connectionsXml);
+                if (!string.IsNullOrWhiteSpace(config.SourceFileName)
+                    && !connectionHaystack.Contains(config.SourceFileName.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return Fail($"Khong tim thay connection tham chieu file '{config.SourceFileName}'.");
+                }
+
+                if (!string.IsNullOrWhiteSpace(config.ExpectedConnectionName)
+                    && !connectionHaystack.Contains(config.ExpectedConnectionName.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return Fail($"Khong tim thay connection ten '{config.ExpectedConnectionName}'.");
+                }
+            }
+
+            if (config.RequireDataModel != false)
+            {
+                var hasModelPart = package.PartNames.Any(path =>
+                    path.StartsWith("xl/model/", StringComparison.OrdinalIgnoreCase)
+                    || path.StartsWith("xl/model/item", StringComparison.OrdinalIgnoreCase))
+                    || package.PartNames.Any(path =>
+                        path.Contains("datamodel", StringComparison.OrdinalIgnoreCase)
+                        || path.Contains("dataModel", StringComparison.Ordinal));
+
+                if (!hasModelPart)
+                {
+                    return Fail("Khong tim thay dau hieu Data Model trong workbook.");
+                }
+            }
+
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = true,
+                Message = "Workbook co connection import va dau hieu Data Model dung cau hinh."
+            };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelCompatibilityReport(
+            ExcelCompatibilityReportConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Excel Compatibility Report (excelCompatibilityReportConfig trong).");
+            }
+
+            var worksheets = GetExcelWorksheets(package);
+            if (config.RequireNewWorksheet != false && worksheets.Count < 2)
+            {
+                return Fail("Workbook chua co worksheet moi de chua ket qua Compatibility Checker.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.WorksheetName)
+                && worksheets.All(sheet => !string.Equals(sheet.Name, config.WorksheetName.Trim(), StringComparison.OrdinalIgnoreCase)))
+            {
+                return Fail($"Khong tim thay worksheet '{config.WorksheetName}'.");
+            }
+
+            var expectedTexts = config.ExpectedTexts?
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(NormalizePlainText)
+                .ToList() ?? new List<string>();
+
+            if (expectedTexts.Count > 0)
+            {
+                var textHaystack = BuildExcelTextHaystack(package);
+
+                var missing = expectedTexts
+                    .Where(text => !textHaystack.Contains(text, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (missing.Count > 0)
+                {
+                    return Fail($"Thieu {missing.Count}/{expectedTexts.Count} doan text compatibility report.");
+                }
+            }
+
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = true,
+                Message = "Workbook co worksheet/ket qua Compatibility Checker dung cau hinh."
+            };
+        }
+
+        private static string BuildExcelTextHaystack(OfficePackage package)
+        {
+            var textValues = new List<string>();
+
+            foreach (var sourceFile in package.XmlParts.Keys.Where(path =>
+                path.Equals("xl/sharedStrings.xml", StringComparison.OrdinalIgnoreCase)
+                || path.StartsWith("xl/worksheets/", StringComparison.OrdinalIgnoreCase)))
+            {
+                var document = TryParsePackageXml(package, sourceFile);
+                if (document?.Root == null)
+                {
+                    continue;
+                }
+
+                textValues.AddRange(document
+                    .Descendants()
+                    .Where(element => element.Name.LocalName is "t" or "v")
+                    .Select(element => element.Value)
+                    .Where(value => !string.IsNullOrWhiteSpace(value)));
+            }
+
+            return NormalizePlainText(string.Join(" ", textValues));
+        }
+
+        private static List<string> ResolveExcelTableParts(OfficePackage package, string? worksheetName, string? sourceFile)
+        {
+            if (!string.IsNullOrWhiteSpace(sourceFile))
+            {
+                var normalizedSource = NormalizeSourceFile(sourceFile);
+                return package.XmlParts.ContainsKey(normalizedSource)
+                    ? new List<string> { normalizedSource }
+                    : new List<string>();
+            }
+
+            if (!string.IsNullOrWhiteSpace(worksheetName)
+                && TryResolveExcelWorksheet(package, worksheetName, null, out var worksheetPath, out _))
+            {
+                return GetTablePartsForWorksheet(package, worksheetPath);
+            }
+
+            return package.XmlParts.Keys
+                .Where(path => path.StartsWith("xl/tables/", StringComparison.OrdinalIgnoreCase)
+                    && path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static bool TryResolveExcelWorksheet(
+            OfficePackage package,
+            string? worksheetName,
+            string? sourceFile,
+            out string worksheetPath,
+            out string errorMessage)
+        {
+            worksheetPath = string.Empty;
+            errorMessage = string.Empty;
+
+            if (!string.IsNullOrWhiteSpace(sourceFile))
+            {
+                var normalizedSource = NormalizeSourceFile(sourceFile);
+                if (package.XmlParts.ContainsKey(normalizedSource))
+                {
+                    worksheetPath = normalizedSource;
+                    return true;
+                }
+
+                errorMessage = $"Khong tim thay worksheet XML {normalizedSource}.";
+                return false;
+            }
+
+            var worksheets = GetExcelWorksheets(package);
+            if (!string.IsNullOrWhiteSpace(worksheetName))
+            {
+                var match = worksheets.FirstOrDefault(sheet =>
+                    string.Equals(sheet.Name, worksheetName.Trim(), StringComparison.OrdinalIgnoreCase));
+
+                if (match != null)
+                {
+                    worksheetPath = match.SourceFile;
+                    return true;
+                }
+
+                errorMessage = $"Khong tim thay worksheet '{worksheetName}'.";
+                return false;
+            }
+
+            if (worksheets.Count == 1)
+            {
+                worksheetPath = worksheets[0].SourceFile;
+                return true;
+            }
+
+            errorMessage = "Can cau hinh worksheetName hoac sourceFile vi workbook co nhieu worksheet.";
+            return false;
+        }
+
+        private static List<ExcelWorksheetInfo> GetExcelWorksheets(OfficePackage package)
+        {
+            if (!package.TryGetXmlDocument("xl/workbook.xml", out var workbook, out _)
+                || !package.TryGetRelationships("xl/_rels/workbook.xml.rels", out var relationships, out _))
+            {
+                return new List<ExcelWorksheetInfo>();
+            }
+
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+
+            return workbook.Descendants(x + "sheet")
+                .Select(sheet =>
+                {
+                    var relationshipId = sheet.Attribute(r + "id")?.Value ?? string.Empty;
+                    relationships.TryGetValue(relationshipId, out var target);
+                    return new ExcelWorksheetInfo
+                    {
+                        Name = sheet.Attribute("name")?.Value ?? string.Empty,
+                        RelationshipId = relationshipId,
+                        SourceFile = NormalizeRelationshipTarget("xl", target ?? string.Empty)
+                    };
+                })
+                .Where(sheet => !string.IsNullOrWhiteSpace(sheet.SourceFile))
+                .ToList();
+        }
+
+        private static List<string> GetTablePartsForWorksheet(OfficePackage package, string worksheetPath)
+        {
+            var relsPath = GetRelationshipPartPath(worksheetPath);
+            if (!package.TryGetXmlDocument(worksheetPath, out var worksheet, out _)
+                || !package.TryGetRelationships(relsPath, out var relationships, out _))
+            {
+                return new List<string>();
+            }
+
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+            var baseFolder = GetPackageFolder(worksheetPath);
+
+            return worksheet.Descendants(x + "tablePart")
+                .Select(tablePart => tablePart.Attribute(r + "id")?.Value)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Select(id => relationships.TryGetValue(id!, out var target)
+                    ? NormalizeRelationshipTarget(baseFolder, target)
+                    : string.Empty)
+                .Where(path => !string.IsNullOrWhiteSpace(path) && package.XmlParts.ContainsKey(path))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static XDocument? TryParsePackageXml(OfficePackage package, string sourceFile)
+        {
+            return package.TryGetXmlDocument(sourceFile, out var document, out _)
+                ? document
+                : null;
+        }
+
+        private static string GetRelationshipPartPath(string sourceFile)
+        {
+            var normalized = NormalizeSourceFile(sourceFile);
+            var slashIndex = normalized.LastIndexOf('/');
+            if (slashIndex < 0)
+            {
+                return $"_rels/{normalized}.rels";
+            }
+
+            var folder = normalized[..slashIndex];
+            var fileName = normalized[(slashIndex + 1)..];
+            return $"{folder}/_rels/{fileName}.rels";
+        }
+
+        private static string GetPackageFolder(string sourceFile)
+        {
+            var normalized = NormalizeSourceFile(sourceFile);
+            var slashIndex = normalized.LastIndexOf('/');
+            return slashIndex < 0 ? string.Empty : normalized[..slashIndex];
+        }
+
+        private static string NormalizeRelationshipTarget(string baseFolder, string target)
+        {
+            if (string.IsNullOrWhiteSpace(target))
+            {
+                return string.Empty;
+            }
+
+            var normalizedTarget = target.Trim().Replace('\\', '/');
+            if (normalizedTarget.StartsWith("/", StringComparison.Ordinal))
+            {
+                return NormalizeSourceFile(normalizedTarget);
+            }
+
+            var combined = string.IsNullOrWhiteSpace(baseFolder)
+                ? normalizedTarget
+                : $"{baseFolder.TrimEnd('/')}/{normalizedTarget}";
+
+            var segments = new List<string>();
+            foreach (var segment in combined.Split('/', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (segment == ".")
+                {
+                    continue;
+                }
+
+                if (segment == "..")
+                {
+                    if (segments.Count > 0)
+                    {
+                        segments.RemoveAt(segments.Count - 1);
+                    }
+
+                    continue;
+                }
+
+                segments.Add(segment);
+            }
+
+            return string.Join("/", segments);
+        }
+
+        private static bool TryParseExcelRange(
+            string? range,
+            out int startColumn,
+            out int startRow,
+            out int endColumn,
+            out int endRow)
+        {
+            startColumn = 0;
+            startRow = 0;
+            endColumn = 0;
+            endRow = 0;
+
+            if (string.IsNullOrWhiteSpace(range))
+            {
+                return false;
+            }
+
+            var match = Regex.Match(
+                range.Trim(),
+                @"^\$?([A-Z]{1,3})\$?(\d+)(?::\$?([A-Z]{1,3})\$?(\d+))?$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            startColumn = GetExcelColumnNumber(match.Groups[1].Value);
+            startRow = int.Parse(match.Groups[2].Value);
+            endColumn = match.Groups[3].Success ? GetExcelColumnNumber(match.Groups[3].Value) : startColumn;
+            endRow = match.Groups[4].Success ? int.Parse(match.Groups[4].Value) : startRow;
+
+            if (startColumn <= 0 || endColumn <= 0 || startRow <= 0 || endRow <= 0)
+            {
+                return false;
+            }
+
+            if (startColumn > endColumn)
+            {
+                (startColumn, endColumn) = (endColumn, startColumn);
+            }
+
+            if (startRow > endRow)
+            {
+                (startRow, endRow) = (endRow, startRow);
+            }
+
+            return true;
+        }
+
+        private static int GetExcelColumnNumber(string columnName)
+        {
+            var result = 0;
+            foreach (var ch in columnName.ToUpperInvariant())
+            {
+                if (ch < 'A' || ch > 'Z')
+                {
+                    return 0;
+                }
+
+                result = (result * 26) + (ch - 'A' + 1);
+            }
+
+            return result;
+        }
+
+        private static string GetExcelColumnName(int columnNumber)
+        {
+            var name = new StringBuilder();
+            var number = columnNumber;
+            while (number > 0)
+            {
+                number--;
+                name.Insert(0, (char)('A' + (number % 26)));
+                number /= 26;
+            }
+
+            return name.ToString();
         }
 
         private static SpecialConditionEvalOutcome EvaluateTextBoxContainsText(
@@ -4469,6 +5160,157 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageBorder, StringComparison.OrdinalIgnoreCase))
             {
                 ValidatePageBorderSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelTableNameSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelWorksheetPageSetup, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelWorksheetPageSetupSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelClearCellFormatting, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelClearCellFormattingSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelDataModelImport, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelDataModelImportSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelCompatibilityReport, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelCompatibilityReportSpecialCondition(specialCondition, taskPrefix, result);
+            }
+        }
+
+        private static void ValidateExcelTableNameSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelTableNameConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTableNameConfig khong duoc null.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.ExpectedName))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTableNameConfig.expectedName khong duoc rong.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.SourceFile) && !IsSafeSourceFile(config.SourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTableNameConfig.sourceFile khong hop le.");
+            }
+        }
+
+        private static void ValidateExcelWorksheetPageSetupSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelWorksheetPageSetupConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelWorksheetPageSetupConfig khong duoc null.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.WorksheetName) && string.IsNullOrWhiteSpace(config.SourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelWorksheetPageSetupConfig phai co worksheetName hoac sourceFile.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.SourceFile) && !IsSafeSourceFile(config.SourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelWorksheetPageSetupConfig.sourceFile khong hop le.");
+            }
+
+            var orientation = string.IsNullOrWhiteSpace(config.Orientation) ? "landscape" : config.Orientation.Trim();
+            if (!string.Equals(orientation, "portrait", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(orientation, "landscape", StringComparison.OrdinalIgnoreCase))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelWorksheetPageSetupConfig.orientation phai la portrait hoac landscape.");
+            }
+        }
+
+        private static void ValidateExcelClearCellFormattingSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelClearCellFormattingConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelClearCellFormattingConfig khong duoc null.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.WorksheetName) && string.IsNullOrWhiteSpace(config.SourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelClearCellFormattingConfig phai co worksheetName hoac sourceFile.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.SourceFile) && !IsSafeSourceFile(config.SourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelClearCellFormattingConfig.sourceFile khong hop le.");
+            }
+
+            if (!TryParseExcelRange(config.Range, out _, out _, out _, out _))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelClearCellFormattingConfig.range khong hop le.");
+            }
+
+            if (config.DefaultStyleId.HasValue && config.DefaultStyleId.Value < 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelClearCellFormattingConfig.defaultStyleId phai >= 0.");
+            }
+        }
+
+        private static void ValidateExcelDataModelImportSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelDataModelImportConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelDataModelImportConfig khong duoc null.");
+                return;
+            }
+
+            if (config.RequireConnection == false
+                && config.RequireDataModel == false
+                && string.IsNullOrWhiteSpace(config.SourceFileName)
+                && string.IsNullOrWhiteSpace(config.ExpectedConnectionName))
+            {
+                result.Warnings.Add($"{taskPrefix}.specialCondition.excelDataModelImportConfig dang qua rong.");
+            }
+        }
+
+        private static void ValidateExcelCompatibilityReportSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelCompatibilityReportConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelCompatibilityReportConfig khong duoc null.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.WorksheetName)
+                && (config.ExpectedTexts == null || config.ExpectedTexts.All(string.IsNullOrWhiteSpace)))
+            {
+                result.Warnings.Add($"{taskPrefix}.specialCondition.excelCompatibilityReportConfig nen co worksheetName hoac expectedTexts.");
             }
         }
 

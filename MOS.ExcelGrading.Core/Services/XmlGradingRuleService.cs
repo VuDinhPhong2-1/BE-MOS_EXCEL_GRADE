@@ -1226,6 +1226,7 @@ namespace MOS.ExcelGrading.Core.Services
         private sealed class RequiredOfficeParts
         {
             public HashSet<string> XmlParts { get; } = new(StringComparer.OrdinalIgnoreCase);
+            public HashSet<string> XmlPartPrefixes { get; } = new(StringComparer.OrdinalIgnoreCase);
             public bool ReadRelatedImages { get; set; }
             public bool ReadAllXmlParts { get; set; }
         }
@@ -1252,6 +1253,21 @@ namespace MOS.ExcelGrading.Core.Services
 
             private readonly Dictionary<string, string> _perceptualHashes =
                 new(StringComparer.OrdinalIgnoreCase);
+
+            private string? _normalizedPartNameHaystack;
+            private string? _normalizedXmlHaystack;
+
+            public string GetNormalizedPartNameHaystack()
+            {
+                _normalizedPartNameHaystack ??= NormalizePlainText(string.Join(" ", PartNames));
+                return _normalizedPartNameHaystack;
+            }
+
+            public string GetNormalizedXmlHaystack()
+            {
+                _normalizedXmlHaystack ??= NormalizePlainText(string.Join(" ", XmlParts.Values));
+                return _normalizedXmlHaystack;
+            }
 
             public bool TryGetXmlDocument(string sourceFile, out XDocument document, out string? errorMessage)
             {
@@ -1430,8 +1446,7 @@ namespace MOS.ExcelGrading.Core.Services
                         continue;
                     }
 
-                    if (normalizedPath.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
-                        || normalizedPath.EndsWith(".rels", StringComparison.OrdinalIgnoreCase))
+                    if (IsXmlLikePart(normalizedPath))
                     {
                         package.XmlParts[normalizedPath] = ReadEntryText(entry);
                     }
@@ -1453,6 +1468,23 @@ namespace MOS.ExcelGrading.Core.Services
                 }
             }
 
+            if (requiredParts.XmlPartPrefixes.Count > 0)
+            {
+                foreach (var (path, entry) in entriesByPath)
+                {
+                    if (!IsXmlLikePart(path) || package.XmlParts.ContainsKey(path))
+                    {
+                        continue;
+                    }
+
+                    if (requiredParts.XmlPartPrefixes.Any(prefix =>
+                        path.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        package.XmlParts[path] = ReadEntryText(entry);
+                    }
+                }
+            }
+
             if (requiredParts.ReadRelatedImages)
             {
                 foreach (var imagePath in CollectRelatedImageParts(package))
@@ -1465,6 +1497,12 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return package;
+        }
+
+        private static bool IsXmlLikePart(string path)
+        {
+            return path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+                || path.EndsWith(".rels", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string ReadEntryText(ZipArchiveEntry entry)
@@ -1500,6 +1538,43 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     requiredParts.XmlParts.Add(normalizedPath);
                 }
+            }
+
+            void AddXmlPartIfProvided(string? path)
+            {
+                var normalizedPath = NormalizeSourceFile(path ?? string.Empty);
+                if (!string.IsNullOrWhiteSpace(normalizedPath))
+                {
+                    requiredParts.XmlParts.Add(normalizedPath);
+                }
+            }
+
+            void AddXmlPrefix(string prefix)
+            {
+                var normalizedPrefix = NormalizeSourceFile(prefix);
+                if (!string.IsNullOrWhiteSpace(normalizedPrefix))
+                {
+                    requiredParts.XmlPartPrefixes.Add(normalizedPrefix.TrimEnd('/') + "/");
+                }
+            }
+
+            void AddExcelWorkbookParts()
+            {
+                AddXmlPart("xl/workbook.xml", "xl/workbook.xml");
+                AddXmlPart("xl/_rels/workbook.xml.rels", "xl/_rels/workbook.xml.rels");
+            }
+
+            void AddExcelWorksheetParts(string? sourceFile)
+            {
+                AddExcelWorkbookParts();
+                if (!string.IsNullOrWhiteSpace(sourceFile))
+                {
+                    AddXmlPartIfProvided(sourceFile);
+                    AddXmlPartIfProvided(GetRelationshipPartPath(sourceFile));
+                    return;
+                }
+
+                AddXmlPrefix("xl/worksheets");
             }
 
             foreach (var task in projectRule.Tasks)
@@ -1586,13 +1661,40 @@ namespace MOS.ExcelGrading.Core.Services
                     continue;
                 }
 
-                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelWorksheetPageSetup, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelClearCellFormatting, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelDataModelImport, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelCompatibilityReport, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase))
                 {
-                    requiredParts.ReadAllXmlParts = true;
+                    AddExcelWorksheetParts(specialCondition.ExcelTableNameConfig?.SourceFile);
+                    AddXmlPrefix("xl/tables");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelWorksheetPageSetup, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorksheetParts(specialCondition.ExcelWorksheetPageSetupConfig?.SourceFile);
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelClearCellFormatting, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorksheetParts(specialCondition.ExcelClearCellFormattingConfig?.SourceFile);
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelDataModelImport, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorkbookParts();
+                    AddXmlPart("xl/connections.xml", "xl/connections.xml");
+                    AddXmlPrefix("xl/queryTables");
+                    AddXmlPrefix("xl/tables");
+                    AddXmlPrefix("xl/model");
+                    AddXmlPrefix("customXml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelCompatibilityReport, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorksheetParts(null);
+                    AddXmlPart("xl/sharedStrings.xml", "xl/sharedStrings.xml");
                     continue;
                 }
             }
@@ -2277,14 +2379,14 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             var normalizedExpected = NormalizePlainText(expectedText);
-            var partNameHaystack = NormalizePlainText(string.Join(" ", package.PartNames));
+            var partNameHaystack = package.GetNormalizedPartNameHaystack();
             if (partNameHaystack.Contains(normalizedExpected, StringComparison.OrdinalIgnoreCase))
             {
                 return true;
             }
 
-            return package.XmlParts.Values.Any(xml =>
-                NormalizePlainText(xml).Contains(normalizedExpected, StringComparison.OrdinalIgnoreCase));
+            return package.GetNormalizedXmlHaystack()
+                .Contains(normalizedExpected, StringComparison.OrdinalIgnoreCase);
         }
 
         private static bool ContainsAnyText(string value, params string[] expectedTexts)

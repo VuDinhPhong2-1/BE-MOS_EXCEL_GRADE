@@ -151,6 +151,9 @@ namespace MOS.ExcelGrading.Core.DTOs
         [StringLength(500)]
         public string? BrokenMachinesSummary { get; set; }
 
+        [StringLength(300)]
+        public string? MissingMachinesForStudents { get; set; }
+
         [StringLength(120)]
         public string? NetSupportStatus { get; set; }
 
@@ -219,6 +222,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string ClassStudentCountSummary { get; set; } = string.Empty;
         public string StudentMaterialCoverageRate { get; set; } = string.Empty;
         public string BrokenMachinesSummary { get; set; } = string.Empty;
+        public string MissingMachinesForStudents { get; set; } = string.Empty;
         public string NetSupportStatus { get; set; } = string.Empty;
         public string AudioStatus { get; set; } = string.Empty;
         public string CoolingStatus { get; set; } = string.Empty;
@@ -252,6 +256,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public int StudentMachineCount { get; set; }
         public int TeacherMachineCount { get; set; }
         public int BrokenMachineCount { get; set; }
+        public string? BrokenMachinesDetail { get; set; }
         public int AvailableStudentMachines { get; set; }
         public int CurrentClassStudents { get; set; }
         public int MissingMachinesForStudents { get; set; }

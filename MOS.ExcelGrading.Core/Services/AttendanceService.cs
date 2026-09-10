@@ -411,7 +411,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             var roomNameDefault = FirstNonEmpty(schedule.RoomName, roomSnapshot?.Name);
             var totalMachinesDefault = roomSnapshot?.TotalMachinesText ?? string.Empty;
-            var brokenMachinesDefault = roomSnapshot?.BrokenMachineCount.ToString() ?? string.Empty;
+            var brokenMachinesDefault = BuildBrokenMachinesSummary(roomSnapshot);
             var missingMachinesDefault = roomSnapshot?.MissingMachinesForStudents.ToString() ?? string.Empty;
 
             return new ScheduleReportsResponse
@@ -420,14 +420,14 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     TeacherName = persisted.StartLesson.TeacherName,
                     AssistantName = persisted.StartLesson.AssistantName,
-                    RoomName = FirstNonEmpty(persisted.StartLesson.RoomName, roomNameDefault),
-                    TotalMachines = FirstNonEmpty(persisted.StartLesson.TotalMachines, totalMachinesDefault),
-                    BrokenMachinesSummary = FirstNonEmpty(persisted.StartLesson.BrokenMachinesSummary, brokenMachinesDefault),
-                    MissingMachinesForStudents = FirstNonEmpty(persisted.StartLesson.MissingMachinesForStudents, missingMachinesDefault),
-                    NetSupportStatus = FirstNonEmpty(persisted.StartLesson.NetSupportStatus, roomSnapshot?.NetSupportStatus),
-                    AudioStatus = FirstNonEmpty(persisted.StartLesson.AudioStatus, roomSnapshot?.AudioStatus),
-                    CoolingStatus = FirstNonEmpty(persisted.StartLesson.CoolingStatus, roomSnapshot?.CoolingStatus),
-                    HygieneStatus = FirstNonEmpty(persisted.StartLesson.HygieneStatus, roomSnapshot?.RoomHygieneStatus)
+                    RoomName = FirstNonEmpty(roomNameDefault, persisted.StartLesson.RoomName),
+                    TotalMachines = FirstNonEmpty(totalMachinesDefault, persisted.StartLesson.TotalMachines),
+                    BrokenMachinesSummary = FirstNonEmpty(brokenMachinesDefault, persisted.StartLesson.BrokenMachinesSummary),
+                    MissingMachinesForStudents = FirstNonEmpty(missingMachinesDefault, persisted.StartLesson.MissingMachinesForStudents),
+                    NetSupportStatus = FirstNonEmpty(roomSnapshot?.NetSupportStatus, persisted.StartLesson.NetSupportStatus),
+                    AudioStatus = FirstNonEmpty(roomSnapshot?.AudioStatus, persisted.StartLesson.AudioStatus),
+                    CoolingStatus = FirstNonEmpty(roomSnapshot?.CoolingStatus, persisted.StartLesson.CoolingStatus),
+                    HygieneStatus = FirstNonEmpty(roomSnapshot?.RoomHygieneStatus, persisted.StartLesson.HygieneStatus)
                 },
                 Professional = new ProfessionalReportResponse
                 {
@@ -445,19 +445,20 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     TeacherName = persisted.EndLesson.TeacherName,
                     AssistantName = persisted.EndLesson.AssistantName,
-                    RoomName = FirstNonEmpty(persisted.EndLesson.RoomName, roomNameDefault),
-                    TotalMachines = FirstNonEmpty(persisted.EndLesson.TotalMachines, totalMachinesDefault),
+                    RoomName = FirstNonEmpty(roomNameDefault, persisted.EndLesson.RoomName),
+                    TotalMachines = FirstNonEmpty(totalMachinesDefault, persisted.EndLesson.TotalMachines),
                     ClassStudentCountSummary = FirstNonEmpty(
                         persisted.EndLesson.ClassStudentCountSummary,
                         roomSessionContext.SharedClassStudentSummary),
                     StudentMaterialCoverageRate = persisted.EndLesson.StudentMaterialCoverageRate,
-                    BrokenMachinesSummary = FirstNonEmpty(persisted.EndLesson.BrokenMachinesSummary, brokenMachinesDefault),
-                    NetSupportStatus = FirstNonEmpty(persisted.EndLesson.NetSupportStatus, roomSnapshot?.NetSupportStatus),
-                    AudioStatus = FirstNonEmpty(persisted.EndLesson.AudioStatus, roomSnapshot?.AudioStatus),
-                    CoolingStatus = FirstNonEmpty(persisted.EndLesson.CoolingStatus, roomSnapshot?.CoolingStatus),
-                    DevicesPoweredOffStatus = FirstNonEmpty(persisted.EndLesson.DevicesPoweredOffStatus, roomSnapshot?.DevicesPoweredOffStatus),
-                    SeatingOrderStatus = FirstNonEmpty(persisted.EndLesson.SeatingOrderStatus, roomSnapshot?.SeatingOrderStatus),
-                    RoomHygieneStatus = FirstNonEmpty(persisted.EndLesson.RoomHygieneStatus, roomSnapshot?.RoomHygieneStatus),
+                    BrokenMachinesSummary = FirstNonEmpty(brokenMachinesDefault, persisted.EndLesson.BrokenMachinesSummary),
+                    MissingMachinesForStudents = FirstNonEmpty(missingMachinesDefault, persisted.EndLesson.MissingMachinesForStudents),
+                    NetSupportStatus = FirstNonEmpty(roomSnapshot?.NetSupportStatus, persisted.EndLesson.NetSupportStatus),
+                    AudioStatus = FirstNonEmpty(roomSnapshot?.AudioStatus, persisted.EndLesson.AudioStatus),
+                    CoolingStatus = FirstNonEmpty(roomSnapshot?.CoolingStatus, persisted.EndLesson.CoolingStatus),
+                    DevicesPoweredOffStatus = FirstNonEmpty(roomSnapshot?.DevicesPoweredOffStatus, persisted.EndLesson.DevicesPoweredOffStatus),
+                    SeatingOrderStatus = FirstNonEmpty(roomSnapshot?.SeatingOrderStatus, persisted.EndLesson.SeatingOrderStatus),
+                    RoomHygieneStatus = FirstNonEmpty(roomSnapshot?.RoomHygieneStatus, persisted.EndLesson.RoomHygieneStatus),
                     StudentRuleComplianceStatus = persisted.EndLesson.StudentRuleComplianceStatus,
                     ViolationListSummary = persisted.EndLesson.ViolationListSummary
                 }
@@ -511,6 +512,7 @@ namespace MOS.ExcelGrading.Core.Services
                         roomSessionContext.SharedClassStudentSummary),
                     StudentMaterialCoverageRate = Clean(request.EndLesson.StudentMaterialCoverageRate),
                     BrokenMachinesSummary = Clean(request.EndLesson.BrokenMachinesSummary),
+                    MissingMachinesForStudents = Clean(request.EndLesson.MissingMachinesForStudents),
                     NetSupportStatus = Clean(request.EndLesson.NetSupportStatus),
                     AudioStatus = Clean(request.EndLesson.AudioStatus),
                     CoolingStatus = Clean(request.EndLesson.CoolingStatus),
@@ -634,10 +636,10 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 if (x.MaxStudents.HasValue)
                 {
-                    return $"{x.ClassName}({x.CurrentStudents}/{x.MaxStudents.Value})";
+                    return $"{x.ClassName} ({x.CurrentStudents}/{x.MaxStudents.Value})";
                 }
 
-                return $"{x.ClassName}({x.CurrentStudents})";
+                return $"{x.ClassName} ({x.CurrentStudents})";
             });
 
             return string.Join(" ", parts);
@@ -711,10 +713,11 @@ namespace MOS.ExcelGrading.Core.Services
                 StudentMachineCount = room.StudentMachineCount,
                 TeacherMachineCount = room.TeacherMachineCount,
                 BrokenMachineCount = room.BrokenMachineCount,
+                BrokenMachinesDetail = room.BrokenMachinesDetail,
                 AvailableStudentMachines = availableStudentMachines,
                 CurrentClassStudents = currentClassStudents,
                 MissingMachinesForStudents = missingMachinesForStudents,
-                TotalMachinesText = $"{room.StudentMachineCount} + {room.TeacherMachineCount} GV",
+                TotalMachinesText = $"{room.StudentMachineCount}HS + {room.TeacherMachineCount}GV",
                 NetSupportStatus = room.NetSupportStatus,
                 AudioStatus = room.AudioStatus,
                 CoolingStatus = room.CoolingStatus,
@@ -722,6 +725,19 @@ namespace MOS.ExcelGrading.Core.Services
                 SeatingOrderStatus = room.SeatingOrderStatus,
                 RoomHygieneStatus = room.RoomHygieneStatus
             };
+        }
+
+        private static string BuildBrokenMachinesSummary(ScheduleComputerRoomSnapshotResponse? roomSnapshot)
+        {
+            if (roomSnapshot == null)
+            {
+                return string.Empty;
+            }
+
+            var detail = roomSnapshot.BrokenMachinesDetail?.Trim();
+            return string.IsNullOrWhiteSpace(detail)
+                ? roomSnapshot.BrokenMachineCount.ToString()
+                : $"{roomSnapshot.BrokenMachineCount} ({detail})";
         }
 
         private static ScheduleAttendanceResponse BuildResponse(

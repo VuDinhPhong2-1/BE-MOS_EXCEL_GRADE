@@ -43,6 +43,7 @@ namespace MOS.ExcelGrading.Core.Models
         public string ClassStudentCountSummary { get; set; } = string.Empty;
         public string StudentMaterialCoverageRate { get; set; } = string.Empty;
         public string BrokenMachinesSummary { get; set; } = string.Empty;
+        public string MissingMachinesForStudents { get; set; } = string.Empty;
         public string NetSupportStatus { get; set; } = string.Empty;
         public string AudioStatus { get; set; } = string.Empty;
         public string CoolingStatus { get; set; } = string.Empty;

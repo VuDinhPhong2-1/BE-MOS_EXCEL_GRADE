@@ -330,6 +330,10 @@ public static class ImageWrapTypes
         [JsonPropertyName("sourceFileName")]
         public string? SourceFileName { get; set; }
 
+        [BsonElement("expectedWorksheetName")]
+        [JsonPropertyName("expectedWorksheetName")]
+        public string? ExpectedWorksheetName { get; set; }
+
         [BsonElement("expectedConnectionName")]
         [JsonPropertyName("expectedConnectionName")]
         public string? ExpectedConnectionName { get; set; }
@@ -341,6 +345,14 @@ public static class ImageWrapTypes
         [BsonElement("requireDataModel")]
         [JsonPropertyName("requireDataModel")]
         public bool? RequireDataModel { get; set; } = true;
+
+        [BsonElement("requireImportedWorksheet")]
+        [JsonPropertyName("requireImportedWorksheet")]
+        public bool? RequireImportedWorksheet { get; set; } = true;
+
+        [BsonElement("requireQueryTable")]
+        [JsonPropertyName("requireQueryTable")]
+        public bool? RequireQueryTable { get; set; } = true;
     }
 
     [BsonIgnoreExtraElements]

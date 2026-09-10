@@ -485,6 +485,10 @@ namespace MOS.ExcelGrading.Core.Services
                         {
                             message = fallbackMessage;
                         }
+                        else
+                        {
+                            taskResult.Details.Add(fallbackMessage);
+                        }
 
                         taskResult.Errors.Add(message);
                         taskResult.DisplayIssues.Add(new TaskDisplayIssue
@@ -1012,9 +1016,12 @@ namespace MOS.ExcelGrading.Core.Services
                     {
                         var config = task.SpecialCondition.ExcelDataModelImportConfig;
                         config.SourceFileName = string.IsNullOrWhiteSpace(config.SourceFileName) ? null : config.SourceFileName.Trim();
+                        config.ExpectedWorksheetName = string.IsNullOrWhiteSpace(config.ExpectedWorksheetName) ? null : config.ExpectedWorksheetName.Trim();
                         config.ExpectedConnectionName = string.IsNullOrWhiteSpace(config.ExpectedConnectionName) ? null : config.ExpectedConnectionName.Trim();
                         config.RequireConnection ??= true;
                         config.RequireDataModel ??= true;
+                        config.RequireImportedWorksheet ??= true;
+                        config.RequireQueryTable ??= true;
                     }
 
                     if (task.SpecialCondition.ExcelCompatibilityReportConfig != null)
@@ -2187,9 +2194,36 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             if (!string.IsNullOrWhiteSpace(config.SourceFileName)
-                && !ExcelPackageContainsText(package, config.SourceFileName.Trim()))
+                && !ExcelPackageContainsText(package, config.SourceFileName.Trim())
+                && !ExcelPackageContainsText(package, Path.GetFileNameWithoutExtension(config.SourceFileName.Trim())))
             {
                 return Fail($"Khong tim thay dau hieu file nguon '{config.SourceFileName}' trong workbook.");
+            }
+
+            if (config.RequireImportedWorksheet != false)
+            {
+                var expectedWorksheetName = string.IsNullOrWhiteSpace(config.ExpectedWorksheetName)
+                    ? Path.GetFileNameWithoutExtension(config.SourceFileName ?? config.ExpectedConnectionName ?? string.Empty)
+                    : config.ExpectedWorksheetName.Trim();
+
+                if (string.IsNullOrWhiteSpace(expectedWorksheetName))
+                {
+                    return Fail("Can cau hinh expectedWorksheetName hoac sourceFileName de kiem tra worksheet import.");
+                }
+
+                var worksheets = GetExcelWorksheets(package);
+                var hasImportedWorksheet = worksheets.Any(sheet =>
+                    sheet.Name.Contains(expectedWorksheetName, StringComparison.OrdinalIgnoreCase));
+
+                if (!hasImportedWorksheet)
+                {
+                    return Fail($"Khong tim thay worksheet import co ten chua '{expectedWorksheetName}'.");
+                }
+            }
+
+            if (config.RequireQueryTable != false && !HasExcelQueryTable(package))
+            {
+                return Fail("Khong tim thay query table duoc tao tu thao tac import.");
             }
 
             if (config.RequireDataModel != false)
@@ -2219,6 +2253,20 @@ namespace MOS.ExcelGrading.Core.Services
                 IsPassed = true,
                 Message = "Workbook co connection import va dau hieu Data Model dung cau hinh."
             };
+        }
+
+        private static bool HasExcelQueryTable(OfficePackage package)
+        {
+            if (package.PartNames.Any(path => path.StartsWith("xl/queryTables/", StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            return package.XmlParts
+                .Where(part => part.Key.StartsWith("xl/tables/", StringComparison.OrdinalIgnoreCase))
+                .Select(part => TryParsePackageXml(package, part.Key)?.Root)
+                .Where(root => root != null)
+                .Any(root => string.Equals(root!.Attribute("tableType")?.Value, "queryTable", StringComparison.OrdinalIgnoreCase));
         }
 
         private static bool ExcelPackageContainsText(OfficePackage package, string expectedText)

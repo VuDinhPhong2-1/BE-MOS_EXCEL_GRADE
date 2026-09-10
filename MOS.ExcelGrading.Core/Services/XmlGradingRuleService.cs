@@ -3129,11 +3129,23 @@ namespace MOS.ExcelGrading.Core.Services
                         continue;
                     }
 
-                    return new SpecialConditionEvalOutcome
+                    if (wrapMismatch == null)
                     {
-                        IsPassed = true,
-                        Message = BuildInsertedImageSuccessMessage(expectedWrap, config.PositionConfig, config.SizeConfig)
-                    };
+                        return new SpecialConditionEvalOutcome
+                        {
+                            IsPassed = true,
+                            Message = BuildInsertedImageSuccessMessage(expectedWrap, config.PositionConfig, config.SizeConfig)
+                        };
+                    }
+
+                    if (sizeMismatch == null)
+                    {
+                        return new SpecialConditionEvalOutcome
+                        {
+                            IsPassed = true,
+                            Message = BuildInsertedImageSuccessMessage(expectedWrap, config.PositionConfig, config.SizeConfig)
+                        };
+                    }
 
                     if (expectedWrap == null)
                     {

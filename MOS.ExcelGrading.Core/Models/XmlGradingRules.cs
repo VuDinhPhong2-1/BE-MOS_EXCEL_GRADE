@@ -307,6 +307,10 @@ public static class ImageWrapTypes
         [BsonElement("range")]
         [JsonPropertyName("range")]
         public string? Range { get; set; }
+
+        [BsonElement("requireNoHorizontalCenter")]
+        [JsonPropertyName("requireNoHorizontalCenter")]
+        public bool? RequireNoHorizontalCenter { get; set; } = false;
     }
 
     [BsonIgnoreExtraElements]

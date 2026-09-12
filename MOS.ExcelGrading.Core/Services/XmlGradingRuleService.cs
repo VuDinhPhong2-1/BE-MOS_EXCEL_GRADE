@@ -1041,6 +1041,7 @@ namespace MOS.ExcelGrading.Core.Services
                         config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
                         config.SourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? null : NormalizeSourceFile(config.SourceFile);
                         config.Range = string.IsNullOrWhiteSpace(config.Range) ? null : NormalizeExcelRangeAddress(config.Range);
+                        config.RequireNoHorizontalCenter ??= false;
                     }
 
                     if (task.SpecialCondition.ExcelCellHyperlinkConfig != null)
@@ -1758,6 +1759,10 @@ namespace MOS.ExcelGrading.Core.Services
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelMergedRange, StringComparison.OrdinalIgnoreCase))
                 {
                     AddExcelWorksheetParts(specialCondition.ExcelMergedRangeConfig?.SourceFile);
+                    if (specialCondition.ExcelMergedRangeConfig?.RequireNoHorizontalCenter == true)
+                    {
+                        AddXmlPart("xl/styles.xml", "xl/styles.xml");
+                    }
                     continue;
                 }
 
@@ -2260,11 +2265,100 @@ namespace MOS.ExcelGrading.Core.Services
                 return Fail($"Khong tim thay merged range {expectedRange} tren {worksheetPath}.");
             }
 
+            if (config.RequireNoHorizontalCenter == true
+                && TryGetHorizontallyCenteredCellInRange(package, document, x, expectedRange, out var centeredCell))
+            {
+                return Fail($"O {centeredCell} trong merged range {expectedRange} dang can giua ngang. Task nay can Merge Across/giu nguyen alignment, khong dung Merge & Center.");
+            }
+
             return new SpecialConditionEvalOutcome
             {
                 IsPassed = true,
                 Message = $"Worksheet {worksheetPath} co merged range {expectedRange}."
             };
+        }
+
+        private static bool TryGetHorizontallyCenteredCellInRange(
+            OfficePackage package,
+            XDocument worksheetDocument,
+            XNamespace worksheetNamespace,
+            string range,
+            out string cellAddress)
+        {
+            cellAddress = string.Empty;
+
+            if (!TryParseExcelRange(range, out var startColumn, out var startRow, out var endColumn, out var endRow))
+            {
+                return false;
+            }
+
+            if (!package.TryGetXmlDocument("xl/styles.xml", out var stylesDocument, out _))
+            {
+                return false;
+            }
+
+            var horizontallyCenteredStyleIds = GetHorizontallyCenteredStyleIds(stylesDocument);
+            if (horizontallyCenteredStyleIds.Count == 0)
+            {
+                return false;
+            }
+
+            var cellsByAddress = worksheetDocument
+                .Descendants(worksheetNamespace + "c")
+                .Where(cell => !string.IsNullOrWhiteSpace(cell.Attribute("r")?.Value))
+                .ToDictionary(
+                    cell => NormalizeExcelCellAddress(cell.Attribute("r")!.Value),
+                    cell => cell,
+                    StringComparer.OrdinalIgnoreCase);
+
+            for (var row = startRow; row <= endRow; row++)
+            {
+                for (var column = startColumn; column <= endColumn; column++)
+                {
+                    var address = $"{GetExcelColumnName(column)}{row}";
+                    if (!cellsByAddress.TryGetValue(address, out var cell))
+                    {
+                        continue;
+                    }
+
+                    var styleText = cell.Attribute("s")?.Value;
+                    if (int.TryParse(styleText, out var styleId)
+                        && horizontallyCenteredStyleIds.Contains(styleId))
+                    {
+                        cellAddress = address;
+                        return true;
+                    }
+                }
+            }
+
+            return false;
+        }
+
+        private static HashSet<int> GetHorizontallyCenteredStyleIds(XDocument stylesDocument)
+        {
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var result = new HashSet<int>();
+            var cellXfs = stylesDocument
+                .Root?
+                .Element(x + "cellXfs")?
+                .Elements(x + "xf")
+                .ToList() ?? new List<XElement>();
+
+            for (var index = 0; index < cellXfs.Count; index++)
+            {
+                var horizontal = cellXfs[index]
+                    .Element(x + "alignment")?
+                    .Attribute("horizontal")?
+                    .Value;
+
+                if (string.Equals(horizontal, "center", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(horizontal, "centerContinuous", StringComparison.OrdinalIgnoreCase))
+                {
+                    result.Add(index);
+                }
+            }
+
+            return result;
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelCellHyperlink(

@@ -3632,13 +3632,7 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             var normalized = rows.Trim().Replace("'", string.Empty).Replace("$", string.Empty);
-            var bangIndex = normalized.LastIndexOf('!');
-            if (bangIndex >= 0)
-            {
-                normalized = normalized[(bangIndex + 1)..];
-            }
-
-            var match = Regex.Match(normalized, @"^(\d+):(\d+)$", RegexOptions.CultureInvariant);
+            var match = Regex.Match(normalized, @"(?<![A-Z])(\d+):(\d+)(?![A-Z0-9])", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             if (!match.Success)
             {
                 return string.Empty;

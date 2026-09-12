@@ -61,6 +61,11 @@ namespace MOS.ExcelGrading.Core.Models
     public const string ExcelClearCellFormatting = "excelClearCellFormatting";
     public const string ExcelDataModelImport = "excelDataModelImport";
     public const string ExcelCompatibilityReport = "excelCompatibilityReport";
+    public const string ExcelMergedRange = "excelMergedRange";
+    public const string ExcelCellHyperlink = "excelCellHyperlink";
+    public const string ExcelIconSetConditionalFormatting = "excelIconSetConditionalFormatting";
+    public const string ExcelChartDataRange = "excelChartDataRange";
+    public const string ExcelChartStyle = "excelChartStyle";
 
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
@@ -79,7 +84,12 @@ namespace MOS.ExcelGrading.Core.Models
             ExcelWorksheetPageSetup,
             ExcelClearCellFormatting,
             ExcelDataModelImport,
-            ExcelCompatibilityReport
+            ExcelCompatibilityReport,
+            ExcelMergedRange,
+            ExcelCellHyperlink,
+            ExcelIconSetConditionalFormatting,
+            ExcelChartDataRange,
+            ExcelChartStyle
         };
 }
 
@@ -261,7 +271,131 @@ public static class ImageWrapTypes
         [BsonElement("excelCompatibilityReportConfig")]
         [JsonPropertyName("excelCompatibilityReportConfig")]
         public ExcelCompatibilityReportConfig? ExcelCompatibilityReportConfig { get; set; }
+
+        [BsonElement("excelMergedRangeConfig")]
+        [JsonPropertyName("excelMergedRangeConfig")]
+        public ExcelMergedRangeConfig? ExcelMergedRangeConfig { get; set; }
+
+        [BsonElement("excelCellHyperlinkConfig")]
+        [JsonPropertyName("excelCellHyperlinkConfig")]
+        public ExcelCellHyperlinkConfig? ExcelCellHyperlinkConfig { get; set; }
+
+        [BsonElement("excelIconSetConditionalFormattingConfig")]
+        [JsonPropertyName("excelIconSetConditionalFormattingConfig")]
+        public ExcelIconSetConditionalFormattingConfig? ExcelIconSetConditionalFormattingConfig { get; set; }
+
+        [BsonElement("excelChartDataRangeConfig")]
+        [JsonPropertyName("excelChartDataRangeConfig")]
+        public ExcelChartDataRangeConfig? ExcelChartDataRangeConfig { get; set; }
+
+        [BsonElement("excelChartStyleConfig")]
+        [JsonPropertyName("excelChartStyleConfig")]
+        public ExcelChartStyleConfig? ExcelChartStyleConfig { get; set; }
 }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelMergedRangeConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("range")]
+        [JsonPropertyName("range")]
+        public string? Range { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelCellHyperlinkConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("cell")]
+        [JsonPropertyName("cell")]
+        public string? Cell { get; set; }
+
+        [BsonElement("location")]
+        [JsonPropertyName("location")]
+        public string? Location { get; set; }
+
+        [BsonElement("target")]
+        [JsonPropertyName("target")]
+        public string? Target { get; set; }
+
+        [BsonElement("display")]
+        [JsonPropertyName("display")]
+        public string? Display { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelIconSetConditionalFormattingConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("range")]
+        [JsonPropertyName("range")]
+        public string? Range { get; set; }
+
+        [BsonElement("iconSet")]
+        [JsonPropertyName("iconSet")]
+        public string? IconSet { get; set; } = "3Flags";
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelChartDataRangeConfig
+    {
+        [BsonElement("chartSourceFile")]
+        [JsonPropertyName("chartSourceFile")]
+        public string? ChartSourceFile { get; set; }
+
+        [BsonElement("expectedCategoryRange")]
+        [JsonPropertyName("expectedCategoryRange")]
+        public string? ExpectedCategoryRange { get; set; }
+
+        [BsonElement("expectedValueRange")]
+        [JsonPropertyName("expectedValueRange")]
+        public string? ExpectedValueRange { get; set; }
+
+        [BsonElement("expectedPointCount")]
+        [JsonPropertyName("expectedPointCount")]
+        public int? ExpectedPointCount { get; set; }
+
+        [BsonElement("expectedCategoryText")]
+        [JsonPropertyName("expectedCategoryText")]
+        public string? ExpectedCategoryText { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelChartStyleConfig
+    {
+        [BsonElement("chartSourceFile")]
+        [JsonPropertyName("chartSourceFile")]
+        public string? ChartSourceFile { get; set; }
+
+        [BsonElement("styleSourceFile")]
+        [JsonPropertyName("styleSourceFile")]
+        public string? StyleSourceFile { get; set; }
+
+        [BsonElement("styleId")]
+        [JsonPropertyName("styleId")]
+        public int? StyleId { get; set; }
+    }
 
     [BsonIgnoreExtraElements]
     public class ExcelTableNameConfig

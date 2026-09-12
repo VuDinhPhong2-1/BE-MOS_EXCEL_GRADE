@@ -383,6 +383,10 @@ public static class ImageWrapTypes
         [BsonElement("expectedCategoryText")]
         [JsonPropertyName("expectedCategoryText")]
         public string? ExpectedCategoryText { get; set; }
+
+        [BsonElement("requireNoExtraSeries")]
+        [JsonPropertyName("requireNoExtraSeries")]
+        public bool? RequireNoExtraSeries { get; set; } = true;
     }
 
     [BsonIgnoreExtraElements]

@@ -2000,61 +2000,6 @@ namespace MOS.ExcelGrading.Core.Services
                 return EvaluateInsertedImage(specialCondition.ImageInsertConfig, package);
             }
 
-            if (string.Equals(specialCondition.Type, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase))
-            {
-                var config = specialCondition.ImageInsertConfig;
-                if (config != null)
-                {
-                    var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile)
-                        ? "word/document.xml"
-                        : config.SourceFile;
-
-                    var relsFile = string.IsNullOrWhiteSpace(config.RelsFile)
-                        ? "word/_rels/document.xml.rels"
-                        : config.RelsFile;
-
-                    // if (!IsSafeSourceFile(sourceFile))
-                    // {
-                    //     result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sourceFile khong hop le.");
-                    // }
-
-                    // if (!IsSafeSourceFile(relsFile))
-                    // {
-                    //     result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.relsFile khong hop le.");
-                    // }
-
-                    // if (config.PositionConfig?.RequireBetween == true
-                    //     && string.IsNullOrWhiteSpace(config.PositionConfig.AfterText)
-                    //     && string.IsNullOrWhiteSpace(config.PositionConfig.BeforeText))
-                    // {
-                    //     result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.positionConfig phai co afterText hoac beforeText khi bat requireBetween.");
-                    // }
-
-                    // if (config.SizeConfig != null)
-                    // {
-                    //     if (!config.SizeConfig.ExpectedWidthEmu.HasValue && !config.SizeConfig.ExpectedHeightEmu.HasValue)
-                    //     {
-                    //         result.Warnings.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig dang trong nen se khong kiem tra kich thuoc.");
-                    //     }
-
-                    //     if (config.SizeConfig.ExpectedWidthEmu.HasValue && config.SizeConfig.ExpectedWidthEmu.Value <= 0)
-                    //     {
-                    //         result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.expectedWidthEmu phai lon hon 0.");
-                    //     }
-
-                    //     if (config.SizeConfig.ExpectedHeightEmu.HasValue && config.SizeConfig.ExpectedHeightEmu.Value <= 0)
-                    //     {
-                    //         result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.expectedHeightEmu phai lon hon 0.");
-                    //     }
-
-                    //     if (config.SizeConfig.ToleranceEmu.HasValue && config.SizeConfig.ToleranceEmu.Value < 0)
-                    //     {
-                    //         result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.sizeConfig.toleranceEmu phai >= 0.");
-                    //     }
-                    // }
-                }
-            }
-
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateConvertTableToText(specialCondition.ConvertTableToTextConfig, package);
@@ -2541,11 +2486,43 @@ namespace MOS.ExcelGrading.Core.Services
                     .Select(item => NormalizeExcelFormulaReference(item.Value))
                     .Where(value => !string.IsNullOrWhiteSpace(value))
                     .ToList();
+                var series = chartDocument
+                    .Descendants(c + "ser")
+                    .Select(item => new
+                    {
+                        CategoryFormulas = item
+                            .Elements(c + "cat")
+                            .Descendants(c + "f")
+                            .Select(formula => NormalizeExcelFormulaReference(formula.Value))
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .ToList(),
+                        ValueFormulas = item
+                            .Elements(c + "val")
+                            .Descendants(c + "f")
+                            .Select(formula => NormalizeExcelFormulaReference(formula.Value))
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .ToList()
+                    })
+                    .ToList();
 
                 var categoryOk = string.IsNullOrWhiteSpace(expectedCategoryRange)
                     || formulas.Any(value => string.Equals(value, expectedCategoryRange, StringComparison.OrdinalIgnoreCase));
                 var valueOk = string.IsNullOrWhiteSpace(expectedValueRange)
                     || formulas.Any(value => string.Equals(value, expectedValueRange, StringComparison.OrdinalIgnoreCase));
+                var matchingSeries = series
+                    .Where(item => item.ValueFormulas.Count > 0 || item.CategoryFormulas.Count > 0)
+                    .ToList();
+                var matchingSeriesOk = matchingSeries.Count == 0
+                    || matchingSeries.Any(item =>
+                        (string.IsNullOrWhiteSpace(expectedCategoryRange)
+                            || item.CategoryFormulas.Any(value => string.Equals(value, expectedCategoryRange, StringComparison.OrdinalIgnoreCase)))
+                        && (string.IsNullOrWhiteSpace(expectedValueRange)
+                            || item.ValueFormulas.Any(value => string.Equals(value, expectedValueRange, StringComparison.OrdinalIgnoreCase))));
+                var noExtraSeriesOk = config.RequireNoExtraSeries != true
+                    || string.IsNullOrWhiteSpace(expectedValueRange)
+                    || matchingSeries.Count == 0
+                    || (matchingSeries.Count == 1
+                        && matchingSeries[0].ValueFormulas.Any(value => string.Equals(value, expectedValueRange, StringComparison.OrdinalIgnoreCase)));
                 var pointCountOk = !config.ExpectedPointCount.HasValue
                     || chartDocument.Descendants(c + "ptCount").Any(item =>
                         int.TryParse(item.Attribute("val")?.Value, out var count) && count == config.ExpectedPointCount.Value);
@@ -2553,7 +2530,7 @@ namespace MOS.ExcelGrading.Core.Services
                     || chartDocument.Descendants(c + "v").Any(item =>
                         string.Equals(NormalizePlainText(item.Value), expectedCategoryText, StringComparison.OrdinalIgnoreCase));
 
-                if (categoryOk && valueOk && pointCountOk && categoryTextOk)
+                if (categoryOk && valueOk && matchingSeriesOk && noExtraSeriesOk && pointCountOk && categoryTextOk)
                 {
                     return new SpecialConditionEvalOutcome
                     {
@@ -2563,7 +2540,7 @@ namespace MOS.ExcelGrading.Core.Services
                 }
             }
 
-            return Fail("Khong tim thay chart co data range/point count/category text dung cau hinh.");
+            return Fail("Khong tim thay chart co data range/series/point count/category text dung cau hinh.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelChartStyle(

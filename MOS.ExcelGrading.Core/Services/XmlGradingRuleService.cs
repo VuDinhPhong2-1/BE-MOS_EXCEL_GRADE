@@ -1070,11 +1070,29 @@ namespace MOS.ExcelGrading.Core.Services
                         config.ChartSourceFile = string.IsNullOrWhiteSpace(config.ChartSourceFile) ? null : NormalizeSourceFile(config.ChartSourceFile);
                         config.ExpectedCategoryRange = string.IsNullOrWhiteSpace(config.ExpectedCategoryRange) ? null : NormalizeExcelFormulaReference(config.ExpectedCategoryRange);
                         config.ExpectedValueRange = string.IsNullOrWhiteSpace(config.ExpectedValueRange) ? null : NormalizeExcelFormulaReference(config.ExpectedValueRange);
+                        config.ExpectedValueRanges = config.ExpectedValueRanges?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(NormalizeExcelFormulaReference)
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList() ?? new List<string>();
+                        if (!string.IsNullOrWhiteSpace(config.ExpectedValueRange)
+                            && !config.ExpectedValueRanges.Contains(config.ExpectedValueRange, StringComparer.OrdinalIgnoreCase))
+                        {
+                            config.ExpectedValueRanges.Insert(0, config.ExpectedValueRange);
+                        }
+                        config.ExpectedSeriesNames = config.ExpectedSeriesNames?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(NormalizePlainText)
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList() ?? new List<string>();
                         config.ExpectedCategoryText = string.IsNullOrWhiteSpace(config.ExpectedCategoryText) ? null : NormalizePlainText(config.ExpectedCategoryText);
                         if (config.ExpectedPointCount <= 0)
                         {
                             config.ExpectedPointCount = null;
                         }
+                        config.RequireNoExtraSeries ??= true;
                     }
 
                     if (task.SpecialCondition.ExcelChartStyleConfig != null)
@@ -1086,6 +1104,46 @@ namespace MOS.ExcelGrading.Core.Services
                         {
                             config.StyleId = null;
                         }
+                    }
+
+                    if (task.SpecialCondition.ExcelTextReplacementConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelTextReplacementConfig;
+                        config.OldText = string.IsNullOrWhiteSpace(config.OldText) ? null : NormalizePlainText(config.OldText);
+                        config.NewText = string.IsNullOrWhiteSpace(config.NewText) ? null : NormalizePlainText(config.NewText);
+                        if (config.MinNewTextOccurrences <= 0)
+                        {
+                            config.MinNewTextOccurrences = 1;
+                        }
+                        config.RequireOldTextAbsent ??= true;
+                        config.MatchWholeWord ??= true;
+                    }
+
+                    if (task.SpecialCondition.ExcelPrintTitlesConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelPrintTitlesConfig;
+                        config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
+                        config.ExpectedRows = string.IsNullOrWhiteSpace(config.ExpectedRows) ? null : NormalizeExcelPrintRows(config.ExpectedRows);
+                    }
+
+                    if (task.SpecialCondition.ExcelNumberFormatConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelNumberFormatConfig;
+                        config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
+                        config.SourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? null : NormalizeSourceFile(config.SourceFile);
+                        config.Range = string.IsNullOrWhiteSpace(config.Range) ? null : NormalizeExcelRangeOrColumnRange(config.Range);
+                        config.AllowedNumberFormatIds = config.AllowedNumberFormatIds?
+                            .Where(value => value > 0)
+                            .Distinct()
+                            .ToList() ?? new List<int> { 1, 2, 3, 4 };
+                        config.RequireEveryNumericCell ??= true;
+                    }
+
+                    if (task.SpecialCondition.ExcelChartLegendConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelChartLegendConfig;
+                        config.ChartSourceFile = string.IsNullOrWhiteSpace(config.ChartSourceFile) ? null : NormalizeSourceFile(config.ChartSourceFile);
+                        config.Position = string.IsNullOrWhiteSpace(config.Position) ? "t" : config.Position.Trim();
                     }
                 }
             }
@@ -1274,7 +1332,11 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelCellHyperlink, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelIconSetConditionalFormatting, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelChartDataRange, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelChartStyle, StringComparison.OrdinalIgnoreCase),
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelChartStyle, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelTextReplacement, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelPrintTitles, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelNumberFormat, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelChartLegend, StringComparison.OrdinalIgnoreCase),
                 "ppt" => false,
                 "powerpoint" => false,
                 _ => false
@@ -1808,6 +1870,40 @@ namespace MOS.ExcelGrading.Core.Services
                     }
                     continue;
                 }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTextReplacement, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorkbookParts();
+                    AddXmlPart("xl/sharedStrings.xml", "xl/sharedStrings.xml");
+                    AddXmlPrefix("xl/worksheets");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelPrintTitles, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorkbookParts();
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelNumberFormat, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorksheetParts(specialCondition.ExcelNumberFormatConfig?.SourceFile);
+                    AddXmlPart("xl/styles.xml", "xl/styles.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelChartLegend, StringComparison.OrdinalIgnoreCase))
+                {
+                    if (!string.IsNullOrWhiteSpace(specialCondition.ExcelChartLegendConfig?.ChartSourceFile))
+                    {
+                        AddXmlPartIfProvided(specialCondition.ExcelChartLegendConfig.ChartSourceFile);
+                    }
+                    else
+                    {
+                        AddXmlPrefix("xl/charts");
+                    }
+                    continue;
+                }
             }
 
             return requiredParts;
@@ -2088,6 +2184,26 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelChartStyle, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateExcelChartStyle(specialCondition.ExcelChartStyleConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTextReplacement, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelTextReplacement(specialCondition.ExcelTextReplacementConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelPrintTitles, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelPrintTitles(specialCondition.ExcelPrintTitlesConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelNumberFormat, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelNumberFormat(specialCondition.ExcelNumberFormatConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelChartLegend, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelChartLegend(specialCondition.ExcelChartLegendConfig, package);
             }
 
             return new SpecialConditionEvalOutcome
@@ -2464,7 +2580,22 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             var expectedCategoryRange = NormalizeExcelFormulaReference(config.ExpectedCategoryRange);
+            var expectedValueRanges = config.ExpectedValueRanges?
+                .Select(NormalizeExcelFormulaReference)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? new List<string>();
             var expectedValueRange = NormalizeExcelFormulaReference(config.ExpectedValueRange);
+            if (!string.IsNullOrWhiteSpace(expectedValueRange)
+                && !expectedValueRanges.Contains(expectedValueRange, StringComparer.OrdinalIgnoreCase))
+            {
+                expectedValueRanges.Insert(0, expectedValueRange);
+            }
+            var expectedSeriesNames = config.ExpectedSeriesNames?
+                .Select(NormalizePlainText)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? new List<string>();
             var expectedCategoryText = NormalizePlainText(config.ExpectedCategoryText);
 
             var chartParts = ResolveExcelChartParts(package, config.ChartSourceFile);
@@ -2501,28 +2632,41 @@ namespace MOS.ExcelGrading.Core.Services
                             .Descendants(c + "f")
                             .Select(formula => NormalizeExcelFormulaReference(formula.Value))
                             .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .ToList(),
+                        SeriesNames = item
+                            .Elements(c + "tx")
+                            .Descendants(c + "v")
+                            .Select(value => NormalizePlainText(value.Value))
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
                             .ToList()
                     })
                     .ToList();
 
                 var categoryOk = string.IsNullOrWhiteSpace(expectedCategoryRange)
                     || formulas.Any(value => string.Equals(value, expectedCategoryRange, StringComparison.OrdinalIgnoreCase));
-                var valueOk = string.IsNullOrWhiteSpace(expectedValueRange)
-                    || formulas.Any(value => string.Equals(value, expectedValueRange, StringComparison.OrdinalIgnoreCase));
+                var valueOk = expectedValueRanges.Count == 0
+                    || expectedValueRanges.All(expected =>
+                        formulas.Any(value => string.Equals(value, expected, StringComparison.OrdinalIgnoreCase)));
                 var matchingSeries = series
                     .Where(item => item.ValueFormulas.Count > 0 || item.CategoryFormulas.Count > 0)
                     .ToList();
                 var matchingSeriesOk = matchingSeries.Count == 0
-                    || matchingSeries.Any(item =>
-                        (string.IsNullOrWhiteSpace(expectedCategoryRange)
-                            || item.CategoryFormulas.Any(value => string.Equals(value, expectedCategoryRange, StringComparison.OrdinalIgnoreCase)))
-                        && (string.IsNullOrWhiteSpace(expectedValueRange)
-                            || item.ValueFormulas.Any(value => string.Equals(value, expectedValueRange, StringComparison.OrdinalIgnoreCase))));
+                    || expectedValueRanges.Count == 0
+                    || expectedValueRanges.All(expected =>
+                        matchingSeries.Any(item =>
+                            item.ValueFormulas.Any(value => string.Equals(value, expected, StringComparison.OrdinalIgnoreCase))
+                            && (string.IsNullOrWhiteSpace(expectedCategoryRange)
+                                || item.CategoryFormulas.Any(value => string.Equals(value, expectedCategoryRange, StringComparison.OrdinalIgnoreCase)))));
                 var noExtraSeriesOk = config.RequireNoExtraSeries != true
-                    || string.IsNullOrWhiteSpace(expectedValueRange)
+                    || expectedValueRanges.Count == 0
                     || matchingSeries.Count == 0
-                    || (matchingSeries.Count == 1
-                        && matchingSeries[0].ValueFormulas.Any(value => string.Equals(value, expectedValueRange, StringComparison.OrdinalIgnoreCase)));
+                    || (matchingSeries.Count == expectedValueRanges.Count
+                        && matchingSeries.All(item => item.ValueFormulas.Any(value =>
+                            expectedValueRanges.Contains(value, StringComparer.OrdinalIgnoreCase))));
+                var seriesNamesOk = expectedSeriesNames.Count == 0
+                    || expectedSeriesNames.All(expected =>
+                        matchingSeries.Any(item => item.SeriesNames.Any(value =>
+                            string.Equals(value, expected, StringComparison.OrdinalIgnoreCase))));
                 var pointCountOk = !config.ExpectedPointCount.HasValue
                     || chartDocument.Descendants(c + "ptCount").Any(item =>
                         int.TryParse(item.Attribute("val")?.Value, out var count) && count == config.ExpectedPointCount.Value);
@@ -2530,7 +2674,7 @@ namespace MOS.ExcelGrading.Core.Services
                     || chartDocument.Descendants(c + "v").Any(item =>
                         string.Equals(NormalizePlainText(item.Value), expectedCategoryText, StringComparison.OrdinalIgnoreCase));
 
-                if (categoryOk && valueOk && matchingSeriesOk && noExtraSeriesOk && pointCountOk && categoryTextOk)
+                if (categoryOk && valueOk && matchingSeriesOk && noExtraSeriesOk && seriesNamesOk && pointCountOk && categoryTextOk)
                 {
                     return new SpecialConditionEvalOutcome
                     {
@@ -2603,6 +2747,238 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return Fail($"Khong tim thay chart style id {config.StyleId.Value}.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelTextReplacement(
+            ExcelTextReplacementConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Excel Text Replacement (excelTextReplacementConfig trong).");
+            }
+
+            var oldText = NormalizePlainText(config.OldText);
+            var newText = NormalizePlainText(config.NewText);
+            if (string.IsNullOrWhiteSpace(oldText) || string.IsNullOrWhiteSpace(newText))
+            {
+                return Fail("excelTextReplacementConfig.oldText va newText khong duoc rong.");
+            }
+
+            var textValues = GetExcelTextValues(package);
+            var oldCount = CountTextMatches(textValues, oldText, config.MatchWholeWord != false);
+            if (config.RequireOldTextAbsent != false && oldCount > 0)
+            {
+                return Fail($"Van con {oldCount} lan xuat hien '{oldText}' chua duoc thay bang '{newText}'.");
+            }
+
+            var newCount = CountTextMatches(textValues, newText, config.MatchWholeWord != false);
+            var minNewTextOccurrences = config.MinNewTextOccurrences.GetValueOrDefault(1);
+            if (newCount < minNewTextOccurrences)
+            {
+                return Fail($"Chi tim thay {newCount} lan '{newText}', can it nhat {minNewTextOccurrences} lan.");
+            }
+
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = true,
+                Message = $"Da thay '{oldText}' bang '{newText}' dung yeu cau."
+            };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelPrintTitles(
+            ExcelPrintTitlesConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Excel Print Titles (excelPrintTitlesConfig trong).");
+            }
+
+            var worksheetName = config.WorksheetName?.Trim();
+            var expectedRows = NormalizeExcelPrintRows(config.ExpectedRows);
+            if (string.IsNullOrWhiteSpace(worksheetName) || string.IsNullOrWhiteSpace(expectedRows))
+            {
+                return Fail("excelPrintTitlesConfig phai co worksheetName va expectedRows, vi du Costs / 1:3.");
+            }
+
+            if (!package.TryGetXmlDocument("xl/workbook.xml", out var workbookDocument, out var workbookError))
+            {
+                return Fail(workbookError ?? "Khong doc duoc xl/workbook.xml.");
+            }
+
+            var worksheets = GetExcelWorksheets(package);
+            var worksheetIndex = worksheets.FindIndex(sheet => string.Equals(sheet.Name, worksheetName, StringComparison.OrdinalIgnoreCase));
+            if (worksheetIndex < 0)
+            {
+                return Fail($"Khong tim thay worksheet '{worksheetName}'.");
+            }
+
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var matchingDefinedName = workbookDocument
+                .Descendants(x + "definedName")
+                .Where(item => string.Equals(item.Attribute("name")?.Value, "_xlnm.Print_Titles", StringComparison.OrdinalIgnoreCase))
+                .FirstOrDefault(item =>
+                {
+                    var localSheetIdText = item.Attribute("localSheetId")?.Value;
+                    var localSheetMatches = int.TryParse(localSheetIdText, out var localSheetId)
+                        ? localSheetId == worksheetIndex
+                        : item.Value.Contains(worksheetName, StringComparison.OrdinalIgnoreCase);
+
+                    return localSheetMatches
+                        && string.Equals(NormalizeExcelPrintRows(item.Value), expectedRows, StringComparison.OrdinalIgnoreCase);
+                });
+
+            if (matchingDefinedName == null)
+            {
+                return Fail($"Worksheet {worksheetName} chua lap Print Titles lap lai hang {expectedRows}.");
+            }
+
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = true,
+                Message = $"Worksheet {worksheetName} da lap Print Titles hang {expectedRows}."
+            };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelNumberFormat(
+            ExcelNumberFormatConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Excel Number Format (excelNumberFormatConfig trong).");
+            }
+
+            var expectedRange = NormalizeExcelRangeOrColumnRange(config.Range);
+            if (string.IsNullOrWhiteSpace(expectedRange))
+            {
+                return Fail("excelNumberFormatConfig.range khong hop le. Vi du hop le: B:E hoac B4:E20.");
+            }
+
+            if (!TryResolveExcelWorksheet(package, config.WorksheetName, config.SourceFile, out var worksheetPath, out var worksheetError))
+            {
+                return Fail(worksheetError);
+            }
+
+            if (!package.TryGetXmlDocument(worksheetPath, out var worksheetDocument, out var worksheetDocumentError))
+            {
+                return Fail(worksheetDocumentError ?? $"Khong tim thay {worksheetPath} trong file hoc sinh.");
+            }
+
+            if (!package.TryGetXmlDocument("xl/styles.xml", out var stylesDocument, out var stylesDocumentError))
+            {
+                return Fail(stylesDocumentError ?? "Khong doc duoc xl/styles.xml.");
+            }
+
+            var allowedNumberFormatIds = config.AllowedNumberFormatIds.Count > 0
+                ? config.AllowedNumberFormatIds.ToHashSet()
+                : new HashSet<int> { 1, 2, 3, 4 };
+            var styleNumberFormats = GetExcelStyleNumberFormats(stylesDocument);
+            var columnStyles = GetExcelColumnStyles(worksheetDocument);
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var numericCells = worksheetDocument
+                .Descendants(x + "c")
+                .Where(cell => IsNumericExcelCell(cell) && IsCellInExcelRange(cell.Attribute("r")?.Value, expectedRange))
+                .ToList();
+
+            if (numericCells.Count == 0)
+            {
+                return Fail($"Khong tim thay o du lieu so nao trong range {expectedRange} tren {worksheetPath}.");
+            }
+
+            var failedCells = new List<string>();
+            foreach (var cell in numericCells)
+            {
+                var address = NormalizeExcelCellAddress(cell.Attribute("r")?.Value);
+                var styleId = GetEffectiveExcelStyleId(cell, address, columnStyles);
+                if (!styleId.HasValue
+                    || !styleNumberFormats.TryGetValue(styleId.Value, out var numberFormatId)
+                    || !allowedNumberFormatIds.Contains(numberFormatId))
+                {
+                    failedCells.Add(address);
+                }
+            }
+
+            if (failedCells.Count > 0)
+            {
+                return Fail($"Cac o so trong {expectedRange} chua dung Number format: {string.Join(", ", failedCells.Take(12))}{(failedCells.Count > 12 ? ", ..." : string.Empty)}.");
+            }
+
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = true,
+                Message = $"Tat ca {numericCells.Count} o so trong {expectedRange} tren {worksheetPath} dung Number format."
+            };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelChartLegend(
+            ExcelChartLegendConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new()
+            {
+                IsPassed = false,
+                Message = message
+            };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Excel Chart Legend (excelChartLegendConfig trong).");
+            }
+
+            var expectedPosition = string.IsNullOrWhiteSpace(config.Position)
+                ? "t"
+                : config.Position.Trim();
+            var chartParts = ResolveExcelChartParts(package, config.ChartSourceFile);
+            if (chartParts.Count == 0)
+            {
+                return Fail("Khong tim thay chart XML can kiem tra trong workbook.");
+            }
+
+            foreach (var chartPath in chartParts)
+            {
+                if (!package.TryGetXmlDocument(chartPath, out var chartDocument, out _))
+                {
+                    continue;
+                }
+
+                XNamespace c = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+                var actualPosition = chartDocument
+                    .Descendants(c + "legend")
+                    .Elements(c + "legendPos")
+                    .Select(item => item.Attribute("val")?.Value?.Trim())
+                    .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+
+                if (string.Equals(actualPosition, expectedPosition, StringComparison.OrdinalIgnoreCase))
+                {
+                    return new SpecialConditionEvalOutcome
+                    {
+                        IsPassed = true,
+                        Message = $"Chart {chartPath} co legend position '{expectedPosition}'."
+                    };
+                }
+            }
+
+            return Fail($"Khong tim thay chart co legend position '{expectedPosition}'.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelTableName(
@@ -3238,6 +3614,226 @@ namespace MOS.ExcelGrading.Core.Services
             var normalized = reference.Trim().Replace("'", string.Empty).Replace("$", string.Empty);
             normalized = Regex.Replace(normalized, @"\s+", string.Empty);
             return normalized.ToUpperInvariant();
+        }
+
+        private static string NormalizeExcelPrintRows(string? rows)
+        {
+            if (string.IsNullOrWhiteSpace(rows))
+            {
+                return string.Empty;
+            }
+
+            var normalized = rows.Trim().Replace("'", string.Empty).Replace("$", string.Empty);
+            var bangIndex = normalized.LastIndexOf('!');
+            if (bangIndex >= 0)
+            {
+                normalized = normalized[(bangIndex + 1)..];
+            }
+
+            var match = Regex.Match(normalized, @"^(\d+):(\d+)$", RegexOptions.CultureInvariant);
+            if (!match.Success)
+            {
+                return string.Empty;
+            }
+
+            var start = int.Parse(match.Groups[1].Value);
+            var end = int.Parse(match.Groups[2].Value);
+            if (start <= 0 || end <= 0)
+            {
+                return string.Empty;
+            }
+
+            if (start > end)
+            {
+                (start, end) = (end, start);
+            }
+
+            return $"{start}:{end}";
+        }
+
+        private static string NormalizeExcelRangeOrColumnRange(string? range)
+        {
+            var normalizedRange = NormalizeExcelRangeAddress(range);
+            if (!string.IsNullOrWhiteSpace(normalizedRange))
+            {
+                return normalizedRange;
+            }
+
+            if (!TryParseExcelColumnRange(range, out var startColumn, out var endColumn))
+            {
+                return string.Empty;
+            }
+
+            return $"{GetExcelColumnName(startColumn)}:{GetExcelColumnName(endColumn)}";
+        }
+
+        private static bool TryParseExcelColumnRange(string? range, out int startColumn, out int endColumn)
+        {
+            startColumn = 0;
+            endColumn = 0;
+            if (string.IsNullOrWhiteSpace(range))
+            {
+                return false;
+            }
+
+            var match = Regex.Match(
+                range.Trim().Replace("$", string.Empty),
+                @"^([A-Z]{1,3})(?::([A-Z]{1,3}))?$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            startColumn = GetExcelColumnNumber(match.Groups[1].Value);
+            endColumn = match.Groups[2].Success ? GetExcelColumnNumber(match.Groups[2].Value) : startColumn;
+            if (startColumn <= 0 || endColumn <= 0)
+            {
+                return false;
+            }
+
+            if (startColumn > endColumn)
+            {
+                (startColumn, endColumn) = (endColumn, startColumn);
+            }
+
+            return true;
+        }
+
+        private static bool IsCellInExcelRange(string? cellAddress, string range)
+        {
+            var normalizedCell = NormalizeExcelCellAddress(cellAddress);
+            if (string.IsNullOrWhiteSpace(normalizedCell) || string.IsNullOrWhiteSpace(range))
+            {
+                return false;
+            }
+
+            var match = Regex.Match(normalizedCell, "^([A-Z]{1,3})([1-9][0-9]*)$", RegexOptions.CultureInvariant);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            var column = GetExcelColumnNumber(match.Groups[1].Value);
+            var row = int.Parse(match.Groups[2].Value);
+
+            if (TryParseExcelColumnRange(range, out var startColumn, out var endColumn))
+            {
+                return column >= startColumn && column <= endColumn;
+            }
+
+            return TryParseExcelRange(range, out startColumn, out var startRow, out endColumn, out var endRow)
+                && column >= startColumn
+                && column <= endColumn
+                && row >= startRow
+                && row <= endRow;
+        }
+
+        private static List<string> GetExcelTextValues(OfficePackage package)
+        {
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            return package.XmlParts
+                .Where(part => string.Equals(part.Key, "xl/sharedStrings.xml", StringComparison.OrdinalIgnoreCase)
+                    || part.Key.StartsWith("xl/worksheets/", StringComparison.OrdinalIgnoreCase))
+                .Select(part => TryParsePackageXml(package, part.Key))
+                .Where(document => document != null)
+                .SelectMany(document => document!.Descendants(x + "t"))
+                .Select(item => NormalizePlainText(item.Value))
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToList();
+        }
+
+        private static int CountTextMatches(IEnumerable<string> values, string expectedText, bool wholeWord)
+        {
+            if (string.IsNullOrWhiteSpace(expectedText))
+            {
+                return 0;
+            }
+
+            if (!wholeWord)
+            {
+                return values.Sum(value => Regex.Matches(
+                    value,
+                    Regex.Escape(expectedText),
+                    RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Count);
+            }
+
+            var pattern = $@"(?<![\p{{L}}\p{{N}}_]){Regex.Escape(expectedText)}(?![\p{{L}}\p{{N}}_])";
+            return values.Sum(value => Regex.Matches(
+                value,
+                pattern,
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Count);
+        }
+
+        private static bool IsNumericExcelCell(XElement cell)
+        {
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var cellType = cell.Attribute("t")?.Value;
+            return (string.IsNullOrWhiteSpace(cellType)
+                    || string.Equals(cellType, "n", StringComparison.OrdinalIgnoreCase))
+                && cell.Element(x + "v") != null;
+        }
+
+        private static Dictionary<int, int> GetExcelStyleNumberFormats(XDocument stylesDocument)
+        {
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var cellXfs = stylesDocument
+                .Root?
+                .Element(x + "cellXfs")?
+                .Elements(x + "xf")
+                .ToList() ?? new List<XElement>();
+
+            var result = new Dictionary<int, int>();
+            for (var index = 0; index < cellXfs.Count; index++)
+            {
+                if (int.TryParse(cellXfs[index].Attribute("numFmtId")?.Value, out var numberFormatId))
+                {
+                    result[index] = numberFormatId;
+                }
+            }
+
+            return result;
+        }
+
+        private static Dictionary<int, int> GetExcelColumnStyles(XDocument worksheetDocument)
+        {
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var result = new Dictionary<int, int>();
+            foreach (var column in worksheetDocument.Descendants(x + "col"))
+            {
+                if (!int.TryParse(column.Attribute("min")?.Value, out var min)
+                    || !int.TryParse(column.Attribute("max")?.Value, out var max)
+                    || !int.TryParse(column.Attribute("style")?.Value, out var styleId))
+                {
+                    continue;
+                }
+
+                for (var index = min; index <= max; index++)
+                {
+                    result[index] = styleId;
+                }
+            }
+
+            return result;
+        }
+
+        private static int? GetEffectiveExcelStyleId(
+            XElement cell,
+            string cellAddress,
+            IReadOnlyDictionary<int, int> columnStyles)
+        {
+            if (int.TryParse(cell.Attribute("s")?.Value, out var cellStyleId))
+            {
+                return cellStyleId;
+            }
+
+            var match = Regex.Match(cellAddress, "^([A-Z]{1,3})[1-9][0-9]*$", RegexOptions.CultureInvariant);
+            if (match.Success && columnStyles.TryGetValue(GetExcelColumnNumber(match.Groups[1].Value), out var columnStyleId))
+            {
+                return columnStyleId;
+            }
+
+            return null;
         }
 
         private static XDocument? TryParsePackageXml(OfficePackage package, string sourceFile)
@@ -6037,6 +6633,26 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 ValidateExcelChartStyleSpecialCondition(specialCondition, taskPrefix, result);
             }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTextReplacement, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelTextReplacementSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelPrintTitles, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelPrintTitlesSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelNumberFormat, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelNumberFormatSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelChartLegend, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelChartLegendSpecialCondition(specialCondition, taskPrefix, result);
+            }
         }
 
         private static void ValidateExcelMergedRangeSpecialCondition(
@@ -6128,6 +6744,8 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (string.IsNullOrWhiteSpace(config.ExpectedCategoryRange)
                 && string.IsNullOrWhiteSpace(config.ExpectedValueRange)
+                && (config.ExpectedValueRanges == null || config.ExpectedValueRanges.Count == 0)
+                && (config.ExpectedSeriesNames == null || config.ExpectedSeriesNames.Count == 0)
                 && !config.ExpectedPointCount.HasValue
                 && string.IsNullOrWhiteSpace(config.ExpectedCategoryText))
             {
@@ -6165,6 +6783,111 @@ namespace MOS.ExcelGrading.Core.Services
             if (!config.StyleId.HasValue || config.StyleId.Value <= 0)
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.excelChartStyleConfig.styleId phai lon hon 0.");
+            }
+        }
+
+        private static void ValidateExcelTextReplacementSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelTextReplacementConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTextReplacementConfig khong duoc null.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.OldText))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTextReplacementConfig.oldText khong duoc rong.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.NewText))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTextReplacementConfig.newText khong duoc rong.");
+            }
+
+            if (config.MinNewTextOccurrences.HasValue && config.MinNewTextOccurrences.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTextReplacementConfig.minNewTextOccurrences phai lon hon 0.");
+            }
+        }
+
+        private static void ValidateExcelPrintTitlesSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelPrintTitlesConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelPrintTitlesConfig khong duoc null.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.WorksheetName))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelPrintTitlesConfig.worksheetName khong duoc rong.");
+            }
+
+            if (string.IsNullOrWhiteSpace(NormalizeExcelPrintRows(config.ExpectedRows)))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelPrintTitlesConfig.expectedRows khong hop le. Vi du: 1:3.");
+            }
+        }
+
+        private static void ValidateExcelNumberFormatSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelNumberFormatConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelNumberFormatConfig khong duoc null.");
+                return;
+            }
+
+            ValidateExcelWorksheetLocator(config.WorksheetName, config.SourceFile, $"{taskPrefix}.specialCondition.excelNumberFormatConfig", result);
+
+            if (string.IsNullOrWhiteSpace(NormalizeExcelRangeOrColumnRange(config.Range)))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelNumberFormatConfig.range khong hop le. Vi du: B:E hoac B4:E20.");
+            }
+
+            if (config.AllowedNumberFormatIds == null || config.AllowedNumberFormatIds.Count == 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelNumberFormatConfig.allowedNumberFormatIds phai co it nhat 1 id.");
+            }
+            else if (config.AllowedNumberFormatIds.Any(value => value <= 0))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelNumberFormatConfig.allowedNumberFormatIds phai lon hon 0.");
+            }
+        }
+
+        private static void ValidateExcelChartLegendSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelChartLegendConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelChartLegendConfig khong duoc null.");
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.ChartSourceFile) && !IsSafeSourceFile(config.ChartSourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelChartLegendConfig.chartSourceFile khong hop le.");
+            }
+
+            var supportedPositions = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { "t", "b", "l", "r", "tr" };
+            var position = string.IsNullOrWhiteSpace(config.Position) ? "t" : config.Position.Trim();
+            if (!supportedPositions.Contains(position))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelChartLegendConfig.position khong hop le. Dung t, b, l, r, hoac tr.");
             }
         }
 

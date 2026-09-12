@@ -66,6 +66,10 @@ namespace MOS.ExcelGrading.Core.Models
     public const string ExcelIconSetConditionalFormatting = "excelIconSetConditionalFormatting";
     public const string ExcelChartDataRange = "excelChartDataRange";
     public const string ExcelChartStyle = "excelChartStyle";
+    public const string ExcelTextReplacement = "excelTextReplacement";
+    public const string ExcelPrintTitles = "excelPrintTitles";
+    public const string ExcelNumberFormat = "excelNumberFormat";
+    public const string ExcelChartLegend = "excelChartLegend";
 
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
@@ -89,7 +93,11 @@ namespace MOS.ExcelGrading.Core.Models
             ExcelCellHyperlink,
             ExcelIconSetConditionalFormatting,
             ExcelChartDataRange,
-            ExcelChartStyle
+            ExcelChartStyle,
+            ExcelTextReplacement,
+            ExcelPrintTitles,
+            ExcelNumberFormat,
+            ExcelChartLegend
         };
 }
 
@@ -291,7 +299,95 @@ public static class ImageWrapTypes
         [BsonElement("excelChartStyleConfig")]
         [JsonPropertyName("excelChartStyleConfig")]
         public ExcelChartStyleConfig? ExcelChartStyleConfig { get; set; }
+
+        [BsonElement("excelTextReplacementConfig")]
+        [JsonPropertyName("excelTextReplacementConfig")]
+        public ExcelTextReplacementConfig? ExcelTextReplacementConfig { get; set; }
+
+        [BsonElement("excelPrintTitlesConfig")]
+        [JsonPropertyName("excelPrintTitlesConfig")]
+        public ExcelPrintTitlesConfig? ExcelPrintTitlesConfig { get; set; }
+
+        [BsonElement("excelNumberFormatConfig")]
+        [JsonPropertyName("excelNumberFormatConfig")]
+        public ExcelNumberFormatConfig? ExcelNumberFormatConfig { get; set; }
+
+        [BsonElement("excelChartLegendConfig")]
+        [JsonPropertyName("excelChartLegendConfig")]
+        public ExcelChartLegendConfig? ExcelChartLegendConfig { get; set; }
 }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelTextReplacementConfig
+    {
+        [BsonElement("oldText")]
+        [JsonPropertyName("oldText")]
+        public string? OldText { get; set; }
+
+        [BsonElement("newText")]
+        [JsonPropertyName("newText")]
+        public string? NewText { get; set; }
+
+        [BsonElement("minNewTextOccurrences")]
+        [JsonPropertyName("minNewTextOccurrences")]
+        public int? MinNewTextOccurrences { get; set; } = 1;
+
+        [BsonElement("requireOldTextAbsent")]
+        [JsonPropertyName("requireOldTextAbsent")]
+        public bool? RequireOldTextAbsent { get; set; } = true;
+
+        [BsonElement("matchWholeWord")]
+        [JsonPropertyName("matchWholeWord")]
+        public bool? MatchWholeWord { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelPrintTitlesConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("expectedRows")]
+        [JsonPropertyName("expectedRows")]
+        public string? ExpectedRows { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelNumberFormatConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("range")]
+        [JsonPropertyName("range")]
+        public string? Range { get; set; }
+
+        [BsonElement("allowedNumberFormatIds")]
+        [JsonPropertyName("allowedNumberFormatIds")]
+        public List<int> AllowedNumberFormatIds { get; set; } = new() { 1, 2, 3, 4 };
+
+        [BsonElement("requireEveryNumericCell")]
+        [JsonPropertyName("requireEveryNumericCell")]
+        public bool? RequireEveryNumericCell { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelChartLegendConfig
+    {
+        [BsonElement("chartSourceFile")]
+        [JsonPropertyName("chartSourceFile")]
+        public string? ChartSourceFile { get; set; }
+
+        [BsonElement("position")]
+        [JsonPropertyName("position")]
+        public string? Position { get; set; } = "t";
+    }
 
     [BsonIgnoreExtraElements]
     public class ExcelMergedRangeConfig
@@ -375,6 +471,14 @@ public static class ImageWrapTypes
         [BsonElement("expectedValueRange")]
         [JsonPropertyName("expectedValueRange")]
         public string? ExpectedValueRange { get; set; }
+
+        [BsonElement("expectedValueRanges")]
+        [JsonPropertyName("expectedValueRanges")]
+        public List<string> ExpectedValueRanges { get; set; } = new();
+
+        [BsonElement("expectedSeriesNames")]
+        [JsonPropertyName("expectedSeriesNames")]
+        public List<string> ExpectedSeriesNames { get; set; } = new();
 
         [BsonElement("expectedPointCount")]
         [JsonPropertyName("expectedPointCount")]

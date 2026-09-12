@@ -2785,7 +2785,9 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             var newCount = CountTextMatches(textValues, newText, config.MatchWholeWord != false);
-            var minNewTextOccurrences = config.MinNewTextOccurrences.GetValueOrDefault(1);
+            var minNewTextOccurrences = config.RequireOldTextAbsent != false
+                ? 1
+                : config.MinNewTextOccurrences.GetValueOrDefault(1);
             if (newCount < minNewTextOccurrences)
             {
                 return Fail($"Chi tim thay {newCount} lan '{newText}' trong {scopeDescription}, can it nhat {minNewTextOccurrences} lan.");

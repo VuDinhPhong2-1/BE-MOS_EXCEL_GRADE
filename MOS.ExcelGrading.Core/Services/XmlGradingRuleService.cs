@@ -2835,9 +2835,11 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
-            var matchingDefinedName = workbookDocument
+            var printTitleDefinedNames = workbookDocument
                 .Descendants(x + "definedName")
                 .Where(item => string.Equals(item.Attribute("name")?.Value, "_xlnm.Print_Titles", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            var matchingDefinedName = printTitleDefinedNames
                 .FirstOrDefault(item =>
                 {
                     var localSheetIdText = item.Attribute("localSheetId")?.Value;
@@ -2851,7 +2853,26 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (matchingDefinedName == null)
             {
-                return Fail($"Worksheet {worksheetName} chua lap Print Titles lap lai hang {expectedRows}.");
+                if (printTitleDefinedNames.Count == 0)
+                {
+                    return Fail($"Workbook chua luu Print Titles (_xlnm.Print_Titles). Hay bam OK trong Page Setup va Save workbook truoc khi cham lai. Can {worksheetName}!{expectedRows}.");
+                }
+
+                var foundDefinitions = string.Join(
+                    "; ",
+                    printTitleDefinedNames.Select(item =>
+                    {
+                        var localSheetIdText = item.Attribute("localSheetId")?.Value;
+                        var sheetName = int.TryParse(localSheetIdText, out var localSheetId)
+                            && localSheetId >= 0
+                            && localSheetId < worksheets.Count
+                                ? worksheets[localSheetId].Name
+                                : "(khong ro sheet)";
+                        var rows = NormalizeExcelPrintRows(item.Value);
+                        return $"{sheetName}!{(string.IsNullOrWhiteSpace(rows) ? item.Value : rows)}";
+                    }));
+
+                return Fail($"Worksheet {worksheetName} chua lap Print Titles lap lai hang {expectedRows}. Workbook hien co: {foundDefinitions}.");
             }
 
             return new SpecialConditionEvalOutcome

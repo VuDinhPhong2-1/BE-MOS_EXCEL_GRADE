@@ -1109,6 +1109,8 @@ namespace MOS.ExcelGrading.Core.Services
                     if (task.SpecialCondition.ExcelTextReplacementConfig != null)
                     {
                         var config = task.SpecialCondition.ExcelTextReplacementConfig;
+                        config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
+                        config.SourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? null : NormalizeSourceFile(config.SourceFile);
                         config.OldText = string.IsNullOrWhiteSpace(config.OldText) ? null : NormalizePlainText(config.OldText);
                         config.NewText = string.IsNullOrWhiteSpace(config.NewText) ? null : NormalizePlainText(config.NewText);
                         if (config.MinNewTextOccurrences <= 0)
@@ -1875,7 +1877,7 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     AddExcelWorkbookParts();
                     AddXmlPart("xl/sharedStrings.xml", "xl/sharedStrings.xml");
-                    AddXmlPrefix("xl/worksheets");
+                    AddExcelWorksheetParts(specialCondition.ExcelTextReplacementConfig?.SourceFile);
                     continue;
                 }
 
@@ -2771,24 +2773,28 @@ namespace MOS.ExcelGrading.Core.Services
                 return Fail("excelTextReplacementConfig.oldText va newText khong duoc rong.");
             }
 
-            var textValues = GetExcelTextValues(package);
+            if (!TryGetExcelTextValuesForReplacement(config, package, out var textValues, out var scopeDescription, out var scopeError))
+            {
+                return Fail(scopeError);
+            }
+
             var oldCount = CountTextMatches(textValues, oldText, config.MatchWholeWord != false);
             if (config.RequireOldTextAbsent != false && oldCount > 0)
             {
-                return Fail($"Van con {oldCount} lan xuat hien '{oldText}' chua duoc thay bang '{newText}'.");
+                return Fail($"Van con {oldCount} lan xuat hien '{oldText}' trong {scopeDescription} chua duoc thay bang '{newText}'.");
             }
 
             var newCount = CountTextMatches(textValues, newText, config.MatchWholeWord != false);
             var minNewTextOccurrences = config.MinNewTextOccurrences.GetValueOrDefault(1);
             if (newCount < minNewTextOccurrences)
             {
-                return Fail($"Chi tim thay {newCount} lan '{newText}', can it nhat {minNewTextOccurrences} lan.");
+                return Fail($"Chi tim thay {newCount} lan '{newText}' trong {scopeDescription}, can it nhat {minNewTextOccurrences} lan.");
             }
 
             return new SpecialConditionEvalOutcome
             {
                 IsPassed = true,
-                Message = $"Da thay '{oldText}' bang '{newText}' dung yeu cau."
+                Message = $"Da thay '{oldText}' bang '{newText}' dung yeu cau trong {scopeDescription}."
             };
         }
 
@@ -3740,6 +3746,99 @@ namespace MOS.ExcelGrading.Core.Services
                 .SelectMany(document => document!.Descendants(x + "t"))
                 .Select(item => NormalizePlainText(item.Value))
                 .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToList();
+        }
+
+        private static bool TryGetExcelTextValuesForReplacement(
+            ExcelTextReplacementConfig config,
+            OfficePackage package,
+            out List<string> values,
+            out string scopeDescription,
+            out string error)
+        {
+            values = new List<string>();
+            error = string.Empty;
+
+            if (string.IsNullOrWhiteSpace(config.WorksheetName) && string.IsNullOrWhiteSpace(config.SourceFile))
+            {
+                scopeDescription = "toan bo workbook";
+                values = GetExcelTextValues(package);
+                return true;
+            }
+
+            if (!TryResolveExcelWorksheet(package, config.WorksheetName, config.SourceFile, out var worksheetPath, out var worksheetError))
+            {
+                scopeDescription = "worksheet";
+                error = worksheetError;
+                return false;
+            }
+
+            if (!package.TryGetXmlDocument(worksheetPath, out var worksheetDocument, out var worksheetDocumentError))
+            {
+                scopeDescription = worksheetPath;
+                error = worksheetDocumentError ?? $"Khong tim thay {worksheetPath} trong file hoc sinh.";
+                return false;
+            }
+
+            scopeDescription = string.IsNullOrWhiteSpace(config.WorksheetName)
+                ? worksheetPath
+                : $"worksheet {config.WorksheetName.Trim()}";
+            values = GetExcelTextValuesFromWorksheet(package, worksheetDocument);
+            return true;
+        }
+
+        private static List<string> GetExcelTextValuesFromWorksheet(
+            OfficePackage package,
+            XDocument worksheetDocument)
+        {
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var sharedStrings = GetExcelSharedStrings(package);
+            var values = new List<string>();
+
+            foreach (var cell in worksheetDocument.Descendants(x + "c"))
+            {
+                var type = cell.Attribute("t")?.Value;
+                if (string.Equals(type, "s", StringComparison.OrdinalIgnoreCase))
+                {
+                    var sharedStringIndexText = cell.Element(x + "v")?.Value;
+                    if (int.TryParse(sharedStringIndexText, out var sharedStringIndex)
+                        && sharedStringIndex >= 0
+                        && sharedStringIndex < sharedStrings.Count)
+                    {
+                        values.Add(sharedStrings[sharedStringIndex]);
+                    }
+
+                    continue;
+                }
+
+                if (string.Equals(type, "inlineStr", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(type, "str", StringComparison.OrdinalIgnoreCase))
+                {
+                    values.AddRange(cell.Descendants(x + "t").Select(item => NormalizePlainText(item.Value)));
+                    var formulaStringValue = cell.Element(x + "v")?.Value;
+                    if (!string.IsNullOrWhiteSpace(formulaStringValue))
+                    {
+                        values.Add(NormalizePlainText(formulaStringValue));
+                    }
+                }
+            }
+
+            return values
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .ToList();
+        }
+
+        private static List<string> GetExcelSharedStrings(OfficePackage package)
+        {
+            if (!package.TryGetXmlDocument("xl/sharedStrings.xml", out var sharedStringsDocument, out _))
+            {
+                return new List<string>();
+            }
+
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            return sharedStringsDocument
+                .Descendants(x + "si")
+                .Select(item => NormalizePlainText(string.Concat(item.Descendants(x + "t").Select(text => text.Value))))
                 .ToList();
         }
 
@@ -6796,6 +6895,11 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.excelTextReplacementConfig khong duoc null.");
                 return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.SourceFile) && !IsSafeSourceFile(config.SourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTextReplacementConfig.sourceFile khong hop le.");
             }
 
             if (string.IsNullOrWhiteSpace(config.OldText))

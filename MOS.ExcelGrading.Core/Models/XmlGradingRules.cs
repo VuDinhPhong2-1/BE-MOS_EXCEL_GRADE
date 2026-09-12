@@ -320,6 +320,14 @@ public static class ImageWrapTypes
     [BsonIgnoreExtraElements]
     public class ExcelTextReplacementConfig
     {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
         [BsonElement("oldText")]
         [JsonPropertyName("oldText")]
         public string? OldText { get; set; }

@@ -16,6 +16,33 @@ namespace MOS.ExcelGrading.Core.Services
     {
         private const decimal StandardProjectMaxScore = 125m;
         private const int PerceptualHashThreshold = 10;
+        private static readonly IReadOnlyDictionary<int, string> BuiltInExcelNumberFormats = new Dictionary<int, string>
+        {
+            [0] = "General",
+            [1] = "0",
+            [2] = "0.00",
+            [3] = "#,##0",
+            [4] = "#,##0.00",
+            [9] = "0%",
+            [10] = "0.00%",
+            [11] = "0.00E+00",
+            [12] = "# ?/?",
+            [13] = "# ??/??",
+            [14] = "m/d/yyyy",
+            [15] = "d-mmm-yy",
+            [16] = "d-mmm",
+            [17] = "mmm-yy",
+            [18] = "h:mm AM/PM",
+            [19] = "h:mm:ss AM/PM",
+            [20] = "h:mm",
+            [21] = "h:mm:ss",
+            [22] = "m/d/yyyy h:mm",
+            [37] = "#,##0 ;(#,##0)",
+            [38] = "#,##0 ;[Red](#,##0)",
+            [39] = "#,##0.00;(#,##0.00)",
+            [40] = "#,##0.00;[Red](#,##0.00)",
+            [44] = "_(\"$\"* #,##0.00_);_(\"$\"* (#,##0.00);_(\"$\"* \"-\"??_);_(@_)"
+        };
         private const string CommonOfficeNamespaceDeclarations =
             "xmlns:w=\"http://schemas.openxmlformats.org/wordprocessingml/2006/main\" " +
             "xmlns:w14=\"http://schemas.microsoft.com/office/word/2010/wordml\" " +
@@ -1138,6 +1165,12 @@ namespace MOS.ExcelGrading.Core.Services
                             .Where(value => value > 0)
                             .Distinct()
                             .ToList() ?? new List<int> { 1, 2, 3, 4 };
+                        config.Category = string.IsNullOrWhiteSpace(config.Category) ? null : config.Category.Trim().ToLowerInvariant();
+                        if (config.DecimalPlaces < 0)
+                        {
+                            config.DecimalPlaces = null;
+                        }
+                        config.Symbol = string.IsNullOrWhiteSpace(config.Symbol) ? null : config.Symbol.Trim();
                         config.RequireEveryNumericCell ??= true;
                     }
 
@@ -2918,6 +2951,7 @@ namespace MOS.ExcelGrading.Core.Services
                 return Fail(stylesDocumentError ?? "Khong doc duoc xl/styles.xml.");
             }
 
+            var category = string.IsNullOrWhiteSpace(config.Category) ? null : config.Category.Trim().ToLowerInvariant();
             var allowedNumberFormatIds = config.AllowedNumberFormatIds.Count > 0
                 ? config.AllowedNumberFormatIds.ToHashSet()
                 : new HashSet<int> { 1, 2, 3, 4 };
@@ -2940,8 +2974,8 @@ namespace MOS.ExcelGrading.Core.Services
                 var address = NormalizeExcelCellAddress(cell.Attribute("r")?.Value);
                 var styleId = GetEffectiveExcelStyleId(cell, address, columnStyles);
                 if (!styleId.HasValue
-                    || !styleNumberFormats.TryGetValue(styleId.Value, out var numberFormatId)
-                    || !allowedNumberFormatIds.Contains(numberFormatId))
+                    || !styleNumberFormats.TryGetValue(styleId.Value, out var numberFormat)
+                    || !ExcelNumberFormatMatches(numberFormat, category, allowedNumberFormatIds, config.DecimalPlaces, config.Symbol, config.RequireThousandsSeparator == true))
                 {
                     failedCells.Add(address);
                 }
@@ -2949,13 +2983,13 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (failedCells.Count > 0)
             {
-                return Fail($"Cac o so trong {expectedRange} chua dung Number format: {string.Join(", ", failedCells.Take(12))}{(failedCells.Count > 12 ? ", ..." : string.Empty)}.");
+                return Fail($"Cac o so trong {expectedRange} chua dung dinh dang {DescribeExcelNumberFormatRequirement(category, allowedNumberFormatIds, config.DecimalPlaces, config.Symbol, config.RequireThousandsSeparator == true)}: {string.Join(", ", failedCells.Take(12))}{(failedCells.Count > 12 ? ", ..." : string.Empty)}.");
             }
 
             return new SpecialConditionEvalOutcome
             {
                 IsPassed = true,
-                Message = $"Tat ca {numericCells.Count} o so trong {expectedRange} tren {worksheetPath} dung Number format."
+                Message = $"Tat ca {numericCells.Count} o so trong {expectedRange} tren {worksheetPath} dung dinh dang {DescribeExcelNumberFormatRequirement(category, allowedNumberFormatIds, config.DecimalPlaces, config.Symbol, config.RequireThousandsSeparator == true)}."
             };
         }
 
@@ -3890,25 +3924,210 @@ namespace MOS.ExcelGrading.Core.Services
                 && cell.Element(x + "v") != null;
         }
 
-        private static Dictionary<int, int> GetExcelStyleNumberFormats(XDocument stylesDocument)
+        private sealed class ExcelNumberFormatInfo
+        {
+            public int NumberFormatId { get; init; }
+            public string FormatCode { get; init; } = string.Empty;
+        }
+
+        private static Dictionary<int, ExcelNumberFormatInfo> GetExcelStyleNumberFormats(XDocument stylesDocument)
         {
             XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var customFormats = stylesDocument
+                .Root?
+                .Element(x + "numFmts")?
+                .Elements(x + "numFmt")
+                .Where(element => int.TryParse(element.Attribute("numFmtId")?.Value, out _))
+                .ToDictionary(
+                    element => int.Parse(element.Attribute("numFmtId")!.Value),
+                    element => element.Attribute("formatCode")?.Value ?? string.Empty)
+                ?? new Dictionary<int, string>();
+
             var cellXfs = stylesDocument
                 .Root?
                 .Element(x + "cellXfs")?
                 .Elements(x + "xf")
                 .ToList() ?? new List<XElement>();
 
-            var result = new Dictionary<int, int>();
+            var result = new Dictionary<int, ExcelNumberFormatInfo>();
             for (var index = 0; index < cellXfs.Count; index++)
             {
                 if (int.TryParse(cellXfs[index].Attribute("numFmtId")?.Value, out var numberFormatId))
                 {
-                    result[index] = numberFormatId;
+                    var formatCode = customFormats.TryGetValue(numberFormatId, out var customFormatCode)
+                        ? customFormatCode
+                        : BuiltInExcelNumberFormats.GetValueOrDefault(numberFormatId, string.Empty);
+                    result[index] = new ExcelNumberFormatInfo
+                    {
+                        NumberFormatId = numberFormatId,
+                        FormatCode = formatCode
+                    };
                 }
             }
 
             return result;
+        }
+
+        private static bool ExcelNumberFormatMatches(
+            ExcelNumberFormatInfo numberFormat,
+            string? category,
+            IReadOnlySet<int> allowedNumberFormatIds,
+            int? decimalPlaces,
+            string? symbol,
+            bool requireThousandsSeparator)
+        {
+            if (string.IsNullOrWhiteSpace(category))
+            {
+                return allowedNumberFormatIds.Contains(numberFormat.NumberFormatId);
+            }
+
+            var formatCode = numberFormat.FormatCode;
+            if (string.IsNullOrWhiteSpace(formatCode))
+            {
+                formatCode = BuiltInExcelNumberFormats.GetValueOrDefault(numberFormat.NumberFormatId, string.Empty);
+            }
+
+            if (!ExcelFormatMatchesCategory(numberFormat.NumberFormatId, formatCode, category))
+            {
+                return false;
+            }
+
+            if (decimalPlaces.HasValue && CountExcelFormatDecimalPlaces(formatCode) != decimalPlaces.Value)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(symbol)
+                && !formatCode.Contains(symbol.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return !requireThousandsSeparator || GetExcelNumberFormatFirstSection(formatCode).Contains(',');
+        }
+
+        private static bool ExcelFormatMatchesCategory(int numberFormatId, string formatCode, string category)
+        {
+            var firstSection = GetExcelNumberFormatFirstSection(formatCode);
+            var comparable = RemoveExcelFormatLiterals(firstSection).ToLowerInvariant();
+            return category.Trim().ToLowerInvariant() switch
+            {
+                "general" => numberFormatId == 0 || string.Equals(formatCode, "General", StringComparison.OrdinalIgnoreCase),
+                "number" => IsExcelNumberFormat(numberFormatId, firstSection, comparable),
+                "currency" => !IsExcelPercentFormat(numberFormatId, comparable)
+                    && !IsExcelDateOrTimeFormat(numberFormatId, comparable)
+                    && ContainsExcelCurrencyMarker(firstSection),
+                "accounting" => !IsExcelPercentFormat(numberFormatId, comparable)
+                    && !IsExcelDateOrTimeFormat(numberFormatId, comparable)
+                    && ContainsExcelCurrencyMarker(firstSection)
+                    && (firstSection.Contains("_", StringComparison.Ordinal) || firstSection.Contains("*", StringComparison.Ordinal)),
+                "percentage" => IsExcelPercentFormat(numberFormatId, comparable),
+                "date" => IsExcelDateOrTimeFormat(numberFormatId, comparable) && Regex.IsMatch(comparable, "[dmy]", RegexOptions.CultureInvariant),
+                "time" => IsExcelDateOrTimeFormat(numberFormatId, comparable) && Regex.IsMatch(comparable, "[hs]", RegexOptions.CultureInvariant),
+                "custom" => true,
+                _ => false
+            };
+        }
+
+        private static bool IsExcelNumberFormat(int numberFormatId, string rawFormatCode, string comparableFormatCode)
+        {
+            return numberFormatId is 1 or 2 or 3 or 4 or 37 or 38 or 39 or 40
+                || (!string.Equals(comparableFormatCode, "general", StringComparison.OrdinalIgnoreCase)
+                    && !IsExcelPercentFormat(numberFormatId, comparableFormatCode)
+                    && !IsExcelDateOrTimeFormat(numberFormatId, comparableFormatCode)
+                    && !ContainsExcelCurrencyMarker(rawFormatCode)
+                    && Regex.IsMatch(comparableFormatCode, "[0#?]", RegexOptions.CultureInvariant));
+        }
+
+        private static bool IsExcelPercentFormat(int numberFormatId, string comparableFormatCode)
+        {
+            return numberFormatId is 9 or 10 || comparableFormatCode.Contains('%');
+        }
+
+        private static bool IsExcelDateOrTimeFormat(int numberFormatId, string comparableFormatCode)
+        {
+            return numberFormatId is >= 14 and <= 22
+                || Regex.IsMatch(comparableFormatCode, @"(^|[^\\])([dmyhs])", RegexOptions.CultureInvariant);
+        }
+
+        private static bool ContainsExcelCurrencyMarker(string formatCode)
+        {
+            return Regex.IsMatch(formatCode, @"(\$|€|£|¥|₫|₩|₹|₽|฿|₱|vnd|usd|eur|gbp|jpy)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        }
+
+        private static int CountExcelFormatDecimalPlaces(string formatCode)
+        {
+            var firstSection = RemoveExcelFormatLiterals(GetExcelNumberFormatFirstSection(formatCode));
+            var decimalIndex = firstSection.IndexOf('.');
+            if (decimalIndex < 0)
+            {
+                return 0;
+            }
+
+            var count = 0;
+            for (var index = decimalIndex + 1; index < firstSection.Length; index++)
+            {
+                if (firstSection[index] is '0' or '#' or '?')
+                {
+                    count++;
+                    continue;
+                }
+
+                break;
+            }
+
+            return count;
+        }
+
+        private static string GetExcelNumberFormatFirstSection(string formatCode)
+        {
+            if (string.IsNullOrWhiteSpace(formatCode))
+            {
+                return string.Empty;
+            }
+
+            return formatCode.Split(';', 2)[0];
+        }
+
+        private static string RemoveExcelFormatLiterals(string formatCode)
+        {
+            if (string.IsNullOrWhiteSpace(formatCode))
+            {
+                return string.Empty;
+            }
+
+            var withoutQuotedText = Regex.Replace(formatCode, "\"[^\"]*\"", string.Empty, RegexOptions.CultureInvariant);
+            var withoutBracketCodes = Regex.Replace(withoutQuotedText, @"\[[^\]]+\]", string.Empty, RegexOptions.CultureInvariant);
+            return Regex.Replace(withoutBracketCodes, @"\\.", string.Empty, RegexOptions.CultureInvariant);
+        }
+
+        private static string DescribeExcelNumberFormatRequirement(
+            string? category,
+            IReadOnlySet<int> allowedNumberFormatIds,
+            int? decimalPlaces,
+            string? symbol,
+            bool requireThousandsSeparator)
+        {
+            if (string.IsNullOrWhiteSpace(category))
+            {
+                return $"numFmtId thuoc [{string.Join(", ", allowedNumberFormatIds.OrderBy(value => value))}]";
+            }
+
+            var parts = new List<string> { $"category {category}" };
+            if (decimalPlaces.HasValue)
+            {
+                parts.Add($"{decimalPlaces.Value} decimal places");
+            }
+            if (!string.IsNullOrWhiteSpace(symbol))
+            {
+                parts.Add($"symbol {symbol}");
+            }
+            if (requireThousandsSeparator)
+            {
+                parts.Add("co thousands separator");
+            }
+
+            return string.Join(", ", parts);
         }
 
         private static Dictionary<int, int> GetExcelColumnStyles(XDocument worksheetDocument)
@@ -6977,14 +7196,30 @@ namespace MOS.ExcelGrading.Core.Services
                 result.Errors.Add($"{taskPrefix}.specialCondition.excelNumberFormatConfig.range khong hop le. Vi du: B:E hoac B4:E20.");
             }
 
-            if (config.AllowedNumberFormatIds == null || config.AllowedNumberFormatIds.Count == 0)
+            var hasCategory = !string.IsNullOrWhiteSpace(config.Category);
+            if (hasCategory && !IsSupportedExcelNumberFormatCategory(config.Category))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelNumberFormatConfig.category khong hop le. Gia tri hop le: general, number, currency, accounting, percentage, date, time, custom.");
+            }
+
+            if (config.DecimalPlaces < 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelNumberFormatConfig.decimalPlaces phai lon hon hoac bang 0.");
+            }
+
+            if (!hasCategory && (config.AllowedNumberFormatIds == null || config.AllowedNumberFormatIds.Count == 0))
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.excelNumberFormatConfig.allowedNumberFormatIds phai co it nhat 1 id.");
             }
-            else if (config.AllowedNumberFormatIds.Any(value => value <= 0))
+            else if (config.AllowedNumberFormatIds != null && config.AllowedNumberFormatIds.Any(value => value <= 0))
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.excelNumberFormatConfig.allowedNumberFormatIds phai lon hon 0.");
             }
+        }
+
+        private static bool IsSupportedExcelNumberFormatCategory(string? category)
+        {
+            return category?.Trim().ToLowerInvariant() is "general" or "number" or "currency" or "accounting" or "percentage" or "date" or "time" or "custom";
         }
 
         private static void ValidateExcelChartLegendSpecialCondition(

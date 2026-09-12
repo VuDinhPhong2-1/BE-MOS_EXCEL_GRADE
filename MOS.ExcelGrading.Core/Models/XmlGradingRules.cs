@@ -380,6 +380,22 @@ public static class ImageWrapTypes
         [JsonPropertyName("allowedNumberFormatIds")]
         public List<int> AllowedNumberFormatIds { get; set; } = new() { 1, 2, 3, 4 };
 
+        [BsonElement("category")]
+        [JsonPropertyName("category")]
+        public string? Category { get; set; }
+
+        [BsonElement("decimalPlaces")]
+        [JsonPropertyName("decimalPlaces")]
+        public int? DecimalPlaces { get; set; }
+
+        [BsonElement("symbol")]
+        [JsonPropertyName("symbol")]
+        public string? Symbol { get; set; }
+
+        [BsonElement("requireThousandsSeparator")]
+        [JsonPropertyName("requireThousandsSeparator")]
+        public bool? RequireThousandsSeparator { get; set; }
+
         [BsonElement("requireEveryNumericCell")]
         [JsonPropertyName("requireEveryNumericCell")]
         public bool? RequireEveryNumericCell { get; set; } = true;

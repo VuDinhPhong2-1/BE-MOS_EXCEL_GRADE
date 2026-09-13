@@ -140,11 +140,30 @@ namespace MOS.ExcelGrading.API.Controllers
                 ? $"{GetSubjectDisplayName(normalizedSubject)} Project {projectNumber:00}"
                 : project.ProjectName.Trim();
 
-            return BuildSubjectEndpointInfo(
-                normalizedSubject,
-                projectNumber,
-                $"XML ruleset active: {projectName}",
-                (double)project.MaxScore);
+            var practice = PracticeScoring.ResolveByProjectNumber(projectNumber);
+            var practiceProjectScore = (double)PracticeScoring.CalculateProjectMaxScore(projectNumber);
+            var projectCodeParts = project.ProjectCode.Trim().ToLowerInvariant().Split(
+                '/',
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            var groupCode = projectCodeParts.Length == 2 ? projectCodeParts[0] : practice.Code;
+            var groupName = GetGroupedPracticeDisplayName(groupCode, practice.Name);
+            var subjectDisplay = GetSubjectDisplayName(normalizedSubject);
+
+            return new GradingEndpointInfo
+            {
+                Endpoint = endpoint,
+                DisplayName = $"Project {projectNumber:00} - {subjectDisplay}",
+                Description =
+                    $"XML ruleset active: {projectName}. Quy đổi theo {groupName}: {practiceProjectScore:0.##}/{practice.TotalScore} điểm.",
+                MaxScore = practiceProjectScore,
+                RawMaxScore = (double)project.MaxScore,
+                Subject = normalizedSubject,
+                PracticeCode = groupCode,
+                PracticeName = groupName,
+                PracticeTotalScore = practice.TotalScore,
+                PracticeProjectCount = practice.ProjectCount,
+                ApiPath = $"/api/admin/xml-grading-rules/grade/{endpoint}"
+            };
         }
 
         private static int? GetEndpointProjectNumber(string endpoint) =>
@@ -158,6 +177,18 @@ namespace MOS.ExcelGrading.API.Controllers
                 GradingApiSubjects.Word => "Word",
                 GradingApiSubjects.Ppt => "PowerPoint",
                 _ => "Excel"
+            };
+
+        private static string GetGroupedPracticeDisplayName(string groupCode, string fallbackName) =>
+            groupCode switch
+            {
+                "exam01" => "Exam 1",
+                "exam02" => "Exam 2",
+                "exam03" => "Exam 3",
+                "practice01" => "Practice 1",
+                "practice02" => "Practice 2",
+                "practice03" => "Practice 3",
+                _ => fallbackName
             };
         
         /// <summary>

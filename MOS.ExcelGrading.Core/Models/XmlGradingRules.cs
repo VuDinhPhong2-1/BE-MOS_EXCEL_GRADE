@@ -70,6 +70,14 @@ namespace MOS.ExcelGrading.Core.Models
     public const string ExcelPrintTitles = "excelPrintTitles";
     public const string ExcelNumberFormat = "excelNumberFormat";
     public const string ExcelChartLegend = "excelChartLegend";
+    public const string ExcelDefinedName = "excelDefinedName";
+    public const string ExcelFormulaReferences = "excelFormulaReferences";
+    public const string ExcelNoConditionalFormatting = "excelNoConditionalFormatting";
+    public const string ExcelTextRotation = "excelTextRotation";
+    public const string ExcelMultiColumnSort = "excelMultiColumnSort";
+    public const string ExcelFreezePanes = "excelFreezePanes";
+    public const string ExcelDocumentProperty = "excelDocumentProperty";
+    public const string ExcelPrintArea = "excelPrintArea";
 
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
@@ -97,7 +105,15 @@ namespace MOS.ExcelGrading.Core.Models
             ExcelTextReplacement,
             ExcelPrintTitles,
             ExcelNumberFormat,
-            ExcelChartLegend
+            ExcelChartLegend,
+            ExcelDefinedName,
+            ExcelFormulaReferences,
+            ExcelNoConditionalFormatting,
+            ExcelTextRotation,
+            ExcelMultiColumnSort,
+            ExcelFreezePanes,
+            ExcelDocumentProperty,
+            ExcelPrintArea
         };
 }
 
@@ -315,7 +331,235 @@ public static class ImageWrapTypes
         [BsonElement("excelChartLegendConfig")]
         [JsonPropertyName("excelChartLegendConfig")]
         public ExcelChartLegendConfig? ExcelChartLegendConfig { get; set; }
+
+        [BsonElement("excelDefinedNameConfig")]
+        [JsonPropertyName("excelDefinedNameConfig")]
+        public ExcelDefinedNameConfig? ExcelDefinedNameConfig { get; set; }
+
+        [BsonElement("excelFormulaReferencesConfig")]
+        [JsonPropertyName("excelFormulaReferencesConfig")]
+        public ExcelFormulaReferencesConfig? ExcelFormulaReferencesConfig { get; set; }
+
+        [BsonElement("excelNoConditionalFormattingConfig")]
+        [JsonPropertyName("excelNoConditionalFormattingConfig")]
+        public ExcelNoConditionalFormattingConfig? ExcelNoConditionalFormattingConfig { get; set; }
+
+        [BsonElement("excelTextRotationConfig")]
+        [JsonPropertyName("excelTextRotationConfig")]
+        public ExcelTextRotationConfig? ExcelTextRotationConfig { get; set; }
+
+        [BsonElement("excelMultiColumnSortConfig")]
+        [JsonPropertyName("excelMultiColumnSortConfig")]
+        public ExcelMultiColumnSortConfig? ExcelMultiColumnSortConfig { get; set; }
+
+        [BsonElement("excelFreezePanesConfig")]
+        [JsonPropertyName("excelFreezePanesConfig")]
+        public ExcelFreezePanesConfig? ExcelFreezePanesConfig { get; set; }
+
+        [BsonElement("excelDocumentPropertyConfig")]
+        [JsonPropertyName("excelDocumentPropertyConfig")]
+        public ExcelDocumentPropertyConfig? ExcelDocumentPropertyConfig { get; set; }
+
+        [BsonElement("excelPrintAreaConfig")]
+        [JsonPropertyName("excelPrintAreaConfig")]
+        public ExcelPrintAreaConfig? ExcelPrintAreaConfig { get; set; }
 }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelDefinedNameConfig
+    {
+        [BsonElement("name")]
+        [JsonPropertyName("name")]
+        public string? Name { get; set; }
+
+        [BsonElement("expectedRanges")]
+        [JsonPropertyName("expectedRanges")]
+        public List<string> ExpectedRanges { get; set; } = new();
+
+        [BsonElement("requireExactRanges")]
+        [JsonPropertyName("requireExactRanges")]
+        public bool? RequireExactRanges { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelFormulaReferencesConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("cell")]
+        [JsonPropertyName("cell")]
+        public string? Cell { get; set; }
+
+        [BsonElement("requiredReferences")]
+        [JsonPropertyName("requiredReferences")]
+        public List<string> RequiredReferences { get; set; } = new();
+
+        [BsonElement("requiredFunctions")]
+        [JsonPropertyName("requiredFunctions")]
+        public List<string> RequiredFunctions { get; set; } = new();
+
+        [BsonElement("requiredFormulaFragments")]
+        [JsonPropertyName("requiredFormulaFragments")]
+        public List<string> RequiredFormulaFragments { get; set; } = new();
+
+        [BsonElement("expectedFormula")]
+        [JsonPropertyName("expectedFormula")]
+        public string? ExpectedFormula { get; set; }
+
+        [BsonElement("expectedValue")]
+        [JsonPropertyName("expectedValue")]
+        public string? ExpectedValue { get; set; }
+
+        [BsonElement("requireOnlyDefinedNameReferences")]
+        [JsonPropertyName("requireOnlyDefinedNameReferences")]
+        public bool? RequireOnlyDefinedNameReferences { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelNoConditionalFormattingConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("requireAllWorksheets")]
+        [JsonPropertyName("requireAllWorksheets")]
+        public bool? RequireAllWorksheets { get; set; } = false;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelTextRotationConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("expectedTexts")]
+        [JsonPropertyName("expectedTexts")]
+        public List<string> ExpectedTexts { get; set; } = new();
+
+        [BsonElement("allowedTextRotationValues")]
+        [JsonPropertyName("allowedTextRotationValues")]
+        public List<int> AllowedTextRotationValues { get; set; } = new() { 45 };
+
+        [BsonElement("requireAllTexts")]
+        [JsonPropertyName("requireAllTexts")]
+        public bool? RequireAllTexts { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelSortKeyConfig
+    {
+        [BsonElement("headerName")]
+        [JsonPropertyName("headerName")]
+        public string? HeaderName { get; set; }
+
+        [BsonElement("column")]
+        [JsonPropertyName("column")]
+        public string? Column { get; set; }
+
+        [BsonElement("descending")]
+        [JsonPropertyName("descending")]
+        public bool? Descending { get; set; } = false;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelMultiColumnSortConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("headerRow")]
+        [JsonPropertyName("headerRow")]
+        public int? HeaderRow { get; set; } = 1;
+
+        [BsonElement("dataRange")]
+        [JsonPropertyName("dataRange")]
+        public string? DataRange { get; set; }
+
+        [BsonElement("keyColumns")]
+        [JsonPropertyName("keyColumns")]
+        public List<ExcelSortKeyConfig> KeyColumns { get; set; } = new();
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelFreezePanesConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("topLeftCell")]
+        [JsonPropertyName("topLeftCell")]
+        public string? TopLeftCell { get; set; } = "A4";
+
+        [BsonElement("ySplit")]
+        [JsonPropertyName("ySplit")]
+        public decimal? YSplit { get; set; } = 3m;
+
+        [BsonElement("xSplit")]
+        [JsonPropertyName("xSplit")]
+        public decimal? XSplit { get; set; } = 0m;
+
+        [BsonElement("requireNoColumnFreeze")]
+        [JsonPropertyName("requireNoColumnFreeze")]
+        public bool? RequireNoColumnFreeze { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelDocumentPropertyConfig
+    {
+        [BsonElement("propertyName")]
+        [JsonPropertyName("propertyName")]
+        public string? PropertyName { get; set; }
+
+        [BsonElement("expectedValue")]
+        [JsonPropertyName("expectedValue")]
+        public string? ExpectedValue { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "docProps/custom.xml";
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelPrintAreaConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("expectedRange")]
+        [JsonPropertyName("expectedRange")]
+        public string? ExpectedRange { get; set; }
+
+        [BsonElement("requireExactRange")]
+        [JsonPropertyName("requireExactRange")]
+        public bool? RequireExactRange { get; set; } = true;
+    }
 
     [BsonIgnoreExtraElements]
     public class ExcelTextReplacementConfig

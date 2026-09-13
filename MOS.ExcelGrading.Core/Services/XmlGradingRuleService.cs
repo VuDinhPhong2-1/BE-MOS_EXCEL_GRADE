@@ -1104,10 +1104,10 @@ namespace MOS.ExcelGrading.Core.Services
                             .Where(value => !string.IsNullOrWhiteSpace(value))
                             .Distinct(StringComparer.OrdinalIgnoreCase)
                             .ToList() ?? new List<string>();
-                        if (!string.IsNullOrWhiteSpace(config.ExpectedValueRange)
-                            && !config.ExpectedValueRanges.Contains(config.ExpectedValueRange, StringComparer.OrdinalIgnoreCase))
+                        if (config.ExpectedValueRanges.Count == 0
+                            && !string.IsNullOrWhiteSpace(config.ExpectedValueRange))
                         {
-                            config.ExpectedValueRanges.Insert(0, config.ExpectedValueRange);
+                            config.ExpectedValueRanges.Add(config.ExpectedValueRange);
                         }
                         config.ExpectedSeriesNames = config.ExpectedSeriesNames?
                             .Where(value => !string.IsNullOrWhiteSpace(value))
@@ -2846,13 +2846,17 @@ namespace MOS.ExcelGrading.Core.Services
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList() ?? new List<string>();
             var expectedValueRange = NormalizeExcelFormulaReference(config.ExpectedValueRange);
-            if (!string.IsNullOrWhiteSpace(expectedValueRange)
-                && !expectedValueRanges.Contains(expectedValueRange, StringComparer.OrdinalIgnoreCase))
+            if (expectedValueRanges.Count == 0 && !string.IsNullOrWhiteSpace(expectedValueRange))
             {
-                expectedValueRanges.Insert(0, expectedValueRange);
+                expectedValueRanges.Add(expectedValueRange);
             }
             var expectedSeriesNames = config.ExpectedSeriesNames?
                 .Select(NormalizePlainText)
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList() ?? new List<string>();
+            var expectedSeriesNameReferences = config.ExpectedSeriesNames?
+                .Select(NormalizeExcelFormulaReference)
                 .Where(value => !string.IsNullOrWhiteSpace(value))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList() ?? new List<string>();
@@ -2898,6 +2902,12 @@ namespace MOS.ExcelGrading.Core.Services
                             .Descendants(c + "v")
                             .Select(value => NormalizePlainText(value.Value))
                             .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .ToList(),
+                        SeriesNameFormulas = item
+                            .Elements(c + "tx")
+                            .Descendants(c + "f")
+                            .Select(formula => NormalizeExcelFormulaReference(formula.Value))
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
                             .ToList()
                     })
                     .ToList();
@@ -2924,9 +2934,14 @@ namespace MOS.ExcelGrading.Core.Services
                         && matchingSeries.All(item => item.ValueFormulas.Any(value =>
                             expectedValueRanges.Contains(value, StringComparer.OrdinalIgnoreCase))));
                 var seriesNamesOk = expectedSeriesNames.Count == 0
-                    || expectedSeriesNames.All(expected =>
-                        matchingSeries.Any(item => item.SeriesNames.Any(value =>
-                            string.Equals(value, expected, StringComparison.OrdinalIgnoreCase))));
+                    || expectedSeriesNames
+                        .Zip(expectedSeriesNameReferences, (name, reference) => new { name, reference })
+                        .All(expected =>
+                            matchingSeries.Any(item =>
+                                item.SeriesNames.Any(value =>
+                                    string.Equals(value, expected.name, StringComparison.OrdinalIgnoreCase))
+                                || item.SeriesNameFormulas.Any(value =>
+                                    string.Equals(value, expected.reference, StringComparison.OrdinalIgnoreCase))));
                 var pointCountOk = !config.ExpectedPointCount.HasValue
                     || chartDocument.Descendants(c + "ptCount").Any(item =>
                         int.TryParse(item.Attribute("val")?.Value, out var count) && count == config.ExpectedPointCount.Value);
@@ -3901,7 +3916,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             var normalized = reference.Trim().Replace("'", string.Empty).Replace("$", string.Empty);
             normalized = Regex.Replace(normalized, @"\s+", string.Empty);
-            return normalized.ToUpperInvariant();
+            return normalized;
         }
 
         private static string NormalizeExcelPrintRows(string? rows)

@@ -404,11 +404,6 @@ namespace MOS.ExcelGrading.Core.Services
 
                 var route = ResolveAssignmentRoute(assignment);
 
-                if (string.Equals(route.ExamType, AssignmentExamTypes.GMetrix, StringComparison.OrdinalIgnoreCase))
-                {
-                    throw new ArgumentException($"Assignment '{assignment.Name}' thuộc loại GMetrix và chưa được hỗ trợ trong lịch thi/runtime hiện tại.");
-                }
-
                 if (!route.IsRuntimeSupported)
                 {
                     throw new ArgumentException($"Assignment '{assignment.Name}' chưa có grader runtime được hỗ trợ.");
@@ -485,12 +480,11 @@ namespace MOS.ExcelGrading.Core.Services
         {
             var normalizedEndpoint = GradingApiEndpoints.NormalizeEndpoint(gradingApiEndpoint);
             if (!GradingApiEndpoints.TryExtractSubject(normalizedEndpoint, out var subject) ||
-                !GradingApiEndpoints.TryExtractProjectNumber(normalizedEndpoint, out var projectNumber))
+                !GradingApiEndpoints.TryExtractProjectCode(normalizedEndpoint, out var xmlProjectCode))
             {
                 throw new ArgumentException($"Assignment '{assignmentName}' có grading endpoint không hợp lệ.");
             }
 
-            var xmlProjectCode = $"project{projectNumber:00}";
             var ruleSet = await _xmlGradingRuleService.GetActiveRuleSetAsync(subject, xmlProjectCode);
             var projectRule = ruleSet?.Projects.FirstOrDefault(project =>
                 string.Equals(project.ProjectCode, xmlProjectCode, StringComparison.OrdinalIgnoreCase));

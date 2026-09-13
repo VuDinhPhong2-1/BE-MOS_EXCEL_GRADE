@@ -247,11 +247,15 @@ namespace MOS.ExcelGrading.Core.Models
             @"^(?<subject>excel|word|ppt|powerpoint)/project(?<number>\d{1,2})$",
             RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
+        private static readonly Regex SubjectGroupedProjectRegex = new(
+            @"^(?<subject>excel|word|ppt|powerpoint)/(?<group>exam0[1-3]|practice0[1-3])/(?<project>project(?<number>\d{1,2}))$",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
         public const int MinProjectNumber = 1;
         public const int MaxProjectNumber = 24;
 
         public static List<string> GetAllEndpoints() =>
-            GetAllEndpointsForSubjects(GradingApiSubjects.Excel, GradingApiSubjects.Word);
+            GetAllEndpointsForSubjects(GradingApiSubjects.Excel, GradingApiSubjects.Word, GradingApiSubjects.Ppt);
 
         public static List<string> GetAllEndpointsForSubjects(params string[] subjects) =>
             subjects
@@ -314,6 +318,16 @@ namespace MOS.ExcelGrading.Core.Models
                 return $"{subject}/project{projectNumber:00}";
             }
 
+            var groupedSubjectMatch = SubjectGroupedProjectRegex.Match(normalized);
+            if (groupedSubjectMatch.Success)
+            {
+                var subjectRaw = groupedSubjectMatch.Groups["subject"].Value.ToLowerInvariant();
+                var subject = subjectRaw == "powerpoint" ? GradingApiSubjects.Ppt : subjectRaw;
+                var group = groupedSubjectMatch.Groups["group"].Value.ToLowerInvariant();
+                var projectNumber = int.Parse(groupedSubjectMatch.Groups["number"].Value);
+                return $"{subject}/{group}/project{projectNumber:00}";
+            }
+
             var projectMatch = ProjectRegex.Match(normalized);
             if (projectMatch.Success)
             {
@@ -327,7 +341,16 @@ namespace MOS.ExcelGrading.Core.Models
         public static bool IsValidEndpoint(string endpoint)
         {
             var normalized = NormalizeEndpoint(endpoint);
-            return GetAllEndpoints().Contains(normalized);
+            if (GetAllEndpoints().Contains(normalized))
+            {
+                return true;
+            }
+
+            var groupedMatch = SubjectGroupedProjectRegex.Match(normalized);
+            return groupedMatch.Success &&
+                   int.TryParse(groupedMatch.Groups["number"].Value, out var projectNumber) &&
+                   projectNumber >= MinProjectNumber &&
+                   projectNumber <= MaxProjectNumber;
         }
 
         public static bool IsShortProjectEndpoint(string? endpoint)
@@ -350,7 +373,8 @@ namespace MOS.ExcelGrading.Core.Models
                 return false;
             }
 
-            return SubjectProjectRegex.IsMatch(normalized);
+            return SubjectProjectRegex.IsMatch(normalized) ||
+                   SubjectGroupedProjectRegex.IsMatch(normalized);
         }
 
         public static bool TryExtractProjectNumber(string? endpoint, out int projectNumber)
@@ -358,6 +382,10 @@ namespace MOS.ExcelGrading.Core.Models
             projectNumber = 0;
             var normalized = NormalizeEndpoint(endpoint);
             var match = SubjectProjectRegex.Match(normalized);
+            if (!match.Success)
+            {
+                match = SubjectGroupedProjectRegex.Match(normalized);
+            }
             if (!match.Success)
             {
                 return false;
@@ -373,11 +401,36 @@ namespace MOS.ExcelGrading.Core.Models
             var match = SubjectProjectRegex.Match(normalized);
             if (!match.Success)
             {
+                match = SubjectGroupedProjectRegex.Match(normalized);
+            }
+            if (!match.Success)
+            {
                 return false;
             }
 
             subject = AssignmentFileSubjects.Normalize(match.Groups["subject"].Value);
             return AssignmentFileSubjects.IsValid(subject);
+        }
+
+        public static bool TryExtractProjectCode(string? endpoint, out string projectCode)
+        {
+            projectCode = string.Empty;
+            var normalized = NormalizeEndpoint(endpoint);
+            var groupedMatch = SubjectGroupedProjectRegex.Match(normalized);
+            if (groupedMatch.Success)
+            {
+                projectCode = $"{groupedMatch.Groups["group"].Value.ToLowerInvariant()}/project{int.Parse(groupedMatch.Groups["number"].Value):00}";
+                return true;
+            }
+
+            var match = SubjectProjectRegex.Match(normalized);
+            if (!match.Success)
+            {
+                return false;
+            }
+
+            projectCode = $"project{int.Parse(match.Groups["number"].Value):00}";
+            return true;
         }
     }
 }

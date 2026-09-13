@@ -746,12 +746,11 @@ namespace MOS.ExcelGrading.Core.Services
         {
             var normalizedEndpoint = GradingApiEndpoints.NormalizeEndpoint(gradingApiEndpoint);
             if (!GradingApiEndpoints.TryExtractSubject(normalizedEndpoint, out var subject) ||
-                !GradingApiEndpoints.TryExtractProjectNumber(normalizedEndpoint, out var projectNumber))
+                !GradingApiEndpoints.TryExtractProjectCode(normalizedEndpoint, out var xmlProjectCode))
             {
                 throw new ArgumentException($"GradingApiEndpoint không hợp lệ: {gradingApiEndpoint}");
             }
 
-            var xmlProjectCode = $"project{projectNumber:00}";
             var ruleSet = await _xmlGradingRuleService.GetActiveRuleSetAsync(subject, xmlProjectCode);
             if (ruleSet == null)
             {
@@ -808,11 +807,6 @@ namespace MOS.ExcelGrading.Core.Services
                     out var route))
             {
                 return (false, "Metadata grading của bài tập không hợp lệ hoặc không khớp nhau.");
-            }
-
-            if (string.Equals(route.ExamType, AssignmentExamTypes.GMetrix, StringComparison.OrdinalIgnoreCase))
-            {
-                return (false, "GMetrix chưa được hỗ trợ trong runtime tạo lịch thi hiện tại.");
             }
 
             if (!route.IsRuntimeSupported)

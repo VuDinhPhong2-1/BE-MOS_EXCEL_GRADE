@@ -164,6 +164,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpGet("{subject}/{projectCode}/active")]
+        [HttpGet("active/{subject}/{**projectCode}")]
         [RequirePermission(Permissions.ViewXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> GetActiveRuleSet(string subject, string projectCode)
         {
@@ -200,7 +201,7 @@ namespace MOS.ExcelGrading.API.Controllers
             }
         }
 
-        [HttpPost("grade/{subject}/{projectCode}")]
+        [HttpPost("grade/{subject}/{**projectCode}")]
         [RequestSizeLimit(104_857_600)]
         [RequirePermission(Permissions.ViewXmlRules)]
         public async Task<ActionResult<GradingResult>> GradeWithXmlRules(string subject, string projectCode, IFormFile file)

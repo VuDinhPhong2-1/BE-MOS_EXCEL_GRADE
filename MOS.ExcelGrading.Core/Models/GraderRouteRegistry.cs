@@ -43,7 +43,8 @@ namespace MOS.ExcelGrading.Core.Models
                     ProjectCode = NormalizeProjectCode(projectCode, normalizedSubject, projectNumber),
                     GradingApiEndpoint = normalizedEndpoint,
                     IsRuntimeSupported = normalizedExamType == AssignmentExamTypes.OTTH ||
-                                         normalizedExamType == AssignmentExamTypes.OnThi,
+                                         normalizedExamType == AssignmentExamTypes.OnThi ||
+                                         normalizedExamType == AssignmentExamTypes.GMetrix,
                     Family = normalizedExamType == AssignmentExamTypes.GMetrix ? "GMetrix" : "OTTH"
                 };
 

@@ -37,14 +37,13 @@ namespace MOS.ExcelGrading.API.Controllers
         {
             try
             {
-                var activeRuleSets = await _xmlGradingRuleService.GetRuleSetsAsync(isActive: true);
+                var activeProjects = await _xmlGradingRuleService.GetProjectCatalogAsync(isActive: true);
                 var viComparer = StringComparer.Create(
                     System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),
                     ignoreCase: true);
 
-                var endpoints = activeRuleSets
-                    .SelectMany(ruleSet => ruleSet.Projects
-                        .Select(project => BuildXmlEndpointInfo(ruleSet.Subject, project)))
+                var endpoints = activeProjects
+                    .Select(project => BuildXmlEndpointInfo(project.Subject, project))
                     .Where(item => item != null)
                     .Select(item => item!)
                     .GroupBy(item => item.Endpoint, StringComparer.OrdinalIgnoreCase)
@@ -119,7 +118,7 @@ namespace MOS.ExcelGrading.API.Controllers
             };
         }
 
-        private static GradingEndpointInfo? BuildXmlEndpointInfo(string subject, ProjectXmlRule project)
+        private static GradingEndpointInfo? BuildXmlEndpointInfo(string subject, GradingRuleProjectCatalogItem project)
         {
             var normalizedSubject = AssignmentFileSubjects.Normalize(subject);
             if (!AssignmentFileSubjects.IsValid(normalizedSubject) ||

@@ -59,6 +59,7 @@ namespace MOS.ExcelGrading.Core.Services
             "xmlns:x=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" " +
             "xmlns:mc=\"http://schemas.openxmlformats.org/markup-compatibility/2006\"";
         private readonly IMongoCollection<GradingRuleSet> _ruleSets;
+        private readonly IMongoCollection<GradingRuleProject> _ruleProjects;
         private readonly ILogger<XmlGradingRuleService>? _logger;
 
         public XmlGradingRuleService(
@@ -66,14 +67,52 @@ namespace MOS.ExcelGrading.Core.Services
             ILogger<XmlGradingRuleService>? logger = null)
         {
             _ruleSets = database.GetCollection<GradingRuleSet>("grading_rule_sets");
+            _ruleProjects = database.GetCollection<GradingRuleProject>("grading_rule_projects");
             _logger = logger;
+            EnsureIndexes();
+        }
+
+        private void EnsureIndexes()
+        {
+            try
+            {
+                _ruleSets.Indexes.CreateOne(new CreateIndexModel<GradingRuleSet>(
+                    Builders<GradingRuleSet>.IndexKeys
+                        .Ascending(ruleSet => ruleSet.Subject)
+                        .Ascending(ruleSet => ruleSet.IsActive)
+                        .Ascending("projects.projectCode")));
+
+                _ruleProjects.Indexes.CreateMany(new[]
+                {
+                    new CreateIndexModel<GradingRuleProject>(
+                        Builders<GradingRuleProject>.IndexKeys
+                            .Ascending(project => project.Subject)
+                            .Ascending(project => project.IsActive)
+                            .Ascending(project => project.ProjectCode)),
+                    new CreateIndexModel<GradingRuleProject>(
+                        Builders<GradingRuleProject>.IndexKeys
+                            .Ascending(project => project.RuleSetId)
+                            .Ascending(project => project.ProjectCode),
+                        new CreateIndexOptions { Unique = true })
+                });
+            }
+            catch (Exception ex)
+            {
+                _logger?.LogWarning(ex, "Failed to ensure XML grading rule indexes.");
+            }
         }
 
         public async Task<List<GradingRuleSet>> GetRuleSetsAsync(string? subject = null, bool? isActive = null)
         {
             var filter = BuildRuleSetListFilter(subject, isActive);
 
-            return await _ruleSets.Find(filter).ToListAsync();
+            var ruleSets = await _ruleSets.Find(filter).ToListAsync();
+            foreach (var ruleSet in ruleSets)
+            {
+                ruleSet.Projects = await GetProjectsForRuleSetAsync(ruleSet);
+            }
+
+            return ruleSets;
         }
 
         public async Task<List<GradingRuleSetSummary>> GetRuleSetSummariesAsync(string? subject = null, bool? isActive = null)
@@ -93,19 +132,96 @@ namespace MOS.ExcelGrading.Core.Services
                 .Project<GradingRuleSet>(projection)
                 .ToListAsync();
 
-            return lightRuleSets
+            var summaries = lightRuleSets
                 .Select(ruleSet => new GradingRuleSetSummary
                 {
                     Id = ruleSet.Id,
                     Subject = ruleSet.Subject,
                     Version = ruleSet.Version,
                     IsActive = ruleSet.IsActive,
-                    ProjectCount = ruleSet.Projects.Count,
-                    TaskCount = ruleSet.Projects.Sum(project => project.Tasks.Count),
-                    ConditionCount = ruleSet.Projects.Sum(project => project.Tasks.Sum(task => task.Conditions.Count)),
-                    MaxScore = ruleSet.Projects.Sum(project => project.MaxScore)
+                    ProjectCount = 0,
+                    TaskCount = 0,
+                    ConditionCount = 0,
+                    MaxScore = 0m
                 })
                 .ToList();
+
+            foreach (var summary in summaries)
+            {
+                var shell = lightRuleSets.First(ruleSet => ruleSet.Id == summary.Id);
+                var projects = await GetProjectsForRuleSetSummaryAsync(shell);
+                summary.ProjectCount = projects.Count;
+                summary.TaskCount = projects.Sum(project => project.Tasks.Count);
+                summary.ConditionCount = projects.Sum(project => project.Tasks.Sum(task => task.Conditions.Count));
+                summary.MaxScore = projects.Sum(project => project.MaxScore);
+            }
+
+            return summaries;
+        }
+
+        public async Task<List<GradingRuleProjectCatalogItem>> GetProjectCatalogAsync(string? subject = null, bool? isActive = null)
+        {
+            var filters = new List<FilterDefinition<GradingRuleProject>>();
+            var normalizedSubject = NormalizeKey(subject ?? string.Empty);
+            if (!string.IsNullOrWhiteSpace(normalizedSubject))
+            {
+                filters.Add(Builders<GradingRuleProject>.Filter.Eq(project => project.Subject, normalizedSubject));
+            }
+
+            if (isActive.HasValue)
+            {
+                filters.Add(Builders<GradingRuleProject>.Filter.Eq(project => project.IsActive, isActive.Value));
+            }
+
+            var filter = filters.Count == 0
+                ? Builders<GradingRuleProject>.Filter.Empty
+                : Builders<GradingRuleProject>.Filter.And(filters);
+
+            var projectDocs = await _ruleProjects
+                .Find(filter)
+                .Project(project => new GradingRuleProjectCatalogItem
+                {
+                    RuleSetId = project.RuleSetId,
+                    Subject = project.Subject,
+                    Version = project.Version,
+                    IsActive = project.IsActive,
+                    ProjectCode = project.ProjectCode,
+                    ProjectName = project.ProjectName,
+                    MaxScore = project.MaxScore
+                })
+                .ToListAsync();
+
+            var existingRuleSetIds = projectDocs
+                .Select(project => project.RuleSetId)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            var legacyRuleSets = await _ruleSets
+                .Find(BuildRuleSetListFilter(subject, isActive))
+                .Project<GradingRuleSet>(Builders<GradingRuleSet>.Projection
+                    .Include(ruleSet => ruleSet.Id)
+                    .Include(ruleSet => ruleSet.Subject)
+                    .Include(ruleSet => ruleSet.Version)
+                    .Include(ruleSet => ruleSet.IsActive)
+                    .Include("projects.projectCode")
+                    .Include("projects.projectName")
+                    .Include("projects.maxScore"))
+                .ToListAsync();
+
+            foreach (var ruleSet in legacyRuleSets.Where(ruleSet => !existingRuleSetIds.Contains(ruleSet.Id)))
+            {
+                projectDocs.AddRange(ruleSet.Projects.Select(project => new GradingRuleProjectCatalogItem
+                {
+                    RuleSetId = ruleSet.Id,
+                    Subject = ruleSet.Subject,
+                    Version = ruleSet.Version,
+                    IsActive = ruleSet.IsActive,
+                    ProjectCode = project.ProjectCode,
+                    ProjectName = project.ProjectName,
+                    MaxScore = project.MaxScore
+                }));
+            }
+
+            return projectDocs;
         }
 
         private static FilterDefinition<GradingRuleSet> BuildRuleSetListFilter(string? subject, bool? isActive)
@@ -128,7 +244,51 @@ namespace MOS.ExcelGrading.Core.Services
                 : Builders<GradingRuleSet>.Filter.And(filters);
         }
 
-        public async Task<GradingRuleSet?> GetRuleSetByIdAsync(string id)
+        private async Task<List<ProjectXmlRule>> GetProjectsForRuleSetAsync(GradingRuleSet ruleSet)
+        {
+            if (string.IsNullOrWhiteSpace(ruleSet.Id))
+            {
+                return ruleSet.Projects ?? new List<ProjectXmlRule>();
+            }
+
+            var projectDocs = await _ruleProjects
+                .Find(project => project.RuleSetId == ruleSet.Id)
+                .SortBy(project => project.SortOrder)
+                .ThenBy(project => project.ProjectCode)
+                .ToListAsync();
+
+            return projectDocs.Count > 0
+                ? projectDocs.Select(project => project.ToProjectXmlRule()).ToList()
+                : ruleSet.Projects ?? new List<ProjectXmlRule>();
+        }
+
+        private async Task<List<ProjectXmlRule>> GetProjectsForRuleSetSummaryAsync(GradingRuleSet ruleSet)
+        {
+            if (string.IsNullOrWhiteSpace(ruleSet.Id))
+            {
+                return ruleSet.Projects ?? new List<ProjectXmlRule>();
+            }
+
+            var projection = Builders<GradingRuleProject>.Projection
+                .Include(project => project.ProjectCode)
+                .Include(project => project.SortOrder)
+                .Include(project => project.MaxScore)
+                .Include("tasks.taskId")
+                .Include("tasks.conditions.conditionId");
+
+            var projectDocs = await _ruleProjects
+                .Find(project => project.RuleSetId == ruleSet.Id)
+                .SortBy(project => project.SortOrder)
+                .ThenBy(project => project.ProjectCode)
+                .Project<GradingRuleProject>(projection)
+                .ToListAsync();
+
+            return projectDocs.Count > 0
+                ? projectDocs.Select(project => project.ToProjectXmlRule()).ToList()
+                : ruleSet.Projects ?? new List<ProjectXmlRule>();
+        }
+
+        private async Task<GradingRuleSet?> GetRuleSetShellByIdAsync(string id)
         {
             if (string.IsNullOrWhiteSpace(id))
             {
@@ -138,18 +298,110 @@ namespace MOS.ExcelGrading.Core.Services
             return await _ruleSets.Find(ruleSet => ruleSet.Id == id).FirstOrDefaultAsync();
         }
 
+        private async Task<GradingRuleSet> ComposeRuleSetAsync(GradingRuleSet ruleSet)
+        {
+            ruleSet.Projects = await GetProjectsForRuleSetAsync(ruleSet);
+            return ruleSet;
+        }
+
+        private static GradingRuleSet CloneShellWithoutProjects(GradingRuleSet ruleSet) => new()
+        {
+            Id = ruleSet.Id,
+            Subject = ruleSet.Subject,
+            Version = ruleSet.Version,
+            IsActive = ruleSet.IsActive,
+            Projects = new List<ProjectXmlRule>()
+        };
+
+        private async Task ReplaceProjectsForRuleSetAsync(GradingRuleSet ruleSet, List<ProjectXmlRule> projects)
+        {
+            await _ruleProjects.DeleteManyAsync(project => project.RuleSetId == ruleSet.Id);
+
+            if (projects.Count == 0)
+            {
+                return;
+            }
+
+            var projectDocs = projects.Select((project, index) =>
+                GradingRuleProject.FromProjectXmlRule(
+                    ruleSet.Id,
+                    ruleSet.Subject,
+                    ruleSet.Version,
+                    ruleSet.IsActive,
+                    project,
+                    index)).ToList();
+
+            await _ruleProjects.InsertManyAsync(projectDocs);
+        }
+
+        private async Task BackfillLegacyProjectsForRuleSetAsync(GradingRuleSet ruleSet)
+        {
+            if (string.IsNullOrWhiteSpace(ruleSet.Id) || ruleSet.Projects.Count == 0)
+            {
+                return;
+            }
+
+            var hasProjectDocs = await _ruleProjects
+                .Find(project => project.RuleSetId == ruleSet.Id)
+                .AnyAsync();
+
+            if (!hasProjectDocs)
+            {
+                await ReplaceProjectsForRuleSetAsync(ruleSet, ruleSet.Projects);
+            }
+
+            var shell = CloneShellWithoutProjects(ruleSet);
+            await _ruleSets.ReplaceOneAsync(current => current.Id == ruleSet.Id, shell);
+            ruleSet.Projects.Clear();
+        }
+
+        private async Task<GradingRuleProject?> GetProjectDocumentAsync(string ruleSetId, string projectCode)
+        {
+            var normalizedProjectCode = NormalizeKey(projectCode);
+            return await _ruleProjects
+                .Find(project => project.RuleSetId == ruleSetId && project.ProjectCode == normalizedProjectCode)
+                .FirstOrDefaultAsync();
+        }
+
+        private async Task ReplaceProjectDocumentAsync(GradingRuleProject project)
+        {
+            await _ruleProjects.ReplaceOneAsync(
+                current => current.Id == project.Id,
+                project);
+        }
+
+        public async Task<GradingRuleSet?> GetRuleSetByIdAsync(string id)
+        {
+            if (string.IsNullOrWhiteSpace(id))
+            {
+                return null;
+            }
+
+            var ruleSet = await _ruleSets.Find(ruleSet => ruleSet.Id == id).FirstOrDefaultAsync();
+            if (ruleSet != null)
+            {
+                ruleSet.Projects = await GetProjectsForRuleSetAsync(ruleSet);
+            }
+
+            return ruleSet;
+        }
+
         public async Task<GradingRuleSet> CreateRuleSetAsync(GradingRuleSet ruleSet)
         {
             NormalizeRuleSetForPersistence(ruleSet);
             ValidateRuleSetShell(ruleSet);
+            var projects = ruleSet.Projects.ToList();
             ruleSet.Id = string.Empty;
-            await _ruleSets.InsertOneAsync(ruleSet);
-            return ruleSet;
+            var shell = CloneShellWithoutProjects(ruleSet);
+            await _ruleSets.InsertOneAsync(shell);
+            await ReplaceProjectsForRuleSetAsync(shell, projects);
+            shell.Projects = projects;
+            return shell;
         }
 
         public async Task<GradingRuleSet?> UpdateRuleSetAsync(string id, GradingRuleSet ruleSet)
         {
-            var existing = await GetRuleSetByIdAsync(id);
+            var existing = await GetRuleSetShellByIdAsync(id);
             if (existing == null)
             {
                 return null;
@@ -157,10 +409,14 @@ namespace MOS.ExcelGrading.Core.Services
 
             NormalizeRuleSetForPersistence(ruleSet);
             ValidateRuleSetShell(ruleSet);
+            var projects = ruleSet.Projects.ToList();
             ruleSet.Id = existing.Id;
+            var shell = CloneShellWithoutProjects(ruleSet);
 
-            await _ruleSets.ReplaceOneAsync(current => current.Id == id, ruleSet);
-            return ruleSet;
+            await _ruleSets.ReplaceOneAsync(current => current.Id == id, shell);
+            await ReplaceProjectsForRuleSetAsync(shell, projects);
+            shell.Projects = projects;
+            return shell;
         }
 
         public async Task<bool> DeleteRuleSetAsync(string id)
@@ -171,77 +427,108 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             var result = await _ruleSets.DeleteOneAsync(ruleSet => ruleSet.Id == id);
+            if (result.DeletedCount > 0)
+            {
+                await _ruleProjects.DeleteManyAsync(project => project.RuleSetId == id);
+            }
+
             return result.DeletedCount > 0;
         }
 
         public async Task<GradingRuleSet?> AddProjectAsync(string ruleSetId, ProjectXmlRule project)
         {
-            var ruleSet = await GetRuleSetByIdAsync(ruleSetId);
+            var ruleSet = await GetRuleSetShellByIdAsync(ruleSetId);
             if (ruleSet == null)
             {
                 return null;
             }
 
+            await BackfillLegacyProjectsForRuleSetAsync(ruleSet);
             NormalizeProjectForPersistence(project);
             ValidateProjectShell(project);
 
-            if (ruleSet.Projects.Any(existing => string.Equals(existing.ProjectCode, project.ProjectCode, StringComparison.OrdinalIgnoreCase)))
+            var exists = await _ruleProjects
+                .Find(existing => existing.RuleSetId == ruleSet.Id && existing.ProjectCode == project.ProjectCode)
+                .AnyAsync();
+            if (exists)
             {
                 throw new InvalidOperationException($"Project {project.ProjectCode} Ä‘Ã£ tá»“n táº¡i trong ruleset.");
             }
 
-            ruleSet.Projects.Add(project);
-            await ReplaceRuleSetAsync(ruleSet);
-            return ruleSet;
+            var nextSortOrder = (int)await _ruleProjects.CountDocumentsAsync(existing => existing.RuleSetId == ruleSet.Id);
+            await _ruleProjects.InsertOneAsync(GradingRuleProject.FromProjectXmlRule(
+                ruleSet.Id,
+                ruleSet.Subject,
+                ruleSet.Version,
+                ruleSet.IsActive,
+                project,
+                nextSortOrder));
+            return await ComposeRuleSetAsync(ruleSet);
         }
 
         public async Task<GradingRuleSet?> UpdateProjectAsync(string ruleSetId, string projectCode, ProjectXmlRule project)
         {
-            var ruleSet = await GetRuleSetByIdAsync(ruleSetId);
+            var ruleSet = await GetRuleSetShellByIdAsync(ruleSetId);
             if (ruleSet == null)
             {
                 return null;
             }
 
+            await BackfillLegacyProjectsForRuleSetAsync(ruleSet);
             NormalizeProjectForPersistence(project);
             ValidateProjectShell(project);
 
             var normalizedProjectCode = NormalizeKey(projectCode);
-            var index = ruleSet.Projects.FindIndex(existing => string.Equals(existing.ProjectCode, normalizedProjectCode, StringComparison.OrdinalIgnoreCase));
-            if (index < 0)
+            project.ProjectCode = normalizedProjectCode;
+            var existingProject = await GetProjectDocumentAsync(ruleSet.Id, normalizedProjectCode);
+            if (existingProject == null)
             {
                 return null;
             }
 
-            project.ProjectCode = normalizedProjectCode;
-            ruleSet.Projects[index] = project;
-            await ReplaceRuleSetAsync(ruleSet);
-            return ruleSet;
+            var projectDoc = GradingRuleProject.FromProjectXmlRule(
+                ruleSet.Id,
+                ruleSet.Subject,
+                ruleSet.Version,
+                ruleSet.IsActive,
+                project,
+                existingProject.SortOrder);
+            projectDoc.Id = existingProject.Id;
+
+            var result = await _ruleProjects.ReplaceOneAsync(
+                existing => existing.Id == existingProject.Id,
+                projectDoc);
+
+            return result.MatchedCount == 0 ? null : await ComposeRuleSetAsync(ruleSet);
         }
 
         public async Task<GradingRuleSet?> DeleteProjectAsync(string ruleSetId, string projectCode)
         {
-            var ruleSet = await GetRuleSetByIdAsync(ruleSetId);
+            var ruleSet = await GetRuleSetShellByIdAsync(ruleSetId);
             if (ruleSet == null)
             {
                 return null;
             }
 
-            var removed = ruleSet.Projects.RemoveAll(project => string.Equals(project.ProjectCode, NormalizeKey(projectCode), StringComparison.OrdinalIgnoreCase));
-            if (removed == 0)
-            {
-                return null;
-            }
+            await BackfillLegacyProjectsForRuleSetAsync(ruleSet);
+            var normalizedProjectCode = NormalizeKey(projectCode);
+            var result = await _ruleProjects.DeleteOneAsync(project =>
+                project.RuleSetId == ruleSet.Id && project.ProjectCode == normalizedProjectCode);
 
-            await ReplaceRuleSetAsync(ruleSet);
-            return ruleSet;
+            return result.DeletedCount == 0 ? null : await ComposeRuleSetAsync(ruleSet);
         }
 
         public async Task<GradingRuleSet?> AddTaskAsync(string ruleSetId, string projectCode, TaskXmlRule task)
         {
-            var ruleSet = await GetRuleSetByIdAsync(ruleSetId);
-            var project = FindProject(ruleSet, projectCode);
-            if (ruleSet == null || project == null)
+            var ruleSet = await GetRuleSetShellByIdAsync(ruleSetId);
+            if (ruleSet == null)
+            {
+                return null;
+            }
+
+            await BackfillLegacyProjectsForRuleSetAsync(ruleSet);
+            var project = await GetProjectDocumentAsync(ruleSet.Id, projectCode);
+            if (project == null)
             {
                 return null;
             }
@@ -256,15 +543,21 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             project.Tasks.Add(task);
-            await ReplaceRuleSetAsync(ruleSet);
-            return ruleSet;
+            await ReplaceProjectDocumentAsync(project);
+            return await ComposeRuleSetAsync(ruleSet);
         }
 
         public async Task<GradingRuleSet?> UpdateTaskAsync(string ruleSetId, string projectCode, string taskId, TaskXmlRule task)
         {
-            var ruleSet = await GetRuleSetByIdAsync(ruleSetId);
-            var project = FindProject(ruleSet, projectCode);
-            if (ruleSet == null || project == null)
+            var ruleSet = await GetRuleSetShellByIdAsync(ruleSetId);
+            if (ruleSet == null)
+            {
+                return null;
+            }
+
+            await BackfillLegacyProjectsForRuleSetAsync(ruleSet);
+            var project = await GetProjectDocumentAsync(ruleSet.Id, projectCode);
+            if (project == null)
             {
                 return null;
             }
@@ -281,15 +574,21 @@ namespace MOS.ExcelGrading.Core.Services
 
             task.TaskId = taskId.Trim();
             project.Tasks[index] = task;
-            await ReplaceRuleSetAsync(ruleSet);
-            return ruleSet;
+            await ReplaceProjectDocumentAsync(project);
+            return await ComposeRuleSetAsync(ruleSet);
         }
 
         public async Task<GradingRuleSet?> DeleteTaskAsync(string ruleSetId, string projectCode, string taskId)
         {
-            var ruleSet = await GetRuleSetByIdAsync(ruleSetId);
-            var project = FindProject(ruleSet, projectCode);
-            if (ruleSet == null || project == null)
+            var ruleSet = await GetRuleSetShellByIdAsync(ruleSetId);
+            if (ruleSet == null)
+            {
+                return null;
+            }
+
+            await BackfillLegacyProjectsForRuleSetAsync(ruleSet);
+            var project = await GetProjectDocumentAsync(ruleSet.Id, projectCode);
+            if (project == null)
             {
                 return null;
             }
@@ -300,15 +599,22 @@ namespace MOS.ExcelGrading.Core.Services
                 return null;
             }
 
-            await ReplaceRuleSetAsync(ruleSet);
-            return ruleSet;
+            await ReplaceProjectDocumentAsync(project);
+            return await ComposeRuleSetAsync(ruleSet);
         }
 
         public async Task<GradingRuleSet?> AddConditionAsync(string ruleSetId, string projectCode, string taskId, XmlGradingCondition condition)
         {
-            var ruleSet = await GetRuleSetByIdAsync(ruleSetId);
-            var task = FindTask(FindProject(ruleSet, projectCode), taskId);
-            if (ruleSet == null || task == null)
+            var ruleSet = await GetRuleSetShellByIdAsync(ruleSetId);
+            if (ruleSet == null)
+            {
+                return null;
+            }
+
+            await BackfillLegacyProjectsForRuleSetAsync(ruleSet);
+            var project = await GetProjectDocumentAsync(ruleSet.Id, projectCode);
+            var task = FindTask(project?.ToProjectXmlRule(), taskId);
+            if (project == null || task == null)
             {
                 return null;
             }
@@ -323,15 +629,22 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             task.Conditions.Add(condition);
-            await ReplaceRuleSetAsync(ruleSet);
-            return ruleSet;
+            await ReplaceProjectDocumentAsync(project);
+            return await ComposeRuleSetAsync(ruleSet);
         }
 
         public async Task<GradingRuleSet?> UpdateConditionAsync(string ruleSetId, string projectCode, string taskId, string conditionId, XmlGradingCondition condition)
         {
-            var ruleSet = await GetRuleSetByIdAsync(ruleSetId);
-            var task = FindTask(FindProject(ruleSet, projectCode), taskId);
-            if (ruleSet == null || task == null)
+            var ruleSet = await GetRuleSetShellByIdAsync(ruleSetId);
+            if (ruleSet == null)
+            {
+                return null;
+            }
+
+            await BackfillLegacyProjectsForRuleSetAsync(ruleSet);
+            var project = await GetProjectDocumentAsync(ruleSet.Id, projectCode);
+            var task = FindTask(project?.ToProjectXmlRule(), taskId);
+            if (project == null || task == null)
             {
                 return null;
             }
@@ -348,15 +661,22 @@ namespace MOS.ExcelGrading.Core.Services
 
             condition.ConditionId = conditionId.Trim();
             task.Conditions[index] = condition;
-            await ReplaceRuleSetAsync(ruleSet);
-            return ruleSet;
+            await ReplaceProjectDocumentAsync(project);
+            return await ComposeRuleSetAsync(ruleSet);
         }
 
         public async Task<GradingRuleSet?> DeleteConditionAsync(string ruleSetId, string projectCode, string taskId, string conditionId)
         {
-            var ruleSet = await GetRuleSetByIdAsync(ruleSetId);
-            var task = FindTask(FindProject(ruleSet, projectCode), taskId);
-            if (ruleSet == null || task == null)
+            var ruleSet = await GetRuleSetShellByIdAsync(ruleSetId);
+            if (ruleSet == null)
+            {
+                return null;
+            }
+
+            await BackfillLegacyProjectsForRuleSetAsync(ruleSet);
+            var project = await GetProjectDocumentAsync(ruleSet.Id, projectCode);
+            var task = FindTask(project?.ToProjectXmlRule(), taskId);
+            if (project == null || task == null)
             {
                 return null;
             }
@@ -367,8 +687,8 @@ namespace MOS.ExcelGrading.Core.Services
                 return null;
             }
 
-            await ReplaceRuleSetAsync(ruleSet);
-            return ruleSet;
+            await ReplaceProjectDocumentAsync(project);
+            return await ComposeRuleSetAsync(ruleSet);
         }
 
         public async Task<GradingRuleSet?> GetActiveRuleSetAsync(string subject, string projectCode)
@@ -379,6 +699,31 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.IsNullOrWhiteSpace(normalizedSubject) || string.IsNullOrWhiteSpace(normalizedProjectCode))
             {
                 return null;
+            }
+
+            var activeProject = await _ruleProjects
+                .Find(project =>
+                    project.Subject == normalizedSubject &&
+                    project.IsActive &&
+                    project.ProjectCode == normalizedProjectCode)
+                .FirstOrDefaultAsync();
+
+            if (activeProject != null)
+            {
+                var shell = await GetRuleSetShellByIdAsync(activeProject.RuleSetId)
+                    ?? new GradingRuleSet
+                    {
+                        Id = activeProject.RuleSetId,
+                        Subject = activeProject.Subject,
+                        Version = activeProject.Version,
+                        IsActive = activeProject.IsActive
+                    };
+
+                shell.Subject = activeProject.Subject;
+                shell.Version = activeProject.Version;
+                shell.IsActive = activeProject.IsActive;
+                shell.Projects = new List<ProjectXmlRule> { activeProject.ToProjectXmlRule() };
+                return shell;
             }
 
             var filter = Builders<GradingRuleSet>.Filter.And(
@@ -403,7 +748,54 @@ namespace MOS.ExcelGrading.Core.Services
 
         public Task<XmlRuleValidationResult> ValidateRuleSetAsync(GradingRuleSet ruleSet)
         {
-            return Task.FromResult(ValidateRuleSet(ruleSet));
+            var result = ValidateRuleSet(ruleSet);
+            AddRuleSetSizeWarnings(ruleSet, result);
+            return Task.FromResult(result);
+        }
+
+        public async Task<XmlRuleProjectMigrationResult> BackfillProjectCollectionAsync()
+        {
+            var result = new XmlRuleProjectMigrationResult();
+            var ruleSets = await _ruleSets.Find(Builders<GradingRuleSet>.Filter.Empty).ToListAsync();
+            result.RuleSetsScanned = ruleSets.Count;
+
+            foreach (var ruleSet in ruleSets)
+            {
+                NormalizeRuleSetForPersistence(ruleSet);
+                if (ruleSet.Projects.Count == 0)
+                {
+                    continue;
+                }
+
+                var existingCodes = (await _ruleProjects
+                        .Find(project => project.RuleSetId == ruleSet.Id)
+                        .Project(project => project.ProjectCode)
+                        .ToListAsync())
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                var projectDocs = ruleSet.Projects
+                    .Where(project => !existingCodes.Contains(project.ProjectCode))
+                    .Select(project => GradingRuleProject.FromProjectXmlRule(
+                        ruleSet.Id,
+                        ruleSet.Subject,
+                        ruleSet.Version,
+                        ruleSet.IsActive,
+                        project))
+                    .ToList();
+
+                result.ProjectsSkipped += ruleSet.Projects.Count - projectDocs.Count;
+                if (projectDocs.Count > 0)
+                {
+                    await _ruleProjects.InsertManyAsync(projectDocs);
+                    result.RuleSetsBackfilled++;
+                    result.ProjectsCreated += projectDocs.Count;
+                }
+
+                var shell = CloneShellWithoutProjects(ruleSet);
+                await _ruleSets.ReplaceOneAsync(current => current.Id == ruleSet.Id, shell);
+            }
+
+            return result;
         }
 
         public async Task<GradingRuleSet> SeedProject22Task1RuleSetAsync()
@@ -417,23 +809,16 @@ namespace MOS.ExcelGrading.Core.Services
 
             var filter = Builders<GradingRuleSet>.Filter.And(
                 Builders<GradingRuleSet>.Filter.Eq(existing => existing.Subject, ruleSet.Subject),
-                Builders<GradingRuleSet>.Filter.Eq(existing => existing.Version, ruleSet.Version),
-                Builders<GradingRuleSet>.Filter.ElemMatch(
-                    existing => existing.Projects,
-                    project => project.ProjectCode == "project22"));
+                Builders<GradingRuleSet>.Filter.Eq(existing => existing.Version, ruleSet.Version));
 
             var existingRuleSet = await _ruleSets.Find(filter).FirstOrDefaultAsync();
             if (existingRuleSet != null)
             {
-                ruleSet.Id = existingRuleSet.Id;
-                await _ruleSets.ReplaceOneAsync(
-                    Builders<GradingRuleSet>.Filter.Eq(existing => existing.Id, existingRuleSet.Id),
-                    ruleSet);
-                return ruleSet;
+                return await UpdateRuleSetAsync(existingRuleSet.Id, ruleSet)
+                    ?? throw new InvalidOperationException("Không thể cập nhật XML grading ruleset seed.");
             }
 
-            await _ruleSets.InsertOneAsync(ruleSet);
-            return ruleSet;
+            return await CreateRuleSetAsync(ruleSet);
         }
 
         public async Task<GradingResult> GradeAsync(Stream studentFile, string subject, string projectCode)
@@ -7713,6 +8098,29 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return result;
+        }
+
+        private static void AddRuleSetSizeWarnings(GradingRuleSet ruleSet, XmlRuleValidationResult result)
+        {
+            try
+            {
+                var jsonBytes = Encoding.UTF8.GetByteCount(System.Text.Json.JsonSerializer.Serialize(ruleSet));
+                const int eightMb = 8 * 1024 * 1024;
+                const int twelveMb = 12 * 1024 * 1024;
+
+                if (jsonBytes >= twelveMb)
+                {
+                    result.Warnings.Add("Ruleset payload đang lớn hơn 12MB. Nên backfill sang grading_rule_projects và tránh lưu toàn bộ projects trong một document.");
+                }
+                else if (jsonBytes >= eightMb)
+                {
+                    result.Warnings.Add("Ruleset payload đang lớn hơn 8MB. Nên theo dõi dung lượng vì MongoDB giới hạn một document ở 16MB.");
+                }
+            }
+            catch
+            {
+                result.Warnings.Add("Không estimate được dung lượng ruleset để cảnh báo giới hạn MongoDB document.");
+            }
         }
 
         private static void ValidateCondition(XmlGradingCondition condition, string taskPrefix, XmlRuleValidationResult result)

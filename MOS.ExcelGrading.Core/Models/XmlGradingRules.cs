@@ -176,6 +176,88 @@ public static class ImageWrapTypes
         public decimal MaxScore { get; set; }
     }
 
+    public class GradingRuleProjectCatalogItem
+    {
+        public string RuleSetId { get; set; } = string.Empty;
+        public string Subject { get; set; } = string.Empty;
+        public string Version { get; set; } = string.Empty;
+        public bool IsActive { get; set; }
+        public string ProjectCode { get; set; } = string.Empty;
+        public string ProjectName { get; set; } = string.Empty;
+        public decimal MaxScore { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class GradingRuleProject
+    {
+        [BsonId]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string Id { get; set; } = string.Empty;
+
+        [BsonElement("ruleSetId")]
+        [BsonRepresentation(BsonType.ObjectId)]
+        public string RuleSetId { get; set; } = string.Empty;
+
+        [BsonElement("subject")]
+        public string Subject { get; set; } = string.Empty;
+
+        [BsonElement("version")]
+        public string Version { get; set; } = string.Empty;
+
+        [BsonElement("isActive")]
+        public bool IsActive { get; set; } = true;
+
+        [BsonElement("projectCode")]
+        public string ProjectCode { get; set; } = string.Empty;
+
+        [BsonElement("sortOrder")]
+        public int SortOrder { get; set; }
+
+        [BsonElement("projectName")]
+        public string ProjectName { get; set; } = string.Empty;
+
+        [BsonElement("maxScore")]
+        public decimal MaxScore { get; set; } = 125m;
+
+        [BsonElement("tasks")]
+        public List<TaskXmlRule> Tasks { get; set; } = new();
+
+        public ProjectXmlRule ToProjectXmlRule() => new()
+        {
+            ProjectCode = ProjectCode,
+            ProjectName = ProjectName,
+            MaxScore = MaxScore,
+            Tasks = Tasks ?? new List<TaskXmlRule>()
+        };
+
+        public static GradingRuleProject FromProjectXmlRule(
+            string ruleSetId,
+            string subject,
+            string version,
+            bool isActive,
+            ProjectXmlRule project,
+            int sortOrder = 0) => new()
+            {
+                RuleSetId = ruleSetId,
+                Subject = subject,
+                Version = version,
+                IsActive = isActive,
+                ProjectCode = project.ProjectCode,
+                SortOrder = sortOrder,
+                ProjectName = project.ProjectName,
+                MaxScore = project.MaxScore,
+                Tasks = project.Tasks ?? new List<TaskXmlRule>()
+            };
+    }
+
+    public class XmlRuleProjectMigrationResult
+    {
+        public int RuleSetsScanned { get; set; }
+        public int RuleSetsBackfilled { get; set; }
+        public int ProjectsCreated { get; set; }
+        public int ProjectsSkipped { get; set; }
+    }
+
     [BsonIgnoreExtraElements]
     public class ProjectXmlRule
     {

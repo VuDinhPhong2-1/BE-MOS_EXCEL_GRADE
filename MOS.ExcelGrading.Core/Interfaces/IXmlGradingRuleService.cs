@@ -6,6 +6,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
     {
         Task<List<GradingRuleSet>> GetRuleSetsAsync(string? subject = null, bool? isActive = null);
         Task<List<GradingRuleSetSummary>> GetRuleSetSummariesAsync(string? subject = null, bool? isActive = null);
+        Task<List<GradingRuleProjectCatalogItem>> GetProjectCatalogAsync(string? subject = null, bool? isActive = null);
         Task<GradingRuleSet?> GetRuleSetByIdAsync(string id);
         Task<GradingRuleSet> CreateRuleSetAsync(GradingRuleSet ruleSet);
         Task<GradingRuleSet?> UpdateRuleSetAsync(string id, GradingRuleSet ruleSet);
@@ -21,6 +22,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
         Task<GradingRuleSet?> DeleteConditionAsync(string ruleSetId, string projectCode, string taskId, string conditionId);
         Task<GradingRuleSet?> GetActiveRuleSetAsync(string subject, string projectCode);
         Task<XmlRuleValidationResult> ValidateRuleSetAsync(GradingRuleSet ruleSet);
+        Task<XmlRuleProjectMigrationResult> BackfillProjectCollectionAsync();
         Task<GradingRuleSet> SeedProject22Task1RuleSetAsync();
         Task<GradingResult> GradeAsync(Stream studentFile, string subject, string projectCode);
     }

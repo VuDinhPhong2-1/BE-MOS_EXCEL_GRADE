@@ -185,6 +185,14 @@ namespace MOS.ExcelGrading.API.Controllers
             return validation.IsValid ? Ok(validation) : BadRequest(validation);
         }
 
+        [HttpPost("migrate/projects")]
+        [RequirePermission(Permissions.EditXmlRules)]
+        public async Task<ActionResult<XmlRuleProjectMigrationResult>> BackfillProjectCollection()
+        {
+            var result = await _xmlGradingRuleService.BackfillProjectCollectionAsync();
+            return Ok(result);
+        }
+
         [HttpPost("seed/excel/project22/task1")]
         [RequirePermission(Permissions.CreateXmlRules)]
         public async Task<ActionResult<GradingRuleSet>> SeedProject22Task1()

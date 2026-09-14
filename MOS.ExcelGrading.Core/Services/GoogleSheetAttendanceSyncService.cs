@@ -1186,7 +1186,13 @@ namespace MOS.ExcelGrading.Core.Services
 
         private static string BuildRange(string worksheetName, string cellRange)
         {
-            var escaped = worksheetName.Replace("'", "''");
+            var title = worksheetName.Trim();
+            if (Regex.IsMatch(title, @"^[A-Za-z0-9_]+$"))
+            {
+                return $"{title}!{cellRange}";
+            }
+
+            var escaped = title.Replace("'", "''");
             return $"'{escaped}'!{cellRange}";
         }
 

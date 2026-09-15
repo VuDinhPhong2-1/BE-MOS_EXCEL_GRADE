@@ -247,6 +247,9 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string ClassName { get; set; } = string.Empty;
         public int CurrentStudents { get; set; }
         public int? MaxStudents { get; set; }
+        public int TotalStudents { get; set; }
+        public int PresentStudents { get; set; }
+        public int AbsentStudents { get; set; }
     }
 
     public class ScheduleComputerRoomSnapshotResponse

@@ -350,29 +350,40 @@ namespace MOS.ExcelGrading.Core.Services
                     .ToDictionary(x => x.Id!, x => x)
                 : new Dictionary<string, Class>();
 
+            var activeStudentCountsByClassId = await GetActiveStudentCountsByClassIdAsync(classIds);
+            var attendanceStatsByClassId = await GetRoomSessionAttendanceStatsByClassIdAsync(schedules, classIds);
+
             var classSummaries = new List<ScheduleRoomClassSummaryResponse>();
             foreach (var item in uniqueClassRecords)
             {
                 if (!string.IsNullOrWhiteSpace(item.ClassId) && classMap.TryGetValue(item.ClassId, out var classEntity))
                 {
+                    var stats = ResolveClassAttendanceStats(item.ClassId, attendanceStatsByClassId, activeStudentCountsByClassId);
                     classSummaries.Add(new ScheduleRoomClassSummaryResponse
                     {
                         ClassId = item.ClassId,
                         ClassName = string.IsNullOrWhiteSpace(item.ClassName) ? classEntity.Name : item.ClassName,
-                        CurrentStudents = classEntity.CurrentStudents,
-                        MaxStudents = classEntity.MaxStudents
+                        CurrentStudents = stats.TotalStudents,
+                        MaxStudents = classEntity.MaxStudents,
+                        TotalStudents = stats.TotalStudents,
+                        PresentStudents = stats.PresentStudents,
+                        AbsentStudents = stats.AbsentStudents
                     });
                     continue;
                 }
 
                 if (!string.IsNullOrWhiteSpace(item.ClassId) && item.ClassId == classInfo.Id)
                 {
+                    var stats = ResolveClassAttendanceStats(classInfo.Id, attendanceStatsByClassId, activeStudentCountsByClassId);
                     classSummaries.Add(new ScheduleRoomClassSummaryResponse
                     {
                         ClassId = classInfo.Id,
                         ClassName = string.IsNullOrWhiteSpace(item.ClassName) ? classInfo.Name : item.ClassName,
-                        CurrentStudents = classInfo.CurrentStudents,
-                        MaxStudents = classInfo.MaxStudents
+                        CurrentStudents = stats.TotalStudents,
+                        MaxStudents = classInfo.MaxStudents,
+                        TotalStudents = stats.TotalStudents,
+                        PresentStudents = stats.PresentStudents,
+                        AbsentStudents = stats.AbsentStudents
                     });
                     continue;
                 }
@@ -382,7 +393,10 @@ namespace MOS.ExcelGrading.Core.Services
                     ClassId = item.ClassId,
                     ClassName = string.IsNullOrWhiteSpace(item.ClassName) ? schedule.ClassName : item.ClassName,
                     CurrentStudents = 0,
-                    MaxStudents = null
+                    MaxStudents = null,
+                    TotalStudents = 0,
+                    PresentStudents = 0,
+                    AbsentStudents = 0
                 });
             }
 
@@ -396,6 +410,171 @@ namespace MOS.ExcelGrading.Core.Services
                 IsSharedRoomSession = classSummaries.Count > 1,
                 SharedClasses = classSummaries,
                 SharedClassStudentSummary = BuildClassStudentSummaryText(classSummaries)
+            };
+        }
+
+        private async Task<Dictionary<string, int>> GetActiveStudentCountsByClassIdAsync(IReadOnlyCollection<string> classIds)
+        {
+            var validClassIds = classIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            if (validClassIds.Count == 0)
+            {
+                return new Dictionary<string, int>();
+            }
+
+            var studentFilter = Builders<Student>.Filter.And(
+                Builders<Student>.Filter.Eq(s => s.IsActive, true),
+                Builders<Student>.Filter.In(s => s.ClassId, validClassIds));
+
+            var studentClassIds = await _students
+                .Find(studentFilter)
+                .Project(s => s.ClassId)
+                .ToListAsync();
+
+            return studentClassIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .GroupBy(id => id!, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.Count(), StringComparer.Ordinal);
+        }
+
+        private async Task<Dictionary<string, RoomSessionClassAttendanceStats>> GetRoomSessionAttendanceStatsByClassIdAsync(
+            IReadOnlyCollection<TeacherSchedule> schedules,
+            IReadOnlyCollection<string> classIds)
+        {
+            var activeStudentsByClassId = await GetActiveStudentsByClassIdAsync(classIds);
+            var scheduleClassIdsByScheduleId = schedules
+                .Where(x => !string.IsNullOrWhiteSpace(x.Id) && !string.IsNullOrWhiteSpace(x.ClassId))
+                .GroupBy(x => x.Id!, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First().ClassId!, StringComparer.Ordinal);
+
+            var statsByClassId = activeStudentsByClassId.ToDictionary(
+                x => x.Key,
+                x =>
+                {
+                    var totalStudents = x.Value.Count;
+                    return new RoomSessionClassAttendanceStats
+                    {
+                        TotalStudents = totalStudents,
+                        PresentStudents = totalStudents,
+                        AbsentStudents = 0
+                    };
+                },
+                StringComparer.Ordinal);
+
+            if (scheduleClassIdsByScheduleId.Count == 0)
+            {
+                return statsByClassId;
+            }
+
+            var absentFilter = Builders<StudentScheduleAttendance>.Filter.And(
+                Builders<StudentScheduleAttendance>.Filter.In(x => x.ScheduleId, scheduleClassIdsByScheduleId.Keys.ToList()),
+                Builders<StudentScheduleAttendance>.Filter.Eq(x => x.Status, AttendanceStatus.Absent));
+
+            var absentRecords = await _attendances.Find(absentFilter).ToListAsync();
+            var absentStudentIdsByClassId = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+
+            foreach (var record in absentRecords)
+            {
+                if (!scheduleClassIdsByScheduleId.TryGetValue(record.ScheduleId, out var classId))
+                {
+                    continue;
+                }
+
+                if (!activeStudentsByClassId.TryGetValue(classId, out var activeStudentIds) ||
+                    !activeStudentIds.Contains(record.StudentId))
+                {
+                    continue;
+                }
+
+                if (!absentStudentIdsByClassId.TryGetValue(classId, out var absentStudentIds))
+                {
+                    absentStudentIds = new HashSet<string>(StringComparer.Ordinal);
+                    absentStudentIdsByClassId[classId] = absentStudentIds;
+                }
+
+                absentStudentIds.Add(record.StudentId);
+            }
+
+            foreach (var (classId, absentStudentIds) in absentStudentIdsByClassId)
+            {
+                var current = statsByClassId.GetValueOrDefault(classId) ?? new RoomSessionClassAttendanceStats();
+                var absentStudents = Math.Min(absentStudentIds.Count, current.TotalStudents);
+                current.AbsentStudents = absentStudents;
+                current.PresentStudents = Math.Max(current.TotalStudents - absentStudents, 0);
+                statsByClassId[classId] = current;
+            }
+
+            return statsByClassId;
+        }
+
+        private async Task<Dictionary<string, HashSet<string>>> GetActiveStudentsByClassIdAsync(IReadOnlyCollection<string> classIds)
+        {
+            var validClassIds = classIds
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            if (validClassIds.Count == 0)
+            {
+                return new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            }
+
+            var studentFilter = Builders<Student>.Filter.And(
+                Builders<Student>.Filter.Eq(s => s.IsActive, true),
+                Builders<Student>.Filter.In(s => s.ClassId, validClassIds));
+
+            var students = await _students
+                .Find(studentFilter)
+                .Project(s => new { s.Id, s.ClassId })
+                .ToListAsync();
+
+            var result = new Dictionary<string, HashSet<string>>(StringComparer.Ordinal);
+            foreach (var student in students)
+            {
+                if (string.IsNullOrWhiteSpace(student.Id) || string.IsNullOrWhiteSpace(student.ClassId))
+                {
+                    continue;
+                }
+
+                if (!result.TryGetValue(student.ClassId, out var studentIds))
+                {
+                    studentIds = new HashSet<string>(StringComparer.Ordinal);
+                    result[student.ClassId] = studentIds;
+                }
+
+                studentIds.Add(student.Id);
+            }
+
+            return result;
+        }
+
+        private static RoomSessionClassAttendanceStats ResolveClassAttendanceStats(
+            string? classId,
+            IReadOnlyDictionary<string, RoomSessionClassAttendanceStats> attendanceStatsByClassId,
+            IReadOnlyDictionary<string, int> activeStudentCountsByClassId)
+        {
+            if (string.IsNullOrWhiteSpace(classId))
+            {
+                return new RoomSessionClassAttendanceStats();
+            }
+
+            if (attendanceStatsByClassId.TryGetValue(classId, out var stats))
+            {
+                return stats;
+            }
+
+            var totalStudents = activeStudentCountsByClassId.TryGetValue(classId, out var count)
+                ? count
+                : 0;
+
+            return new RoomSessionClassAttendanceStats
+            {
+                TotalStudents = totalStudents,
+                PresentStudents = totalStudents,
+                AbsentStudents = 0
             };
         }
 
@@ -448,8 +627,8 @@ namespace MOS.ExcelGrading.Core.Services
                     RoomName = FirstNonEmpty(roomNameDefault, persisted.EndLesson.RoomName),
                     TotalMachines = FirstNonEmpty(totalMachinesDefault, persisted.EndLesson.TotalMachines),
                     ClassStudentCountSummary = FirstNonEmpty(
-                        persisted.EndLesson.ClassStudentCountSummary,
-                        roomSessionContext.SharedClassStudentSummary),
+                        roomSessionContext.SharedClassStudentSummary,
+                        persisted.EndLesson.ClassStudentCountSummary),
                     StudentMaterialCoverageRate = persisted.EndLesson.StudentMaterialCoverageRate,
                     BrokenMachinesSummary = FirstNonEmpty(brokenMachinesDefault, persisted.EndLesson.BrokenMachinesSummary),
                     MissingMachinesForStudents = FirstNonEmpty(missingMachinesDefault, persisted.EndLesson.MissingMachinesForStudents),
@@ -508,8 +687,8 @@ namespace MOS.ExcelGrading.Core.Services
                     RoomName = FirstNonEmpty(Clean(request.EndLesson.RoomName), schedule.RoomName),
                     TotalMachines = Clean(request.EndLesson.TotalMachines),
                     ClassStudentCountSummary = FirstNonEmpty(
-                        Clean(request.EndLesson.ClassStudentCountSummary),
-                        roomSessionContext.SharedClassStudentSummary),
+                        roomSessionContext.SharedClassStudentSummary,
+                        Clean(request.EndLesson.ClassStudentCountSummary)),
                     StudentMaterialCoverageRate = Clean(request.EndLesson.StudentMaterialCoverageRate),
                     BrokenMachinesSummary = Clean(request.EndLesson.BrokenMachinesSummary),
                     MissingMachinesForStudents = Clean(request.EndLesson.MissingMachinesForStudents),
@@ -634,6 +813,11 @@ namespace MOS.ExcelGrading.Core.Services
         {
             var parts = classes.Select(x =>
             {
+                if (x.TotalStudents > 0 || x.PresentStudents > 0 || x.AbsentStudents > 0)
+                {
+                    return $"{x.ClassName} ({x.PresentStudents}/{x.TotalStudents})";
+                }
+
                 if (x.MaxStudents.HasValue)
                 {
                     return $"{x.ClassName} ({x.CurrentStudents}/{x.MaxStudents.Value})";
@@ -643,6 +827,21 @@ namespace MOS.ExcelGrading.Core.Services
             });
 
             return string.Join(" ", parts);
+        }
+
+        private static int ResolveActiveStudentCount(
+            string? classId,
+            IReadOnlyDictionary<string, int> activeStudentCountsByClassId,
+            int fallback)
+        {
+            if (string.IsNullOrWhiteSpace(classId))
+            {
+                return Math.Max(0, fallback);
+            }
+
+            return activeStudentCountsByClassId.TryGetValue(classId, out var count)
+                ? count
+                : 0;
         }
 
         private static string NormalizeKey(string? value)
@@ -738,6 +937,13 @@ namespace MOS.ExcelGrading.Core.Services
             return string.IsNullOrWhiteSpace(detail)
                 ? roomSnapshot.BrokenMachineCount.ToString()
                 : $"{roomSnapshot.BrokenMachineCount} ({detail})";
+        }
+
+        private sealed class RoomSessionClassAttendanceStats
+        {
+            public int TotalStudents { get; set; }
+            public int PresentStudents { get; set; }
+            public int AbsentStudents { get; set; }
         }
 
         private static ScheduleAttendanceResponse BuildResponse(

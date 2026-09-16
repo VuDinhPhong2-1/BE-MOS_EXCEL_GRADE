@@ -5865,6 +5865,12 @@ namespace MOS.ExcelGrading.Core.Services
                 }
 
                 if (config.RequireDefaultPaste != false
+                    && TryGetDirectTextBoxRunFormatting(target.TextBox, w, out var directFormatting))
+                {
+                    return Fail($"Textbox thu {target.Index} co direct run formatting '{directFormatting}', co the khong phai paste mac dinh.");
+                }
+
+                if (config.RequireDefaultPaste != false
                     && TryGetForbiddenTextBoxColor(target.TextBox, w, config.ForbiddenTextColors, out var forbiddenColor))
                 {
                     return Fail($"Textbox thu {target.Index} co mau chu '{forbiddenColor}' giong style cua textbox, co the da Paste Merge Formatting.");
@@ -5959,6 +5965,39 @@ namespace MOS.ExcelGrading.Core.Services
                 if (!string.IsNullOrWhiteSpace(matched))
                 {
                     forbiddenProperty = matched;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryGetDirectTextBoxRunFormatting(
+            XElement textBoxContent,
+            XNamespace w,
+            out string? directFormatting)
+        {
+            directFormatting = null;
+            var ignoredDirectRunProperties = new HashSet<string>(
+                new[] { "noProof" },
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var run in textBoxContent.Descendants(w + "r"))
+            {
+                var runText = NormalizePlainText(string.Concat(run.Descendants(w + "t").Select(text => text.Value)));
+                if (string.IsNullOrWhiteSpace(runText))
+                {
+                    continue;
+                }
+
+                var directProperty = run.Element(w + "rPr")
+                    ?.Elements()
+                    .Select(element => element.Name.LocalName)
+                    .FirstOrDefault(name => !ignoredDirectRunProperties.Contains(name));
+
+                if (!string.IsNullOrWhiteSpace(directProperty))
+                {
+                    directFormatting = directProperty;
                     return true;
                 }
             }

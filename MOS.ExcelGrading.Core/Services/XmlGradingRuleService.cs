@@ -6736,6 +6736,24 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             var compact = Regex.Replace(value.Trim(), "[\\s_-]+", string.Empty);
+            var lookupKey = compact.ToLowerInvariant();
+            lookupKey = lookupKey.Replace("artitic", "artistic", StringComparison.Ordinal);
+            lookupKey = lookupKey.Replace("arteffect", string.Empty, StringComparison.Ordinal);
+            lookupKey = lookupKey.Replace("effect", string.Empty, StringComparison.Ordinal);
+
+            var aliases = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["paintbrush"] = "artisticPaintBrush",
+                ["artisticpaintbrush"] = "artisticPaintBrush",
+                ["artisticartisticpaintbrush"] = "artisticPaintBrush",
+            };
+
+            if (aliases.TryGetValue(lookupKey, out var mapped))
+            {
+                return mapped;
+            }
+
+            compact = lookupKey;
             if (!compact.StartsWith("artistic", StringComparison.OrdinalIgnoreCase))
             {
                 compact = $"artistic{char.ToUpperInvariant(compact[0])}{compact[1..]}";

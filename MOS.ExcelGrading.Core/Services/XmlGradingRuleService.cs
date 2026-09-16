@@ -10084,7 +10084,20 @@ namespace MOS.ExcelGrading.Core.Services
 
         private static string NormalizeKey(string value)
         {
-            return (value ?? string.Empty).Trim().ToLowerInvariant();
+            var normalized = (value ?? string.Empty).Trim();
+            if (normalized.Contains('%', StringComparison.Ordinal))
+            {
+                try
+                {
+                    normalized = Uri.UnescapeDataString(normalized);
+                }
+                catch (UriFormatException)
+                {
+                    // Keep the original value so validation/lookup can return the normal not-found path.
+                }
+            }
+
+            return normalized.Trim().ToLowerInvariant();
         }
 
         private static void ApplyProjectScoringModel(GradingResult result)

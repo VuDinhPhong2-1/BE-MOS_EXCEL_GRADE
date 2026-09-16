@@ -201,11 +201,10 @@ namespace MOS.ExcelGrading.Core.Services
                     throw new InvalidOperationException("Bài tập không thuộc lớp đang lưu điểm.");
                 }
 
-                if (normalizedScoreValue.HasValue && normalizedScoreValue.Value > assignment.MaxScore)
-                {
-                    throw new InvalidOperationException(
-                        $"Điểm không hợp lệ. Điểm tối đa của bài '{assignment.Name}' là {assignment.MaxScore:0.##}.");
-                }
+                normalizedScoreValue = ClampScoreValueToAssignmentMax(
+                    normalizedScoreValue,
+                    assignment,
+                    request.StudentId);
 
                 var normalizedRequest = new CreateScoreRequest
                 {
@@ -513,6 +512,31 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return Math.Round(value, 2, MidpointRounding.AwayFromZero);
+        }
+
+        private double? ClampScoreValueToAssignmentMax(
+            double? scoreValue,
+            Assignment assignment,
+            string studentId)
+        {
+            if (!scoreValue.HasValue || assignment.MaxScore <= 0d)
+            {
+                return scoreValue;
+            }
+
+            if (scoreValue.Value <= assignment.MaxScore)
+            {
+                return scoreValue;
+            }
+
+            _logger.LogWarning(
+                "⚠️ Score {ScoreValue} for student {StudentId} exceeds assignment max {MaxScore} ({AssignmentName}); clamped before saving.",
+                scoreValue.Value,
+                studentId,
+                assignment.MaxScore,
+                assignment.Name);
+
+            return Math.Round(assignment.MaxScore, 2, MidpointRounding.AwayFromZero);
         }
 
         private static string? NormalizeFeedback(string? feedback)

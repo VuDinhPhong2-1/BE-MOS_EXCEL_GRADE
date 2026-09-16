@@ -56,6 +56,8 @@ namespace MOS.ExcelGrading.Core.Models
     public const string PageMargins = "pageMargins";
     public const string DocumentStyleSet = "documentStyleSet";
     public const string PageBorder = "pageBorder";
+    public const string WordTableSort = "wordTableSort";
+    public const string WordParagraphList = "wordParagraphList";
     public const string ExcelTableName = "excelTableName";
     public const string ExcelWorksheetPageSetup = "excelWorksheetPageSetup";
     public const string ExcelClearCellFormatting = "excelClearCellFormatting";
@@ -92,6 +94,8 @@ namespace MOS.ExcelGrading.Core.Models
             PageMargins,
             DocumentStyleSet,
             PageBorder,
+            WordTableSort,
+            WordParagraphList,
             ExcelTableName,
             ExcelWorksheetPageSetup,
             ExcelClearCellFormatting,
@@ -357,6 +361,14 @@ public static class ImageWrapTypes
         [BsonElement("pageBorderConfig")]
         [JsonPropertyName("pageBorderConfig")]
         public PageBorderConfig? PageBorderConfig { get; set; }
+
+        [BsonElement("wordTableSortConfig")]
+        [JsonPropertyName("wordTableSortConfig")]
+        public WordTableSortConfig? WordTableSortConfig { get; set; }
+
+        [BsonElement("wordParagraphListConfig")]
+        [JsonPropertyName("wordParagraphListConfig")]
+        public WordParagraphListConfig? WordParagraphListConfig { get; set; }
 
         [BsonElement("excelTableNameConfig")]
         [JsonPropertyName("excelTableNameConfig")]
@@ -1100,6 +1112,70 @@ public static class ImageWrapTypes
     }
 
     [BsonIgnoreExtraElements]
+    public class WordTableSortConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("anchorText")]
+        [JsonPropertyName("anchorText")]
+        public string? AnchorText { get; set; }
+
+        [BsonElement("tableIndexAfterAnchor")]
+        [JsonPropertyName("tableIndexAfterAnchor")]
+        public int? TableIndexAfterAnchor { get; set; } = 1;
+
+        [BsonElement("sortColumnIndex")]
+        [JsonPropertyName("sortColumnIndex")]
+        public int? SortColumnIndex { get; set; } = 1;
+
+        [BsonElement("hasHeaderRow")]
+        [JsonPropertyName("hasHeaderRow")]
+        public bool? HasHeaderRow { get; set; } = true;
+
+        [BsonElement("descending")]
+        [JsonPropertyName("descending")]
+        public bool? Descending { get; set; } = false;
+
+        [BsonElement("expectedFirstColumnValues")]
+        [JsonPropertyName("expectedFirstColumnValues")]
+        public List<string> ExpectedFirstColumnValues { get; set; } = new();
+
+        [BsonElement("requireExactOrder")]
+        [JsonPropertyName("requireExactOrder")]
+        public bool? RequireExactOrder { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordParagraphListConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("anchorText")]
+        [JsonPropertyName("anchorText")]
+        public string? AnchorText { get; set; }
+
+        [BsonElement("expectedItems")]
+        [JsonPropertyName("expectedItems")]
+        public List<string> ExpectedItems { get; set; } = new();
+
+        [BsonElement("listType")]
+        [JsonPropertyName("listType")]
+        public string? ListType { get; set; } = "bullet";
+
+        [BsonElement("level")]
+        [JsonPropertyName("level")]
+        public int? Level { get; set; } = 0;
+
+        [BsonElement("requireSameNumbering")]
+        [JsonPropertyName("requireSameNumbering")]
+        public bool? RequireSameNumbering { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
     public class SectionBreakBeforeTextConfig
     {
         [BsonElement("sourceFile")]
@@ -1169,6 +1245,14 @@ public static class ImageWrapTypes
         [BsonElement("presetGeometry")]
         [JsonPropertyName("presetGeometry")]
         public string? PresetGeometry { get; set; } = "rect";
+
+        [BsonElement("requiredArtisticEffect")]
+        [JsonPropertyName("requiredArtisticEffect")]
+        public string? RequiredArtisticEffect { get; set; }
+
+        [BsonElement("requiredCameraPreset")]
+        [JsonPropertyName("requiredCameraPreset")]
+        public string? RequiredCameraPreset { get; set; }
     }
 
     [BsonIgnoreExtraElements]

@@ -6693,8 +6693,8 @@ namespace MOS.ExcelGrading.Core.Services
                     }
 
                     if (!string.IsNullOrWhiteSpace(expectedArtisticEffect)
-                        && !picture!.Descendants(a14 + expectedArtisticEffect).Any()
-                        && !drawing.Descendants(a14 + expectedArtisticEffect).Any())
+                        && !HasArtisticEffect(picture!, a14, expectedArtisticEffect)
+                        && !HasArtisticEffect(drawing, a14, expectedArtisticEffect))
                     {
                         return Fail($"Anh thu {imageOrdinal} chua co artistic effect '{expectedArtisticEffect}'.");
                     }
@@ -6746,6 +6746,9 @@ namespace MOS.ExcelGrading.Core.Services
                 ["paintbrush"] = "artisticPaintBrush",
                 ["artisticpaintbrush"] = "artisticPaintBrush",
                 ["artisticartisticpaintbrush"] = "artisticPaintBrush",
+                ["filmgrain"] = "artisticFilmGrain",
+                ["artisticfilmgrain"] = "artisticFilmGrain",
+                ["artisticartisticfilmgrain"] = "artisticFilmGrain",
             };
 
             if (aliases.TryGetValue(lookupKey, out var mapped))
@@ -6760,6 +6763,15 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return compact;
+        }
+
+        private static bool HasArtisticEffect(XElement root, XNamespace a14, string expectedEffect)
+        {
+            return root
+                .Descendants()
+                .Any(element =>
+                    element.Name.Namespace == a14
+                    && string.Equals(element.Name.LocalName, expectedEffect, StringComparison.OrdinalIgnoreCase));
         }
 
         private static SpecialConditionEvalOutcome EvaluateWordTableSort(

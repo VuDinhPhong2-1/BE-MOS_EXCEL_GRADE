@@ -844,7 +844,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 ProjectId = projectRule.ProjectCode,
                 ProjectName = string.IsNullOrWhiteSpace(projectRule.ProjectName) ? projectRule.ProjectCode : projectRule.ProjectName,
-                MaxScore = StandardProjectMaxScore
+                MaxScore = projectRule.MaxScore > 0m ? projectRule.MaxScore : StandardProjectMaxScore
             };
 
             var evaluationCache = new XmlEvaluationCache();

@@ -14,6 +14,8 @@ namespace MOS.ExcelGrading.Core.DTOs
     {
         public string TaskId { get; set; } = string.Empty;
         public string TaskName { get; set; } = string.Empty;
+        public string ProjectEndpoint { get; set; } = string.Empty;
+        public string ProjectId { get; set; } = string.Empty;
         public int AttemptCount { get; set; }
         public int FailedCount { get; set; }
         public double FailedRate { get; set; }

@@ -1428,7 +1428,7 @@ namespace MOS.ExcelGrading.Core.Services
             if (gradableTasks.Count == 0)
             {
                 result.TotalScore = 0m;
-                result.MaxScore = StandardProjectMaxScore;
+                result.MaxScore = result.MaxScore > 0m ? result.MaxScore : StandardProjectMaxScore;
                 EnsureCorrectionGuidance(result);
                 EnsureTaskErrorContract(result);
                 NormalizeTaskFeedbackLines(result);
@@ -1442,43 +1442,77 @@ namespace MOS.ExcelGrading.Core.Services
                 totalSourceMax = gradableTasks.Count;
             }
 
-            decimal allocatedMax = 0m;
-            for (var i = 0; i < gradableTasks.Count; i++)
+            // Determine if normalization is needed:
+            // 1. If result.MaxScore is explicitly configured and equals totalSourceMax (e.g. 142), preserve raw scores.
+            // 2. If raw task sum already equals StandardProjectMaxScore (125), keep raw scores without distortion.
+            // 3. If raw task sum is 142 (or any other project-configured custom scale > 0), preserve raw scores.
+            // 4. Otherwise (for legacy small-scale projects like P01=18, P09=32), normalize to StandardProjectMaxScore (125).
+            var shouldPreserveRaw = (result.MaxScore > 0m && result.MaxScore == totalSourceMax)
+                || totalSourceMax == StandardProjectMaxScore
+                || totalSourceMax == 142m;
+
+            var targetMax = shouldPreserveRaw
+                ? totalSourceMax
+                : (result.MaxScore > 0m ? result.MaxScore : StandardProjectMaxScore);
+
+            if (shouldPreserveRaw && totalSourceMax == targetMax)
             {
-                var task = gradableTasks[i];
-                var sourceMax = task.MaxScore > 0m ? task.MaxScore : 1m;
-                var isLastTask = i == gradableTasks.Count - 1;
-
-                var scaledMax = isLastTask
-                    ? StandardProjectMaxScore - allocatedMax
-                    : Math.Round(StandardProjectMaxScore * sourceMax / totalSourceMax, 2, MidpointRounding.AwayFromZero);
-
-                if (scaledMax < 0m)
+                for (var i = 0; i < gradableTasks.Count; i++)
                 {
-                    scaledMax = 0m;
+                    var task = gradableTasks[i];
+                    if (task.Score > task.MaxScore)
+                    {
+                        task.Score = task.MaxScore;
+                    }
                 }
 
-                allocatedMax += scaledMax;
-
-                var completionRatio = task.MaxScore > 0m
-                    ? Math.Clamp(task.Score / task.MaxScore, 0m, 1m)
-                    : 0m;
-
-                var scaledScore = Math.Round(scaledMax * completionRatio, 2, MidpointRounding.AwayFromZero);
-                if (scaledScore > scaledMax)
+                result.MaxScore = targetMax;
+                result.TotalScore = Math.Round(gradableTasks.Sum(task => task.Score), 2, MidpointRounding.AwayFromZero);
+                if (result.TotalScore > result.MaxScore)
                 {
-                    scaledScore = scaledMax;
+                    result.TotalScore = result.MaxScore;
                 }
-
-                task.MaxScore = scaledMax;
-                task.Score = scaledScore;
             }
-
-            result.MaxScore = StandardProjectMaxScore;
-            result.TotalScore = Math.Round(gradableTasks.Sum(task => task.Score), 2, MidpointRounding.AwayFromZero);
-            if (result.TotalScore > result.MaxScore)
+            else
             {
-                result.TotalScore = result.MaxScore;
+                decimal allocatedMax = 0m;
+                for (var i = 0; i < gradableTasks.Count; i++)
+                {
+                    var task = gradableTasks[i];
+                    var sourceMax = task.MaxScore > 0m ? task.MaxScore : 1m;
+                    var isLastTask = i == gradableTasks.Count - 1;
+
+                    var scaledMax = isLastTask
+                        ? targetMax - allocatedMax
+                        : Math.Round(targetMax * sourceMax / totalSourceMax, 2, MidpointRounding.AwayFromZero);
+
+                    if (scaledMax < 0m)
+                    {
+                        scaledMax = 0m;
+                    }
+
+                    allocatedMax += scaledMax;
+
+                    var completionRatio = task.MaxScore > 0m
+                        ? Math.Clamp(task.Score / task.MaxScore, 0m, 1m)
+                        : 0m;
+
+                    var scaledScore = Math.Round(scaledMax * completionRatio, 2, MidpointRounding.AwayFromZero);
+                    if (scaledScore > scaledMax)
+                    {
+                        scaledScore = scaledMax;
+                    }
+
+                    task.MaxScore = scaledMax;
+                    task.Score = scaledScore;
+                }
+
+                result.MaxScore = targetMax;
+                result.TotalScore = Math.Round(gradableTasks.Sum(task => task.Score), 2, MidpointRounding.AwayFromZero);
+                if (result.TotalScore > result.MaxScore)
+                {
+                    result.TotalScore = result.MaxScore;
+                }
             }
 
             EnsureCorrectionGuidance(result);

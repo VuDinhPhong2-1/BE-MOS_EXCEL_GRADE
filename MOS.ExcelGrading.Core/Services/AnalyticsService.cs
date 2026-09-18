@@ -106,7 +106,7 @@ namespace MOS.ExcelGrading.Core.Services
             var attempts = await _gradingAttempts.Find(filter).ToListAsync();
             var latestAttemptsByStudent = attempts
                 .Where(a => !string.IsNullOrWhiteSpace(a.StudentId))
-                .GroupBy(a => a.StudentId!, StringComparer.Ordinal)
+                .GroupBy(a => new { a.StudentId, ProjectEndpoint = a.ProjectEndpoint ?? string.Empty })
                 .Select(g => g
                     .OrderByDescending(a => a.GradedAt)
                     .ThenByDescending(a => a.Id, StringComparer.Ordinal)
@@ -118,19 +118,32 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             var taskStats = latestAttemptsByStudent
-                .SelectMany(a => a.TaskResults)
-                .Where(t => !string.Equals(t.TaskId, "SCORE-SAVE", StringComparison.OrdinalIgnoreCase))
-                .GroupBy(t => new { t.TaskId, t.TaskName })
+                .SelectMany(a => (a.TaskResults ?? new List<GradingAttemptTask>()).Select(t => new
+                {
+                    ProjectEndpoint = a.ProjectEndpoint ?? string.Empty,
+                    ProjectId = a.ProjectId ?? string.Empty,
+                    Task = t
+                }))
+                .Where(x => x.Task != null && !string.Equals(x.Task.TaskId, "SCORE-SAVE", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(x => new
+                {
+                    ProjectEndpoint = x.ProjectEndpoint,
+                    ProjectId = x.ProjectId,
+                    TaskId = x.Task.TaskId ?? string.Empty,
+                    TaskName = x.Task.TaskName ?? string.Empty
+                })
                 .Select(g =>
                 {
                     var attemptCount = g.Count();
-                    var failedCount = g.Count(t => !t.IsPassed);
+                    var failedCount = g.Count(x => !x.Task.IsPassed);
                     var failedRate = attemptCount > 0
                         ? Math.Round((double)failedCount / attemptCount * 100, 2)
                         : 0;
 
                     return new WeakTaskResponse
                     {
+                        ProjectEndpoint = g.Key.ProjectEndpoint,
+                        ProjectId = g.Key.ProjectId,
                         TaskId = g.Key.TaskId,
                         TaskName = g.Key.TaskName,
                         AttemptCount = attemptCount,

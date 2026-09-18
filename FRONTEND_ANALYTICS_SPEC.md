@@ -69,6 +69,8 @@ export function mapOverviewToGaugeData(d: ClassAnalyticsOverviewResponse) {
 ```json
 [
   {
+    "projectEndpoint": "excel/project09",
+    "projectId": "Excel-P09",
     "taskId": "P09T3",
     "taskName": "Task 3",
     "attemptCount": 80,
@@ -76,6 +78,8 @@ export function mapOverviewToGaugeData(d: ClassAnalyticsOverviewResponse) {
     "failedRate": 61.25
   },
   {
+    "projectEndpoint": "excel/project09",
+    "projectId": "Excel-P09",
     "taskId": "P09T5",
     "taskName": "Task 5",
     "attemptCount": 80,
@@ -89,6 +93,8 @@ export function mapOverviewToGaugeData(d: ClassAnalyticsOverviewResponse) {
 
 ```ts
 export interface WeakTaskResponse {
+  projectEndpoint?: string;
+  projectId?: string;
   taskId: string;
   taskName: string;
   attemptCount: number;
@@ -105,6 +111,8 @@ export function mapWeakTasksToBarChart(rows: WeakTaskResponse[]) {
     x: r.taskId,
     y: r.failedRate,
     label: r.taskName,
+    projectEndpoint: r.projectEndpoint || "",
+    projectId: r.projectId || "",
     attempts: r.attemptCount,
     failed: r.failedCount
   }));

@@ -63,6 +63,8 @@ namespace MOS.ExcelGrading.Core.Models
     public const string WordTextToTable = "wordTextToTable";
     public const string WordBulletStyle = "wordBulletStyle";
     public const string WordResolveComment = "wordResolveComment";
+    public const string WordEndnote = "wordEndnote";
+    public const string WordSmartArt = "wordSmartArt";
     public const string ExcelTableName = "excelTableName";
     public const string ExcelWorksheetPageSetup = "excelWorksheetPageSetup";
     public const string ExcelClearCellFormatting = "excelClearCellFormatting";
@@ -399,6 +401,14 @@ public static class ImageWrapTypes
         [BsonElement("wordResolveCommentConfig")]
         [JsonPropertyName("wordResolveCommentConfig")]
         public WordResolveCommentConfig? WordResolveCommentConfig { get; set; }
+
+        [BsonElement("wordEndnoteConfig")]
+        [JsonPropertyName("wordEndnoteConfig")]
+        public WordEndnoteConfig? WordEndnoteConfig { get; set; }
+
+        [BsonElement("wordSmartArtConfig")]
+        [JsonPropertyName("wordSmartArtConfig")]
+        public WordSmartArtConfig? WordSmartArtConfig { get; set; }
 
         [BsonElement("excelTableNameConfig")]
         [JsonPropertyName("excelTableNameConfig")]
@@ -1359,6 +1369,78 @@ public static class ImageWrapTypes
         [BsonElement("allowSameParagraphSectPr")]
         [JsonPropertyName("allowSameParagraphSectPr")]
         public bool? AllowSameParagraphSectPr { get; set; } = true;
+
+        [BsonElement("expectedColumnCount")]
+        [JsonPropertyName("expectedColumnCount")]
+        public int? ExpectedColumnCount { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordEndnoteConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("endnotesFile")]
+        [JsonPropertyName("endnotesFile")]
+        public string? EndnotesFile { get; set; } = "word/endnotes.xml";
+
+        [BsonElement("anchorText")]
+        [JsonPropertyName("anchorText")]
+        public string? AnchorText { get; set; }
+
+        [BsonElement("expectedText")]
+        [JsonPropertyName("expectedText")]
+        public string? ExpectedText { get; set; }
+
+        [BsonElement("expectedNumberFormat")]
+        [JsonPropertyName("expectedNumberFormat")]
+        public string? ExpectedNumberFormat { get; set; } = "decimal";
+
+        [BsonElement("caseSensitive")]
+        [JsonPropertyName("caseSensitive")]
+        public bool? CaseSensitive { get; set; } = false;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordSmartArtConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("dataFile")]
+        [JsonPropertyName("dataFile")]
+        public string? DataFile { get; set; } = "word/diagrams/data1.xml";
+
+        [BsonElement("colorsFile")]
+        [JsonPropertyName("colorsFile")]
+        public string? ColorsFile { get; set; } = "word/diagrams/colors1.xml";
+
+        [BsonElement("expectedColorStyle")]
+        [JsonPropertyName("expectedColorStyle")]
+        public string? ExpectedColorStyle { get; set; }
+
+        [BsonElement("expectedShapeCount")]
+        [JsonPropertyName("expectedShapeCount")]
+        public int? ExpectedShapeCount { get; set; }
+
+        [BsonElement("expectedText")]
+        [JsonPropertyName("expectedText")]
+        public string? ExpectedText { get; set; }
+
+        [BsonElement("beforeText")]
+        [JsonPropertyName("beforeText")]
+        public string? BeforeText { get; set; }
+
+        [BsonElement("afterText")]
+        [JsonPropertyName("afterText")]
+        public string? AfterText { get; set; }
+
+        [BsonElement("caseSensitive")]
+        [JsonPropertyName("caseSensitive")]
+        public bool? CaseSensitive { get; set; } = false;
     }
 
     [BsonIgnoreExtraElements]

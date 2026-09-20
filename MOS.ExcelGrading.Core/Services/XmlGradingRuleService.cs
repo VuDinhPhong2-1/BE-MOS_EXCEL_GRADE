@@ -1943,7 +1943,9 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordCustomToc, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordTextToTable, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordBulletStyle, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.WordResolveComment, StringComparison.OrdinalIgnoreCase),
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordResolveComment, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase),
                 "excel" => string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelWorksheetPageSetup, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelClearCellFormatting, StringComparison.OrdinalIgnoreCase)
@@ -2372,6 +2374,21 @@ namespace MOS.ExcelGrading.Core.Services
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.SectionBreakBeforeText, StringComparison.OrdinalIgnoreCase))
                 {
                     AddXmlPart(specialCondition.SectionBreakBeforeTextConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordEndnoteConfig?.SourceFile, "word/document.xml");
+                    AddXmlPart(specialCondition.WordEndnoteConfig?.EndnotesFile, "word/endnotes.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordSmartArtConfig?.SourceFile, "word/document.xml");
+                    AddXmlPart(specialCondition.WordSmartArtConfig?.DataFile, "word/diagrams/data1.xml");
+                    AddXmlPart(specialCondition.WordSmartArtConfig?.ColorsFile, "word/diagrams/colors1.xml");
                     continue;
                 }
 
@@ -2862,6 +2879,16 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordResolveComment, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateWordResolveComment(specialCondition.WordResolveCommentConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordEndnote(specialCondition.WordEndnoteConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordSmartArt(specialCondition.WordSmartArtConfig, package);
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase))
@@ -6544,10 +6571,25 @@ namespace MOS.ExcelGrading.Core.Services
 
                     if (string.Equals(actualType, expectedType, StringComparison.OrdinalIgnoreCase))
                     {
+                        if (config.ExpectedColumnCount.HasValue)
+                        {
+                            var actualColumnCountText = sectPr.Element(w + "cols")?.Attribute(w + "num")?.Value;
+                            var actualColumnCount = int.TryParse(actualColumnCountText, out var parsedColumnCount)
+                                ? parsedColumnCount
+                                : 1;
+
+                            if (actualColumnCount != config.ExpectedColumnCount.Value)
+                            {
+                                return Fail($"Tim thay section break '{expectedType}' {candidate.Position} nhung so cot la {actualColumnCount}, yeu cau {config.ExpectedColumnCount.Value}.");
+                            }
+                        }
+
                         return new SpecialConditionEvalOutcome
                         {
                             IsPassed = true,
-                            Message = $"Da tim thay section break '{expectedType}' {candidate.Position}."
+                            Message = config.ExpectedColumnCount.HasValue
+                                ? $"Da tim thay section break '{expectedType}' {candidate.Position} voi {config.ExpectedColumnCount.Value} cot."
+                                : $"Da tim thay section break '{expectedType}' {candidate.Position}."
                         };
                     }
 
@@ -6560,6 +6602,196 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 return Fail($"Khong the phan tich XML: {ex.Message}");
             }
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordEndnote(
+            WordEndnoteConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Word Endnote (wordEndnoteConfig trong).");
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
+            var endnotesFile = string.IsNullOrWhiteSpace(config.EndnotesFile) ? "word/endnotes.xml" : NormalizeSourceFile(config.EndnotesFile);
+
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var documentError))
+            {
+                return Fail(documentError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
+            }
+
+            if (!package.TryGetXmlDocument(endnotesFile, out var endnotes, out var endnotesError))
+            {
+                return Fail(endnotesError ?? $"Khong tim thay {endnotesFile} trong file hoc sinh.");
+            }
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var comparison = config.CaseSensitive == true ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+            var anchorText = NormalizePlainText(config.AnchorText);
+            var expectedText = NormalizePlainText(config.ExpectedText);
+
+            if (string.IsNullOrWhiteSpace(anchorText) || string.IsNullOrWhiteSpace(expectedText))
+            {
+                return Fail("wordEndnoteConfig.anchorText va expectedText khong duoc rong.");
+            }
+
+            var paragraph = document.Descendants(w + "p")
+                .FirstOrDefault(p => BuildParagraphTextSnapshot(p, w).Text.Contains(anchorText, comparison));
+            if (paragraph == null)
+            {
+                return Fail($"Khong tim thay anchorText '{anchorText}' trong {sourceFile}.");
+            }
+
+            var referenceId = paragraph.Descendants(w + "endnoteReference")
+                .Select(node => node.Attribute(w + "id")?.Value)
+                .FirstOrDefault(id => !string.IsNullOrWhiteSpace(id));
+            if (string.IsNullOrWhiteSpace(referenceId))
+            {
+                return Fail($"Khong tim thay endnoteReference tai anchorText '{anchorText}'.");
+            }
+
+            var endnote = endnotes.Descendants(w + "endnote")
+                .FirstOrDefault(node => string.Equals(node.Attribute(w + "id")?.Value, referenceId, StringComparison.OrdinalIgnoreCase));
+            if (endnote == null)
+            {
+                return Fail($"Khong tim thay noi dung endnote id {referenceId} trong {endnotesFile}.");
+            }
+
+            var noteText = NormalizePlainText(string.Concat(endnote.Descendants(w + "t").Select(t => t.Value)));
+            if (!noteText.Contains(expectedText, comparison))
+            {
+                return Fail($"Endnote id {referenceId} co noi dung '{noteText}' khong chua expectedText '{expectedText}'.");
+            }
+
+            var expectedNumberFormat = string.IsNullOrWhiteSpace(config.ExpectedNumberFormat) ? null : config.ExpectedNumberFormat.Trim();
+            if (!string.IsNullOrWhiteSpace(expectedNumberFormat))
+            {
+                var actualNumberFormat = document.Descendants(w + "endnotePr")
+                    .Elements(w + "numFmt")
+                    .Select(node => node.Attribute(w + "val")?.Value)
+                    .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+                actualNumberFormat ??= endnotes.Descendants(w + "endnotePr")
+                    .Elements(w + "numFmt")
+                    .Select(node => node.Attribute(w + "val")?.Value)
+                    .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+                actualNumberFormat ??= "decimal";
+
+                if (!string.Equals(actualNumberFormat, expectedNumberFormat, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Fail($"Endnote numbering format la '{actualNumberFormat}', yeu cau '{expectedNumberFormat}'.");
+                }
+            }
+
+            return new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Da tim thay endnote id {referenceId} dung anchor va noi dung." };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordSmartArt(
+            WordSmartArtConfig? config,
+            OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+
+            if (config == null)
+            {
+                return Fail("Chua cau hinh Word SmartArt (wordSmartArtConfig trong).");
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
+            var dataFile = string.IsNullOrWhiteSpace(config.DataFile) ? "word/diagrams/data1.xml" : NormalizeSourceFile(config.DataFile);
+            var colorsFile = string.IsNullOrWhiteSpace(config.ColorsFile) ? "word/diagrams/colors1.xml" : NormalizeSourceFile(config.ColorsFile);
+
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var documentError))
+            {
+                return Fail(documentError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
+            }
+
+            if (!package.TryGetXmlDocument(dataFile, out var data, out var dataError))
+            {
+                return Fail(dataError ?? $"Khong tim thay {dataFile} trong file hoc sinh.");
+            }
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            XNamespace dgm = "http://schemas.openxmlformats.org/drawingml/2006/diagram";
+            XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+            XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
+            var comparison = config.CaseSensitive == true ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+
+            if (!string.IsNullOrWhiteSpace(config.BeforeText) || !string.IsNullOrWhiteSpace(config.AfterText))
+            {
+                var paragraphs = document.Descendants(w + "body").Elements(w + "p").ToList();
+                var smartArtIndex = paragraphs.FindIndex(p => p.Descendants().Any(e => e.Name.LocalName == "relIds" || string.Equals(e.Attribute(r + "dm")?.Value, Path.GetFileNameWithoutExtension(dataFile), StringComparison.OrdinalIgnoreCase)));
+                if (smartArtIndex < 0)
+                {
+                    smartArtIndex = paragraphs.FindIndex(p => p.Descendants().Any(e => string.Equals(e.Name.LocalName, "graphicData", StringComparison.OrdinalIgnoreCase)));
+                }
+
+                if (smartArtIndex < 0)
+                {
+                    return Fail("Khong tim thay SmartArt trong document.xml de kiem tra vi tri.");
+                }
+
+                var beforeHaystack = NormalizePlainText(string.Join(" ", paragraphs.Take(smartArtIndex).Select(p => BuildParagraphTextSnapshot(p, w).Text)));
+                var afterHaystack = NormalizePlainText(string.Join(" ", paragraphs.Skip(smartArtIndex + 1).Select(p => BuildParagraphTextSnapshot(p, w).Text)));
+
+                var afterText = NormalizePlainText(config.AfterText);
+                if (!string.IsNullOrWhiteSpace(afterText) && !beforeHaystack.Contains(afterText, comparison))
+                {
+                    return Fail($"SmartArt khong nam sau anchorText '{afterText}'.");
+                }
+
+                var beforeText = NormalizePlainText(config.BeforeText);
+                if (!string.IsNullOrWhiteSpace(beforeText) && !afterHaystack.Contains(beforeText, comparison))
+                {
+                    return Fail($"SmartArt khong nam truoc beforeText '{beforeText}'.");
+                }
+            }
+
+            if (config.ExpectedShapeCount.HasValue)
+            {
+                var shapeCount = data.Descendants(dgm + "pt")
+                    .Count(pt => string.Equals(pt.Attribute("type")?.Value, "node", StringComparison.OrdinalIgnoreCase)
+                        || pt.Descendants(dgm + "t").Any());
+                if (shapeCount != config.ExpectedShapeCount.Value)
+                {
+                    return Fail($"SmartArt co {shapeCount} node/shape, yeu cau {config.ExpectedShapeCount.Value}.");
+                }
+            }
+
+            var expectedText = NormalizePlainText(config.ExpectedText);
+            if (!string.IsNullOrWhiteSpace(expectedText))
+            {
+                var allText = NormalizePlainText(string.Join(" ", data.Descendants().Where(e => e.Name.LocalName == "t").Select(e => e.Value)));
+                if (!allText.Contains(expectedText, comparison))
+                {
+                    return Fail($"SmartArt khong chua text '{expectedText}'.");
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.ExpectedColorStyle))
+            {
+                if (!package.TryGetXmlDocument(colorsFile, out var colors, out var colorsError))
+                {
+                    return Fail(colorsError ?? $"Khong tim thay {colorsFile} trong file hoc sinh.");
+                }
+
+                var expectedColorStyle = NormalizePlainText(config.ExpectedColorStyle);
+                var colorHaystack = NormalizePlainText(colors.ToString(SaveOptions.DisableFormatting));
+                if (!colorHaystack.Contains(expectedColorStyle, StringComparison.OrdinalIgnoreCase))
+                {
+                    var colorStyleLabels = new[] { "accent5", "accent6", "accent 5", "accent 6" };
+                    var acceptsAccent5To6 = expectedColorStyle.Contains("accent5_6", StringComparison.OrdinalIgnoreCase)
+                        || expectedColorStyle.Contains("accent 5", StringComparison.OrdinalIgnoreCase);
+                    if (!acceptsAccent5To6 || colorStyleLabels.Any(label => !colorHaystack.Contains(label, StringComparison.OrdinalIgnoreCase)))
+                    {
+                        return Fail($"SmartArt color style khong khop expectedColorStyle '{config.ExpectedColorStyle}'.");
+                    }
+                }
+            }
+
+            return new SpecialConditionEvalOutcome { IsPassed = true, Message = "SmartArt dap ung cac dieu kien yeu cau." };
         }
 
         private static SpecialConditionEvalOutcome EvaluatePictureStyle(
@@ -9100,6 +9332,16 @@ namespace MOS.ExcelGrading.Core.Services
                 ValidateSectionBreakBeforeTextSpecialCondition(specialCondition, taskPrefix, result);
             }
 
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateWordEndnoteSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateWordSmartArtSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase))
             {
                 ValidatePictureStyleSpecialCondition(specialCondition, taskPrefix, result);
@@ -10197,6 +10439,84 @@ namespace MOS.ExcelGrading.Core.Services
             if (config.TargetOccurrence.HasValue && config.TargetOccurrence.Value <= 0)
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.sectionBreakBeforeTextConfig.targetOccurrence phai lon hon 0.");
+            }
+
+            if (config.ExpectedColumnCount.HasValue && config.ExpectedColumnCount.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.sectionBreakBeforeTextConfig.expectedColumnCount phai lon hon 0.");
+            }
+        }
+
+        private static void ValidateWordEndnoteSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.WordEndnoteConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.wordEndnoteConfig khong duoc null.");
+                return;
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : config.SourceFile;
+            var endnotesFile = string.IsNullOrWhiteSpace(config.EndnotesFile) ? "word/endnotes.xml" : config.EndnotesFile;
+            if (!IsSafeSourceFile(sourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.wordEndnoteConfig.sourceFile khong hop le.");
+            }
+            if (!IsSafeSourceFile(endnotesFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.wordEndnoteConfig.endnotesFile khong hop le.");
+            }
+            if (string.IsNullOrWhiteSpace(config.AnchorText))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.wordEndnoteConfig.anchorText khong duoc rong.");
+            }
+            if (string.IsNullOrWhiteSpace(config.ExpectedText))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.wordEndnoteConfig.expectedText khong duoc rong.");
+            }
+        }
+
+        private static void ValidateWordSmartArtSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.WordSmartArtConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.wordSmartArtConfig khong duoc null.");
+                return;
+            }
+
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : config.SourceFile;
+            var dataFile = string.IsNullOrWhiteSpace(config.DataFile) ? "word/diagrams/data1.xml" : config.DataFile;
+            var colorsFile = string.IsNullOrWhiteSpace(config.ColorsFile) ? "word/diagrams/colors1.xml" : config.ColorsFile;
+            if (!IsSafeSourceFile(sourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.wordSmartArtConfig.sourceFile khong hop le.");
+            }
+            if (!IsSafeSourceFile(dataFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.wordSmartArtConfig.dataFile khong hop le.");
+            }
+            if (!IsSafeSourceFile(colorsFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.wordSmartArtConfig.colorsFile khong hop le.");
+            }
+            if (config.ExpectedShapeCount.HasValue && config.ExpectedShapeCount.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.wordSmartArtConfig.expectedShapeCount phai lon hon 0.");
+            }
+            if (string.IsNullOrWhiteSpace(config.ExpectedColorStyle)
+                && !config.ExpectedShapeCount.HasValue
+                && string.IsNullOrWhiteSpace(config.ExpectedText)
+                && string.IsNullOrWhiteSpace(config.BeforeText)
+                && string.IsNullOrWhiteSpace(config.AfterText))
+            {
+                result.Warnings.Add($"{taskPrefix}.specialCondition.wordSmartArtConfig khong co dieu kien cu the de cham.");
             }
         }
 

@@ -7170,12 +7170,46 @@ namespace MOS.ExcelGrading.Core.Services
             var commentsExtendedFile = string.IsNullOrWhiteSpace(config.CommentsExtendedFile) ? "word/commentsExtended.xml" : NormalizeSourceFile(config.CommentsExtendedFile);
             if (!package.TryGetXmlDocument(commentsExtendedFile, out var document, out var error)) return Fail(error ?? $"Khong tim thay {commentsExtendedFile}; comment co the chua duoc resolve.");
             XNamespace w15 = "http://schemas.microsoft.com/office/word/2012/wordml";
+            XNamespace w14 = "http://schemas.microsoft.com/office/word/2010/wordml";
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
             var comments = document.Descendants(w15 + "commentEx").ToList();
             if (comments.Count == 0) return Fail("Khong tim thay commentEx nao de xac minh resolved.");
+
+            if (!string.IsNullOrWhiteSpace(config.TargetText))
+            {
+                const string commentsFile = "word/comments.xml";
+                if (!package.TryGetXmlDocument(commentsFile, out var commentsDocument, out var commentsError)) return Fail(commentsError ?? $"Khong tim thay {commentsFile} de xac dinh comment theo noi dung.");
+
+                var expectedText = NormalizeComparableCommentText(config.TargetText);
+                var matchedCommentParaIds = commentsDocument
+                    .Descendants(w + "comment")
+                    .Where(comment => NormalizeComparableCommentText(string.Concat(comment.Descendants(w + "t").Select(t => t.Value))).Contains(expectedText, StringComparison.OrdinalIgnoreCase))
+                    .Select(comment => comment.Descendants(w + "p")
+                        .Select(p => p.Attribute(w14 + "paraId")?.Value ?? p.Attribute(w15 + "paraId")?.Value)
+                        .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)))
+                    .Where(value => !string.IsNullOrWhiteSpace(value))
+                    .Select(value => value!)
+                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+                if (matchedCommentParaIds.Count == 0) return Fail($"Khong tim thay comment co noi dung chua '{config.TargetText}'.");
+
+                var targetedComments = comments
+                    .Where(comment => matchedCommentParaIds.Contains(comment.Attribute(w15 + "paraId")?.Value ?? string.Empty))
+                    .ToList();
+
+                if (targetedComments.Count == 0) return Fail($"Tim thay comment theo noi dung '{config.TargetText}' nhung khong tim thay commentEx tuong ung de xac minh resolved.");
+
+                var unresolvedTargeted = targetedComments.Where(c => !string.Equals(c.Attribute(w15 + "done")?.Value, "1", StringComparison.OrdinalIgnoreCase)).ToList();
+                if (unresolvedTargeted.Count > 0) return Fail($"Comment co noi dung '{config.TargetText}' chua duoc resolve.");
+                return new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Comment co noi dung '{config.TargetText}' da duoc resolve." };
+            }
+
             var unresolved = comments.Where(c => !string.Equals(c.Attribute(w15 + "done")?.Value, "1", StringComparison.OrdinalIgnoreCase)).ToList();
             if (config.RequireAllResolved != false && unresolved.Count > 0) return Fail($"Con {unresolved.Count} comment chua duoc resolve.");
             return new SpecialConditionEvalOutcome { IsPassed = true, Message = "Comment da duoc resolve." };
         }
+
+        private static string NormalizeComparableCommentText(string? value) => Regex.Replace(value ?? string.Empty, "\\s+", " ").Trim();
 
         private static string NormalizeStyleName(string? value) => Regex.Replace(value ?? string.Empty, "[^A-Za-z0-9]", string.Empty);
 

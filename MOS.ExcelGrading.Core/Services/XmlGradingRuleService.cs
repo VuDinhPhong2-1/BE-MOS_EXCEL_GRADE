@@ -7146,12 +7146,21 @@ namespace MOS.ExcelGrading.Core.Services
             XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
             var paragraphs = document.Descendants(w + "body").Descendants(w + "p").ToList();
             var anchor = NormalizePlainText(config.AnchorText);
+            var endAnchor = NormalizePlainText(config.EndAnchorText);
             var start = string.IsNullOrWhiteSpace(anchor) ? 0 : paragraphs.FindIndex(p => BuildParagraphTextSnapshot(p, w).Text.Contains(anchor, StringComparison.OrdinalIgnoreCase)) + 1;
             if (start <= 0 && !string.IsNullOrWhiteSpace(anchor)) return Fail($"Khong tim thay anchorText '{anchor}'.");
+            var end = paragraphs.Count;
+            if (!string.IsNullOrWhiteSpace(endAnchor))
+            {
+                var endIndex = paragraphs.Skip(start).ToList().FindIndex(p => BuildParagraphTextSnapshot(p, w).Text.Contains(endAnchor, StringComparison.OrdinalIgnoreCase));
+                if (endIndex < 0) return Fail($"Khong tim thay endAnchorText '{endAnchor}' sau anchorText.");
+                end = start + endIndex;
+            }
             var matched = 0;
             var foundTargetListRegion = false;
             var hasAnchor = !string.IsNullOrWhiteSpace(anchor);
-            foreach (var p in paragraphs.Skip(start))
+            var hasEndAnchor = !string.IsNullOrWhiteSpace(endAnchor);
+            foreach (var p in paragraphs.Skip(start).Take(Math.Max(0, end - start)))
             {
                 var numPr = p.Element(w + "pPr")?.Element(w + "numPr");
                 var numId = numPr?.Element(w + "numId")?.Attribute(w + "val")?.Value;
@@ -7159,7 +7168,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (string.IsNullOrWhiteSpace(numId))
                 {
-                    if (hasAnchor && foundTargetListRegion && !string.IsNullOrWhiteSpace(BuildParagraphTextSnapshot(p, w).Text))
+                    if (!hasEndAnchor && hasAnchor && foundTargetListRegion && !string.IsNullOrWhiteSpace(BuildParagraphTextSnapshot(p, w).Text))
                     {
                         break;
                     }

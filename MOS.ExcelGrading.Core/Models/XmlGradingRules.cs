@@ -1300,6 +1300,10 @@ public static class ImageWrapTypes
         [JsonPropertyName("anchorText")]
         public string? AnchorText { get; set; }
 
+        [BsonElement("endAnchorText")]
+        [JsonPropertyName("endAnchorText")]
+        public string? EndAnchorText { get; set; }
+
         [BsonElement("expectedBulletChar")]
         [JsonPropertyName("expectedBulletChar")]
         public string? ExpectedBulletChar { get; set; }

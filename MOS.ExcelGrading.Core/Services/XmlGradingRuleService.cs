@@ -7292,10 +7292,17 @@ namespace MOS.ExcelGrading.Core.Services
 
             return text switch
             {
-                "■" or "" or "\uF06E" or "n" => "solid-square",
-                "•" or "" or "·" => "solid-disc",
-                "○" or "o" or "O" or "¡" => "hollow-circle",
-                "✓" or "✔" or "" or "ü" => "checkmark",
+                "•" or "●" or "∙" or "·" or "" or "\uF0B7" => "solid-disc",
+                "○" or "◦" or "∘" or "o" or "O" or "¡" or "" or "\uF0A1" => "hollow-circle",
+                "■" or "▪" or "◼" or "◾" or "" or "\uF06E" or "n" => "solid-square",
+                "□" or "▫" or "◻" or "◽" or "❑" or "q" or "" or "\uF0A8" => "hollow-square",
+                "◆" or "♦" or "❖" or "❯" or "" or "\uF075" => "solid-diamond",
+                "◇" or "◊" or "♢" or "❖" or "" or "\uF076" => "hollow-diamond",
+                "➢" or "➣" or "➪" or "➫" or "➬" or "➭" or "➮" or "" or "\uF0D8" => "arrow",
+                "➤" or "►" or "▶" or "➜" or "➲" or "➳" or "" or "\uF0E8" => "solid-arrow",
+                "➔" or "→" or "⇒" or "➙" or "➛" or "➝" or "➞" or "" or "\uF0E0" => "right-arrow",
+                "✓" or "✔" or "☑" or "" or "ü" or "\uF0FC" => "checkmark",
+                "★" or "✭" or "✮" or "✯" or "✰" or "✪" or "✫" or "✬" or "" or "\uF0AB" => "solid-star",
                 _ => text
             };
         }

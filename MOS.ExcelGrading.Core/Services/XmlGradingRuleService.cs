@@ -7136,14 +7136,15 @@ namespace MOS.ExcelGrading.Core.Services
         {
             static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
             if (config == null) return Fail("Chua cau hinh Word Bullet Style (wordBulletStyleConfig trong).");
-            var expectedChar = config.ExpectedBulletChar;
-            if (string.IsNullOrEmpty(expectedChar)) return Fail("wordBulletStyleConfig.expectedBulletChar khong duoc rong.");
+            var expectedChar = string.IsNullOrWhiteSpace(config.ExpectedBulletChar)
+                ? "■"
+                : config.ExpectedBulletChar.Trim();
             var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
             var numberingFile = string.IsNullOrWhiteSpace(config.NumberingFile) ? "word/numbering.xml" : NormalizeSourceFile(config.NumberingFile);
             if (!package.TryGetXmlDocument(sourceFile, out var document, out var docError)) return Fail(docError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
             if (!package.TryGetXmlDocument(numberingFile, out var numbering, out var numError)) return Fail(numError ?? $"Khong tim thay {numberingFile} trong file hoc sinh.");
             XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
-            var paragraphs = document.Descendants(w + "body").Elements(w + "p").ToList();
+            var paragraphs = document.Descendants(w + "body").Descendants(w + "p").ToList();
             var anchor = NormalizePlainText(config.AnchorText);
             var start = string.IsNullOrWhiteSpace(anchor) ? 0 : paragraphs.FindIndex(p => BuildParagraphTextSnapshot(p, w).Text.Contains(anchor, StringComparison.OrdinalIgnoreCase)) + 1;
             if (start <= 0 && !string.IsNullOrWhiteSpace(anchor)) return Fail($"Khong tim thay anchorText '{anchor}'.");

@@ -1,4 +1,4 @@
-﻿using MongoDB.Driver;
+using MongoDB.Driver;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
 using Microsoft.Extensions.Logging;
@@ -452,7 +452,7 @@ namespace MOS.ExcelGrading.Core.Services
                 .AnyAsync();
             if (exists)
             {
-                throw new InvalidOperationException($"Project {project.ProjectCode} Ä‘Ã£ tá»“n táº¡i trong ruleset.");
+                throw new InvalidOperationException($"Project {project.ProjectCode} đã tồn tại trong ruleset.");
             }
 
             var nextSortOrder = (int)await _ruleProjects.CountDocumentsAsync(existing => existing.RuleSetId == ruleSet.Id);
@@ -539,7 +539,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (project.Tasks.Any(existing => string.Equals(existing.TaskId, task.TaskId, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new InvalidOperationException($"Task {task.TaskId} Ä‘Ã£ tá»“n táº¡i trong project {project.ProjectCode}.");
+                throw new InvalidOperationException($"Task {task.TaskId} đã tồn tại trong project {project.ProjectCode}.");
             }
 
             project.Tasks.Add(task);
@@ -625,7 +625,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (task.Conditions.Any(existing => string.Equals(existing.ConditionId, condition.ConditionId, StringComparison.OrdinalIgnoreCase)))
             {
-                throw new InvalidOperationException($"Condition {condition.ConditionId} Ä‘Ã£ tá»“n táº¡i trong task {task.TaskId}.");
+                throw new InvalidOperationException($"Condition {condition.ConditionId} đã tồn tại trong task {task.TaskId}.");
             }
 
             task.Conditions.Add(condition);
@@ -815,7 +815,7 @@ namespace MOS.ExcelGrading.Core.Services
             if (existingRuleSet != null)
             {
                 return await UpdateRuleSetAsync(existingRuleSet.Id, ruleSet)
-                    ?? throw new InvalidOperationException("Không thể cập nhật XML grading ruleset seed.");
+                    ?? throw new InvalidOperationException("Khng thể cập nhật XML grading ruleset seed.");
             }
 
             return await CreateRuleSetAsync(ruleSet);
@@ -827,13 +827,13 @@ namespace MOS.ExcelGrading.Core.Services
             var phaseStopwatch = Stopwatch.StartNew();
 
             var ruleSet = await GetActiveRuleSetAsync(subject, projectCode)
-                ?? throw new InvalidOperationException($"KhÃ´ng tÃ¬m tháº¥y XML grading ruleset active cho {subject}/{projectCode}.");
+                ?? throw new InvalidOperationException($"Không tìm thấy XML grading ruleset active cho {subject}/{projectCode}.");
 
             var rulesetMs = phaseStopwatch.ElapsedMilliseconds;
 
             var projectRule = ruleSet.Projects.FirstOrDefault(project =>
                 string.Equals(project.ProjectCode, NormalizeKey(projectCode), StringComparison.OrdinalIgnoreCase))
-                ?? throw new InvalidOperationException($"KhÃ´ng tÃ¬m tháº¥y project rule cho {projectCode}.");
+                ?? throw new InvalidOperationException($"Không tìm thấy project rule cho {projectCode}.");
 
             phaseStopwatch.Restart();
             var requiredParts = CollectRequiredOfficeParts(projectRule);
@@ -860,11 +860,11 @@ namespace MOS.ExcelGrading.Core.Services
                     MaxScore = taskRule.MaxScore
                 };
 
-                // ===== SPECIAL CONDITION (cáº¥p Task) =====
-                // Hoáº¡t Ä‘á»™ng nhÆ° má»™t "gate" + cÃ³ Ä‘iá»ƒm riÃªng: náº¿u Task cÃ³ specialCondition
-                // mÃ  nÃ³ FAIL, toÃ n bá»™ Task = 0 Ä‘iá»ƒm báº¥t ká»ƒ conditions XML thÆ°á»ng cÃ³ Ä‘Ãºng
-                // hay khÃ´ng. Náº¿u PASS, cá»™ng thÃªm SpecialCondition.Score vÃ o Ä‘iá»ƒm Task
-                // (Ä‘á»™c láº­p vá»›i Ä‘iá»ƒm cÃ¡c Conditions XML, khÃ´ng cÃ²n "Äƒn trá»n" MaxScore).
+                // ===== SPECIAL CONDITION (cấp Task) =====
+                // Hoạt động như một "gate" + có điểm riêng: nếu Task có specialCondition
+                // mà nó FAIL, toàn bộ Task = 0 điểm bất kể conditions XML thường có đúng
+                // hay không. Nếu PASS, cộng thêm SpecialCondition.Score vào điểm Task
+                // (độc lập với điểm các Conditions XML, không còn "ăn trọn" MaxScore).
                 var hasSpecialCondition = taskRule.SpecialCondition != null
                     && !string.IsNullOrWhiteSpace(taskRule.SpecialCondition.Type);
 
@@ -884,9 +884,9 @@ namespace MOS.ExcelGrading.Core.Services
                             ? $"[SpecialCondition:{taskRule.SpecialCondition!.Type}] {specialResult.Message}"
                             : successDetail);
 
-                        // Cá»™ng Ä‘iá»ƒm riÃªng cá»§a specialCondition do ngÆ°á»i táº¡o ruleset cáº¥u hÃ¬nh.
-                        // Cho phÃ©p Task chá»‰ dÃ¹ng specialCondition (0 condition XML) hoáº·c
-                        // káº¿t há»£p cáº£ hai, miá»…n tá»•ng = task.maxScore (Ä‘Æ°á»£c validate á»Ÿ ValidateRuleSet).
+                        // Cộng điểm riêng của specialCondition do người tạo ruleset cấu hình.
+                        // Cho phép Task chỉ dùng specialCondition (0 condition XML) hoặc
+                        // kết hợp cả hai, miễn tổng = task.maxScore (được validate ở ValidateRuleSet).
                         taskResult.Score += taskRule.SpecialCondition!.Score;
                     }
                     else
@@ -961,7 +961,7 @@ namespace MOS.ExcelGrading.Core.Services
                         break;
                     }
                 }
-                // Special condition FAIL -> zero toÃ n bá»™ Task, ká»ƒ cáº£ khi cÃ³ conditions XML Ä‘Ã£ Ä‘áº¡t Ä‘iá»ƒm.
+                // Special condition FAIL -> zero toàn bộ Task, kể cả khi có conditions XML đã đạt điểm.
                 conditionsMs += phaseStopwatch.ElapsedMilliseconds;
                 if (hasSpecialCondition && !specialConditionPassed)
                 {
@@ -1047,7 +1047,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 task.SpecialCondition.Type = task.SpecialCondition.Type?.Trim() ?? string.Empty;
 
-                // Náº¿u FE gá»­i type rá»—ng (ngÆ°á»i dÃ¹ng chá»n "KhÃ´ng sá»­ dá»¥ng"), coi nhÆ° khÃ´ng cÃ³ special condition.
+                // Nếu FE gửi type rỗng (người dùng chọn "Không sử dụng"), coi như không có special condition.
                 if (string.IsNullOrWhiteSpace(task.SpecialCondition.Type))
                 {
                     task.SpecialCondition = null;
@@ -1075,17 +1075,17 @@ namespace MOS.ExcelGrading.Core.Services
                             ? null
                             : ImageHashUtility.NormalizeHash(task.SpecialCondition.Config.ImageHash);
 
-                        // Má»šI: dHash luÃ´n lÃ  hex 16 kÃ½ tá»± cá»‘ Ä‘á»‹nh, chá»‰ cáº§n trim + lowercase,
-                        // khÃ´ng cáº§n NormalizeHash (hÃ m Ä‘Ã³ dÃ nh riÃªng cho SHA-256).
+                        // MỚI: dHash luôn là hex 16 ký tự cố định, chỉ cần trim + lowercase,
+                        // không cần NormalizeHash (hàm đó dành riêng cho SHA-256).
                         task.SpecialCondition.Config.PerceptualHash = string.IsNullOrWhiteSpace(task.SpecialCondition.Config.PerceptualHash)
                             ? null
                             : task.SpecialCondition.Config.PerceptualHash.Trim().ToLowerInvariant();
                     }
 
                     // ===== Normalize cho type = insertedImage =====
-                    // TÃ¡ch riÃªng khá»‘i config nÃ y vá»›i pictureBullet á»Ÿ trÃªn vÃ¬ 2 loáº¡i
-                    // special condition dÃ¹ng 2 property config khÃ¡c nhau
-                    // (Config vs ImageInsertConfig), khÃ´ng lá»“ng chung 1 object.
+                    // Tách riêng khối config này với pictureBullet ở trên vì 2 loại
+                    // special condition dùng 2 property config khác nhau
+                    // (Config vs ImageInsertConfig), không lồng chung 1 object.
                     if (task.SpecialCondition.ImageInsertConfig != null)
                     {
                         var imageInsertConfig = task.SpecialCondition.ImageInsertConfig;
@@ -1106,14 +1106,14 @@ namespace MOS.ExcelGrading.Core.Services
                             ? null
                             : ImageHashUtility.NormalizeHash(imageInsertConfig.ImageHash);
 
-                        // Má»šI
+                        // MỚI
                         imageInsertConfig.PerceptualHash = string.IsNullOrWhiteSpace(imageInsertConfig.PerceptualHash)
                             ? null
                             : imageInsertConfig.PerceptualHash.Trim().ToLowerInvariant();
 
-                        // wrapType lÃ  optional: rá»—ng nghÄ©a lÃ  khÃ´ng cáº§n kiá»ƒm tra
-                        // cháº¿ Ä‘á»™ ngáº¯t dÃ²ng, chá»‰ kiá»ƒm tra Ä‘Ãºng áº£nh. Trim + Ä‘á»ƒ null
-                        // náº¿u rá»—ng Ä‘á»ƒ trÃ¡nh lÆ°u chuá»—i khoáº£ng tráº¯ng vÃ o DB.
+                        // wrapType là optional: rỗng nghĩa là không cần kiểm tra
+                        // chế độ ngắt dòng, chỉ kiểm tra đúng ảnh. Trim + để null
+                        // nếu rỗng để tránh lưu chuỗi khoảng trắng vào DB.
                         imageInsertConfig.WrapType = string.IsNullOrWhiteSpace(imageInsertConfig.WrapType)
                             ? null
                             : imageInsertConfig.WrapType.Trim();
@@ -1804,12 +1804,12 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (string.IsNullOrWhiteSpace(ruleSet.Subject))
             {
-                throw new InvalidOperationException("Subject lÃ  báº¯t buá»™c.");
+                throw new InvalidOperationException("Subject là bắt buộc.");
             }
 
             if (string.IsNullOrWhiteSpace(ruleSet.Version))
             {
-                throw new InvalidOperationException("Version lÃ  báº¯t buá»™c.");
+                throw new InvalidOperationException("Version là bắt buộc.");
             }
         }
 
@@ -1817,12 +1817,12 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (string.IsNullOrWhiteSpace(project.ProjectCode))
             {
-                throw new InvalidOperationException("ProjectCode lÃ  báº¯t buá»™c.");
+                throw new InvalidOperationException("ProjectCode là bắt buộc.");
             }
 
             if (project.MaxScore <= 0)
             {
-                throw new InvalidOperationException("Project maxScore pháº£i lá»›n hÆ¡n 0.");
+                throw new InvalidOperationException("Project maxScore phải lớn hơn 0.");
             }
         }
 
@@ -1830,24 +1830,24 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (string.IsNullOrWhiteSpace(task.TaskId))
             {
-                throw new InvalidOperationException("TaskId lÃ  báº¯t buá»™c.");
+                throw new InvalidOperationException("TaskId là bắt buộc.");
             }
 
             if (task.MaxScore <= 0)
             {
-                throw new InvalidOperationException("Task maxScore pháº£i lá»›n hÆ¡n 0.");
+                throw new InvalidOperationException("Task maxScore phải lớn hơn 0.");
             }
 
             if (task.SpecialCondition != null)
             {
                 if (!SpecialConditionTypes.Supported.Contains(task.SpecialCondition.Type))
                 {
-                    throw new InvalidOperationException($"specialCondition.type khÃ´ng Ä‘Æ°á»£c há»— trá»£: {task.SpecialCondition.Type}.");
+                    throw new InvalidOperationException($"specialCondition.type không được hỗ trợ: {task.SpecialCondition.Type}.");
                 }
 
                 if (task.SpecialCondition.Score <= 0)
                 {
-                    throw new InvalidOperationException("specialCondition.score pháº£i lá»›n hÆ¡n 0.");
+                    throw new InvalidOperationException("specialCondition.score phải lớn hơn 0.");
                 }
             }
         }
@@ -1856,37 +1856,37 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (string.IsNullOrWhiteSpace(condition.ConditionId))
             {
-                throw new InvalidOperationException("ConditionId lÃ  báº¯t buá»™c.");
+                throw new InvalidOperationException("ConditionId là bắt buộc.");
             }
 
             if (condition.Score <= 0)
             {
-                throw new InvalidOperationException("Condition score pháº£i lá»›n hÆ¡n 0.");
+                throw new InvalidOperationException("Condition score phải lớn hơn 0.");
             }
 
             if (!IsSafeSourceFile(condition.SourceFile))
             {
-                throw new InvalidOperationException("sourceFile pháº£i lÃ  Ä‘Æ°á»ng dáº«n XML an toÃ n trong Office package.");
+                throw new InvalidOperationException("sourceFile phải là đường dẫn XML an toàn trong Office package.");
             }
 
             if (condition.ExpectedVariants == null || condition.ExpectedVariants.Count == 0)
             {
-                throw new InvalidOperationException("expectedVariants lÃ  báº¯t buá»™c.");
+                throw new InvalidOperationException("expectedVariants là bắt buộc.");
             }
 
             if (condition.ExpectedVariants.Any(variant => variant == null || variant.ExpectedValues.Count == 0))
             {
-                throw new InvalidOperationException("Má»—i expectedVariant pháº£i cÃ³ Ã­t nháº¥t 1 expectedValues.");
+                throw new InvalidOperationException("Mỗi expectedVariant phải có ít nhất 1 expectedValues.");
             }
 
             if (!XmlGradingCompareModes.Supported.Contains(condition.CompareMode))
             {
-                throw new InvalidOperationException($"compareMode khÃ´ng há»— trá»£: {condition.CompareMode}.");
+                throw new InvalidOperationException($"compareMode không hỗ trợ: {condition.CompareMode}.");
             }
 
             if (!XmlGradingMatchPolicies.Supported.Contains(condition.MatchPolicy))
             {
-                throw new InvalidOperationException($"matchPolicy khÃ´ng há»— trá»£: {condition.MatchPolicy}.");
+                throw new InvalidOperationException($"matchPolicy không hỗ trợ: {condition.MatchPolicy}.");
             }
         }
 
@@ -2704,7 +2704,7 @@ namespace MOS.ExcelGrading.Core.Services
                         .Distinct(StringComparer.Ordinal));
                 if (string.IsNullOrWhiteSpace(result.Feedback.ErrorMessage))
                 {
-                    result.Feedback.ErrorMessage = $"KhÃ´ng tÃ¬m tháº¥y XML part {result.SourceFile} trong file há»c sinh.";
+                    result.Feedback.ErrorMessage = $"Không tìm thấy XML part {result.SourceFile} trong file học sinh.";
                 }
 
                 return result;
@@ -2758,8 +2758,8 @@ namespace MOS.ExcelGrading.Core.Services
         }
 
         /// <summary>
-        /// Káº¿t quáº£ ná»™i bá»™ khi Ä‘Ã¡nh giÃ¡ 1 Special Condition (khÃ´ng phÆ¡i ra ngoÃ i API,
-        /// chá»‰ dÃ¹ng Ä‘á»ƒ build message cho taskResult.Details/Errors).
+        /// Kết quả nội bộ khi đánh giá 1 Special Condition (không phơi ra ngoài API,
+        /// chỉ dùng để build message cho taskResult.Details/Errors).
         /// </summary>
         private sealed class SpecialConditionEvalOutcome
         {
@@ -2783,7 +2783,7 @@ namespace MOS.ExcelGrading.Core.Services
                 return EvaluatePictureBullet(specialCondition.Config, package);
             }
 
-            // Má»šI
+            // MỚI
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateInsertedImage(specialCondition.ImageInsertConfig, package);
@@ -2977,15 +2977,15 @@ namespace MOS.ExcelGrading.Core.Services
             return new SpecialConditionEvalOutcome
             {
                 IsPassed = false,
-                Message = $"Special condition khÃ´ng Ä‘Æ°á»£c há»— trá»£: {specialCondition.Type}."
+                Message = $"Special condition không được hỗ trợ: {specialCondition.Type}."
             };
         }
 
         /// <summary>
-        /// So sÃ¡nh áº£nh thá»±c táº¿ vá»›i áº£nh chuáº©n (expectedHash/expectedPerceptualHash).
-        /// Æ¯u tiÃªn perceptual hash (chá»‹u Ä‘Æ°á»£c Word nÃ©n láº¡i JPEG khi save); náº¿u
-        /// ruleset chÆ°a cÃ³ perceptualHash (dá»¯ liá»‡u cÅ©), hoáº·c áº£nh khÃ´ng decode
-        /// Ä‘Æ°á»£c (vd .wmf/.emf), fallback vá» so SHA-256 tuyá»‡t Ä‘á»‘i nhÆ° trÆ°á»›c.
+        /// So sánh ảnh thực tế với ảnh chuẩn (expectedHash/expectedPerceptualHash).
+        /// Ưu tiên perceptual hash (chịu được Word nén lại JPEG khi save); nếu
+        /// ruleset chưa có perceptualHash (dữ liệu cũ), hoặc ảnh không decode
+        /// được (vd .wmf/.emf), fallback về so SHA-256 tuyệt đối như trước.
         /// </summary>
         private static bool IsImageMatch(byte[] imageBytes, string actualSha256Hash, string expectedSha256Hash, string? expectedPerceptualHash)
         {
@@ -2998,7 +2998,7 @@ namespace MOS.ExcelGrading.Core.Services
                 }
                 catch
                 {
-                    // áº¢nh khÃ´ng decode Ä‘Æ°á»£c báº±ng ImageSharp (vd .wmf/.emf) -> fallback SHA-256
+                    // Ảnh không decode được bằng ImageSharp (vd .wmf/.emf) -> fallback SHA-256
                     return string.Equals(actualSha256Hash, expectedSha256Hash, StringComparison.OrdinalIgnoreCase);
                 }
             }
@@ -4800,7 +4800,7 @@ namespace MOS.ExcelGrading.Core.Services
 
         private static bool ContainsExcelCurrencyMarker(string formatCode)
         {
-            return Regex.IsMatch(formatCode, @"(\$|â‚¬|Â£|Â¥|â‚«|â‚©|â‚¹|â‚½|à¸¿|â‚±|vnd|usd|eur|gbp|jpy)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            return Regex.IsMatch(formatCode, @"(\$|€|£|¥|₫|₩|₹|₽|฿|₱|vnd|usd|eur|gbp|jpy)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
         }
 
         private static int CountExcelFormatDecimalPlaces(string formatCode)
@@ -4925,12 +4925,12 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (config == null || string.IsNullOrWhiteSpace(config.Name) || config.ExpectedRanges.Count == 0)
             {
-                return FailSpecialCondition("ChÆ°a cáº¥u hÃ¬nh tÃªn vÃ¹ng hoáº·c vÃ¹ng Ã´ cáº§n kiá»ƒm tra.");
+                return FailSpecialCondition("Chưa cấu hình tên vùng hoặc vùng ô cần kiểm tra.");
             }
 
             if (!package.TryGetXmlDocument("xl/workbook.xml", out var workbookDocument, out var workbookError))
             {
-                return FailSpecialCondition(workbookError ?? "KhÃ´ng tÃ¬m tháº¥y xl/workbook.xml trong file há»c sinh.");
+                return FailSpecialCondition(workbookError ?? "Không tìm thấy xl/workbook.xml trong file học sinh.");
             }
 
             XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -4940,7 +4940,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (definedName == null)
             {
-                return FailSpecialCondition($"ChÆ°a táº¡o named range '{config.Name}'.");
+                return FailSpecialCondition($"Chưa tạo named range '{config.Name}'.");
             }
 
             var actualRanges = SplitExcelDefinedNameRanges(definedName.Value);
@@ -4950,17 +4950,17 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (missingRanges.Count > 0)
             {
-                return FailSpecialCondition($"Named range '{config.Name}' chÆ°a bao gá»“m Ä‘Ãºng vÃ¹ng: {string.Join(", ", missingRanges)}.");
+                return FailSpecialCondition($"Named range '{config.Name}' chưa bao gồm đúng vùng: {string.Join(", ", missingRanges)}.");
             }
 
             if (config.RequireExactRanges == true
                 && (actualRanges.Count != config.ExpectedRanges.Count
                     || actualRanges.Any(actual => !config.ExpectedRanges.Any(expected => ExcelDefinedNameRangeMatches(actual, expected)))))
             {
-                return FailSpecialCondition($"Named range '{config.Name}' cÃ³ thÃªm hoáº·c thiáº¿u vÃ¹ng ngoÃ i cáº¥u hÃ¬nh yÃªu cáº§u.");
+                return FailSpecialCondition($"Named range '{config.Name}' có thêm hoặc thiếu vùng ngoài cấu hình yêu cầu.");
             }
 
-            return PassSpecialCondition($"Named range '{config.Name}' Ä‘Ã£ trá» Ä‘Ãºng cÃ¡c vÃ¹ng yÃªu cáº§u.");
+            return PassSpecialCondition($"Named range '{config.Name}' đã trỏ đúng các vùng yêu cầu.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelFormulaReferences(
@@ -4969,7 +4969,7 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (config == null || string.IsNullOrWhiteSpace(config.Cell))
             {
-                return FailSpecialCondition("ChÆ°a cáº¥u hÃ¬nh Ã´ cÃ´ng thá»©c hoáº·c cÃ¡c named range báº¯t buá»™c.");
+                return FailSpecialCondition("Chưa cấu hình ô công thức hoặc các named range bắt buộc.");
             }
 
             if (config.RequiredReferences.Count == 0
@@ -4978,7 +4978,7 @@ namespace MOS.ExcelGrading.Core.Services
                 && string.IsNullOrWhiteSpace(config.ExpectedFormula)
                 && string.IsNullOrWhiteSpace(config.ExpectedValue))
             {
-                return FailSpecialCondition("Chưa cấu hình tiêu chí kiểm tra công thức.");
+                return FailSpecialCondition("Chưa cấu hnh tiu ch kiểm tra cng thức.");
             }
 
             if (!TryResolveExcelWorksheet(package, config.WorksheetName, config.SourceFile, out var worksheetPath, out var worksheetError))
@@ -4988,7 +4988,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (!package.TryGetXmlDocument(worksheetPath, out var worksheetDocument, out var worksheetDocumentError))
             {
-                return FailSpecialCondition(worksheetDocumentError ?? $"KhÃ´ng tÃ¬m tháº¥y {worksheetPath} trong file há»c sinh.");
+                return FailSpecialCondition(worksheetDocumentError ?? $"Không tìm thấy {worksheetPath} trong file học sinh.");
             }
 
             XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -4998,20 +4998,20 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (cell == null)
             {
-                return FailSpecialCondition($"KhÃ´ng tÃ¬m tháº¥y Ã´ {config.Cell} trong worksheet cáº§n kiá»ƒm tra.");
+                return FailSpecialCondition($"Không tìm thấy ô {config.Cell} trong worksheet cần kiểm tra.");
             }
 
             var formula = cell.Element(x + "f")?.Value;
             var normalizedFormula = NormalizeExcelFormulaText(formula);
             if (string.IsNullOrWhiteSpace(normalizedFormula))
             {
-                return FailSpecialCondition($"Ã” {config.Cell} chÆ°a cÃ³ cÃ´ng thá»©c.");
+                return FailSpecialCondition($"Ô {config.Cell} chưa có công thức.");
             }
 
             if (!string.IsNullOrWhiteSpace(config.ExpectedFormula)
                 && !string.Equals(normalizedFormula, config.ExpectedFormula, StringComparison.OrdinalIgnoreCase))
             {
-                return FailSpecialCondition($"CÃ´ng thá»©c táº¡i Ã´ {config.Cell} chÆ°a khá»›p cÃ´ng thá»©c yÃªu cáº§u.");
+                return FailSpecialCondition($"Công thức tại ô {config.Cell} chưa khớp công thức yêu cầu.");
             }
 
             var missingReferences = config.RequiredReferences
@@ -5019,7 +5019,7 @@ namespace MOS.ExcelGrading.Core.Services
                 .ToList();
             if (missingReferences.Count > 0)
             {
-                return FailSpecialCondition($"CÃ´ng thá»©c táº¡i Ã´ {config.Cell} chÆ°a dÃ¹ng Ä‘á»§ named range: {string.Join(", ", missingReferences)}.");
+                return FailSpecialCondition($"Công thức tại ô {config.Cell} chưa dùng đủ named range: {string.Join(", ", missingReferences)}.");
             }
 
             var missingFunctions = config.RequiredFunctions
@@ -5027,7 +5027,7 @@ namespace MOS.ExcelGrading.Core.Services
                 .ToList();
             if (missingFunctions.Count > 0)
             {
-                return FailSpecialCondition($"CÃ´ng thá»©c táº¡i Ã´ {config.Cell} chÆ°a dÃ¹ng Ä‘á»§ hÃ m báº¯t buá»™c: {string.Join(", ", missingFunctions)}.");
+                return FailSpecialCondition($"Công thức tại ô {config.Cell} chưa dùng đủ hàm bắt buộc: {string.Join(", ", missingFunctions)}.");
             }
 
             var normalizedFragmentFormula = NormalizeExcelFormulaFragment(formula);
@@ -5036,12 +5036,12 @@ namespace MOS.ExcelGrading.Core.Services
                 .ToList();
             if (missingFragments.Count > 0)
             {
-                return FailSpecialCondition($"CÃ´ng thá»©c táº¡i Ã´ {config.Cell} chÆ°a cÃ³ Ä‘á»§ pháº§n cÃ´ng thá»©c báº¯t buá»™c.");
+                return FailSpecialCondition($"Công thức tại ô {config.Cell} chưa có đủ phần công thức bắt buộc.");
             }
 
             if (config.RequireOnlyDefinedNameReferences == true && ExcelFormulaContainsCellReference(normalizedFormula))
             {
-                return FailSpecialCondition($"CÃ´ng thá»©c táº¡i Ã´ {config.Cell} Ä‘ang tham chiáº¿u trá»±c tiáº¿p Ã´/vÃ¹ng thay vÃ¬ chá»‰ dÃ¹ng named range.");
+                return FailSpecialCondition($"Công thức tại ô {config.Cell} đang tham chiếu trực tiếp ô/vùng thay vì chỉ dùng named range.");
             }
 
             if (!string.IsNullOrWhiteSpace(config.ExpectedValue))
@@ -5049,11 +5049,11 @@ namespace MOS.ExcelGrading.Core.Services
                 var actualValue = NormalizePlainText(cell.Element(x + "v")?.Value ?? string.Empty);
                 if (!string.Equals(actualValue, config.ExpectedValue, StringComparison.OrdinalIgnoreCase))
                 {
-                    return FailSpecialCondition($"GiÃ¡ trá»‹ hiá»ƒn thá»‹/lÆ°u táº¡i Ã´ {config.Cell} chÆ°a Ä‘Ãºng.");
+                    return FailSpecialCondition($"Giá trị hiển thị/lưu tại ô {config.Cell} chưa đúng.");
                 }
             }
 
-            return PassSpecialCondition($"Ã” {config.Cell} Ä‘Ã£ dÃ¹ng Ä‘Ãºng cÃ´ng thá»©c vá»›i cÃ¡c named range yÃªu cáº§u.");
+            return PassSpecialCondition($"Ô {config.Cell} đã dùng đúng công thức với các named range yêu cầu.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelNoConditionalFormatting(
@@ -5062,7 +5062,7 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (config == null)
             {
-                return FailSpecialCondition("ChÆ°a cáº¥u hÃ¬nh worksheet cáº§n kiá»ƒm tra conditional formatting.");
+                return FailSpecialCondition("Chưa cấu hình worksheet cần kiểm tra conditional formatting.");
             }
 
             var worksheetPaths = new List<string>();
@@ -5084,7 +5084,7 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 if (!package.TryGetXmlDocument(worksheetPath, out var worksheetDocument, out var worksheetDocumentError))
                 {
-                    return FailSpecialCondition(worksheetDocumentError ?? $"KhÃ´ng tÃ¬m tháº¥y {worksheetPath} trong file há»c sinh.");
+                    return FailSpecialCondition(worksheetDocumentError ?? $"Không tìm thấy {worksheetPath} trong file học sinh.");
                 }
 
                 var hasConditionalFormatting = worksheetDocument
@@ -5093,11 +5093,11 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (hasConditionalFormatting)
                 {
-                    return FailSpecialCondition($"Worksheet {worksheetPath} váº«n cÃ²n conditional formatting.");
+                    return FailSpecialCondition($"Worksheet {worksheetPath} vẫn còn conditional formatting.");
                 }
             }
 
-            return PassSpecialCondition("Worksheet Ä‘Ã£ Ä‘Æ°á»£c xÃ³a toÃ n bá»™ conditional formatting theo yÃªu cáº§u.");
+            return PassSpecialCondition("Worksheet đã được xóa toàn bộ conditional formatting theo yêu cầu.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelTextRotation(
@@ -5106,7 +5106,7 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (config == null || config.ExpectedTexts.Count == 0 || config.AllowedTextRotationValues.Count == 0)
             {
-                return FailSpecialCondition("ChÆ°a cáº¥u hÃ¬nh vÄƒn báº£n hoáº·c gÃ³c xoay cáº§n kiá»ƒm tra.");
+                return FailSpecialCondition("Chưa cấu hình văn bản hoặc góc xoay cần kiểm tra.");
             }
 
             if (!TryResolveExcelWorksheet(package, config.WorksheetName, config.SourceFile, out var worksheetPath, out var worksheetError))
@@ -5116,12 +5116,12 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (!package.TryGetXmlDocument(worksheetPath, out var worksheetDocument, out var worksheetDocumentError))
             {
-                return FailSpecialCondition(worksheetDocumentError ?? $"KhÃ´ng tÃ¬m tháº¥y {worksheetPath} trong file há»c sinh.");
+                return FailSpecialCondition(worksheetDocumentError ?? $"Không tìm thấy {worksheetPath} trong file học sinh.");
             }
 
             if (!package.TryGetXmlDocument("xl/styles.xml", out var stylesDocument, out _))
             {
-                return FailSpecialCondition("KhÃ´ng tÃ¬m tháº¥y xl/styles.xml Ä‘á»ƒ kiá»ƒm tra gÃ³c xoay chá»¯.");
+                return FailSpecialCondition("Không tìm thấy xl/styles.xml để kiểm tra góc xoay chữ.");
             }
 
             XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -5159,15 +5159,15 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (missingTexts.Count > 0 && config.RequireAllTexts == true)
             {
-                return FailSpecialCondition($"CÃ¡c tiÃªu Ä‘á» sau chÆ°a Ä‘Æ°á»£c xoay Ä‘Ãºng Angle Counterclockwise: {string.Join(", ", missingTexts)}.");
+                return FailSpecialCondition($"Các tiêu đề sau chưa được xoay đúng Angle Counterclockwise: {string.Join(", ", missingTexts)}.");
             }
 
             if (matchedTexts.Count == 0)
             {
-                return FailSpecialCondition("ChÆ°a tÃ¬m tháº¥y tiÃªu Ä‘á» nÃ o Ä‘Æ°á»£c xoay Ä‘Ãºng gÃ³c yÃªu cáº§u.");
+                return FailSpecialCondition("Chưa tìm thấy tiêu đề nào được xoay đúng góc yêu cầu.");
             }
 
-            return PassSpecialCondition("CÃ¡c tiÃªu Ä‘á» Ä‘Ã£ Ä‘Æ°á»£c xoay chá»¯ Ä‘Ãºng Angle Counterclockwise.");
+            return PassSpecialCondition("Các tiêu đề đã được xoay chữ đúng Angle Counterclockwise.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelMultiColumnSort(
@@ -5176,7 +5176,7 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (config == null || config.KeyColumns.Count == 0 || config.HeaderRow <= 0)
             {
-                return FailSpecialCondition("ChÆ°a cáº¥u hÃ¬nh worksheet, header row hoáº·c cÃ¡c cá»™t sáº¯p xáº¿p.");
+                return FailSpecialCondition("Chưa cấu hình worksheet, header row hoặc các cột sắp xếp.");
             }
 
             if (!TryResolveExcelWorksheet(package, config.WorksheetName, config.SourceFile, out var worksheetPath, out var worksheetError))
@@ -5186,7 +5186,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (!package.TryGetXmlDocument(worksheetPath, out var worksheetDocument, out var worksheetDocumentError))
             {
-                return FailSpecialCondition(worksheetDocumentError ?? $"KhÃ´ng tÃ¬m tháº¥y {worksheetPath} trong file há»c sinh.");
+                return FailSpecialCondition(worksheetDocumentError ?? $"Không tìm thấy {worksheetPath} trong file học sinh.");
             }
 
             if (!TryResolveExcelSortColumns(config, package, worksheetDocument, out var sortKeys, out var sortError))
@@ -5197,18 +5197,18 @@ namespace MOS.ExcelGrading.Core.Services
             var rows = GetExcelDataRowsForSort(config, package, worksheetDocument);
             if (rows.Count < 2)
             {
-                return FailSpecialCondition("KhÃ´ng Ä‘á»§ dÃ²ng dá»¯ liá»‡u Ä‘á»ƒ kiá»ƒm tra sáº¯p xáº¿p.");
+                return FailSpecialCondition("Không đủ dòng dữ liệu để kiểm tra sắp xếp.");
             }
 
             for (var index = 1; index < rows.Count; index++)
             {
                 if (CompareExcelSortRows(rows[index - 1], rows[index], sortKeys) > 0)
                 {
-                    return FailSpecialCondition($"Dá»¯ liá»‡u chÆ°a Ä‘Æ°á»£c sáº¯p xáº¿p Ä‘Ãºng táº¡i dÃ²ng {rows[index].RowIndex}.");
+                    return FailSpecialCondition($"Dữ liệu chưa được sắp xếp đúng tại dòng {rows[index].RowIndex}.");
                 }
             }
 
-            return PassSpecialCondition("Dá»¯ liá»‡u Ä‘Ã£ Ä‘Æ°á»£c sáº¯p xáº¿p Ä‘Ãºng theo nhiá»u cá»™t yÃªu cáº§u.");
+            return PassSpecialCondition("Dữ liệu đã được sắp xếp đúng theo nhiều cột yêu cầu.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelFreezePanes(
@@ -5217,7 +5217,7 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (config == null)
             {
-                return FailSpecialCondition("ChÆ°a cáº¥u hÃ¬nh worksheet cáº§n kiá»ƒm tra Freeze Panes.");
+                return FailSpecialCondition("Chưa cấu hình worksheet cần kiểm tra Freeze Panes.");
             }
 
             if (!TryResolveExcelWorksheet(package, config.WorksheetName, config.SourceFile, out var worksheetPath, out var worksheetError))
@@ -5227,32 +5227,32 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (!package.TryGetXmlDocument(worksheetPath, out var worksheetDocument, out var worksheetDocumentError))
             {
-                return FailSpecialCondition(worksheetDocumentError ?? $"KhÃ´ng tÃ¬m tháº¥y {worksheetPath} trong file há»c sinh.");
+                return FailSpecialCondition(worksheetDocumentError ?? $"Không tìm thấy {worksheetPath} trong file học sinh.");
             }
 
             XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
             var pane = worksheetDocument.Descendants(x + "pane").FirstOrDefault();
             if (pane == null)
             {
-                return FailSpecialCondition("Worksheet chÆ°a báº­t Freeze Panes.");
+                return FailSpecialCondition("Worksheet chưa bật Freeze Panes.");
             }
 
             var state = pane.Attribute("state")?.Value ?? string.Empty;
             if (!string.Equals(state, "frozen", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(state, "frozenSplit", StringComparison.OrdinalIgnoreCase))
             {
-                return FailSpecialCondition("Worksheet cÃ³ pane nhÆ°ng chÆ°a pháº£i Freeze Panes.");
+                return FailSpecialCondition("Worksheet có pane nhưng chưa phải Freeze Panes.");
             }
 
             if (!string.IsNullOrWhiteSpace(config.TopLeftCell)
                 && !string.Equals(NormalizeExcelCellAddress(pane.Attribute("topLeftCell")?.Value), config.TopLeftCell, StringComparison.OrdinalIgnoreCase))
             {
-                return FailSpecialCondition($"Freeze Panes chÆ°a giá»¯ Ä‘Ãºng cÃ¡c hÃ ng phÃ­a trÃªn Ã´ {config.TopLeftCell}.");
+                return FailSpecialCondition($"Freeze Panes chưa giữ đúng các hàng phía trên ô {config.TopLeftCell}.");
             }
 
             if (config.YSplit.HasValue && !ExcelDecimalAttributeEquals(pane.Attribute("ySplit")?.Value, config.YSplit.Value))
             {
-                return FailSpecialCondition($"Freeze Panes chÆ°a cá»‘ Ä‘á»‹nh Ä‘Ãºng {config.YSplit.Value} hÃ ng Ä‘áº§u.");
+                return FailSpecialCondition($"Freeze Panes chưa cố định đúng {config.YSplit.Value} hàng đầu.");
             }
 
             if (config.RequireNoColumnFreeze == true)
@@ -5260,15 +5260,15 @@ namespace MOS.ExcelGrading.Core.Services
                 var xSplit = ParseExcelDecimal(pane.Attribute("xSplit")?.Value) ?? 0m;
                 if (xSplit != 0m)
                 {
-                    return FailSpecialCondition("Freeze Panes Ä‘ang cá»‘ Ä‘á»‹nh thÃªm cá»™t, trong khi task chá»‰ yÃªu cáº§u cá»‘ Ä‘á»‹nh hÃ ng.");
+                    return FailSpecialCondition("Freeze Panes đang cố định thêm cột, trong khi task chỉ yêu cầu cố định hàng.");
                 }
             }
             else if (config.XSplit.HasValue && !ExcelDecimalAttributeEquals(pane.Attribute("xSplit")?.Value, config.XSplit.Value))
             {
-                return FailSpecialCondition($"Freeze Panes chÆ°a cá»‘ Ä‘á»‹nh Ä‘Ãºng sá»‘ cá»™t yÃªu cáº§u: {config.XSplit.Value}.");
+                return FailSpecialCondition($"Freeze Panes chưa cố định đúng số cột yêu cầu: {config.XSplit.Value}.");
             }
 
-            return PassSpecialCondition("Worksheet Ä‘Ã£ cá»‘ Ä‘á»‹nh Ä‘Ãºng hÃ ng khi cuá»™n theo chiá»u dá»c.");
+            return PassSpecialCondition("Worksheet đã cố định đúng hàng khi cuộn theo chiều dọc.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelDocumentProperty(
@@ -5277,13 +5277,13 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (config == null || string.IsNullOrWhiteSpace(config.PropertyName) || string.IsNullOrWhiteSpace(config.ExpectedValue))
             {
-                return FailSpecialCondition("ChÆ°a cáº¥u hÃ¬nh tÃªn thuá»™c tÃ­nh hoáº·c giÃ¡ trá»‹ cáº§n kiá»ƒm tra.");
+                return FailSpecialCondition("Chưa cấu hình tên thuộc tính hoặc giá trị cần kiểm tra.");
             }
 
             var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "docProps/custom.xml" : config.SourceFile;
             if (!package.TryGetXmlDocument(sourceFile, out var propertyDocument, out var propertyError))
             {
-                return FailSpecialCondition(propertyError ?? $"KhÃ´ng tÃ¬m tháº¥y {sourceFile} trong file há»c sinh.");
+                return FailSpecialCondition(propertyError ?? $"Không tìm thấy {sourceFile} trong file học sinh.");
             }
 
             XNamespace custom = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties";
@@ -5293,16 +5293,16 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (property == null)
             {
-                return FailSpecialCondition($"ChÆ°a thÃªm thuá»™c tÃ­nh '{config.PropertyName}' vÃ o workbook.");
+                return FailSpecialCondition($"Chưa thêm thuộc tính '{config.PropertyName}' vào workbook.");
             }
 
             var actualValue = NormalizePlainText(string.Concat(property.Elements().Select(element => element.Value)));
             if (!string.Equals(actualValue, config.ExpectedValue, StringComparison.OrdinalIgnoreCase))
             {
-                return FailSpecialCondition($"Thuá»™c tÃ­nh '{config.PropertyName}' chÆ°a cÃ³ giÃ¡ trá»‹ '{config.ExpectedValue}'.");
+                return FailSpecialCondition($"Thuộc tính '{config.PropertyName}' chưa có giá trị '{config.ExpectedValue}'.");
             }
 
-            return PassSpecialCondition($"Thuá»™c tÃ­nh '{config.PropertyName}' Ä‘Ã£ cÃ³ giÃ¡ trá»‹ Ä‘Ãºng.");
+            return PassSpecialCondition($"Thuộc tính '{config.PropertyName}' đã có giá trị đúng.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelPrintArea(
@@ -5311,18 +5311,18 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (config == null || string.IsNullOrWhiteSpace(config.WorksheetName) || string.IsNullOrWhiteSpace(config.ExpectedRange))
             {
-                return FailSpecialCondition("ChÆ°a cáº¥u hÃ¬nh worksheet hoáº·c vÃ¹ng in cáº§n kiá»ƒm tra.");
+                return FailSpecialCondition("Chưa cấu hình worksheet hoặc vùng in cần kiểm tra.");
             }
 
             if (!package.TryGetXmlDocument("xl/workbook.xml", out var workbookDocument, out var workbookError))
             {
-                return FailSpecialCondition(workbookError ?? "KhÃ´ng tÃ¬m tháº¥y xl/workbook.xml trong file há»c sinh.");
+                return FailSpecialCondition(workbookError ?? "Không tìm thấy xl/workbook.xml trong file học sinh.");
             }
 
             var localSheetId = GetExcelWorksheetLocalSheetId(package, config.WorksheetName);
             if (!localSheetId.HasValue)
             {
-                return FailSpecialCondition($"KhÃ´ng tÃ¬m tháº¥y worksheet '{config.WorksheetName}'.");
+                return FailSpecialCondition($"Không tìm thấy worksheet '{config.WorksheetName}'.");
             }
 
             XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
@@ -5336,22 +5336,22 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (printAreas.Count == 0)
             {
-                return FailSpecialCondition($"Worksheet '{config.WorksheetName}' chÆ°a Ä‘Æ°á»£c Ä‘áº·t Print Area.");
+                return FailSpecialCondition($"Worksheet '{config.WorksheetName}' chưa được đặt Print Area.");
             }
 
             var expected = NormalizeExcelFormulaReference(config.ExpectedRange);
             var hasMatch = printAreas.Any(area => ExcelDefinedNameRangeMatches(area, expected));
             if (!hasMatch)
             {
-                return FailSpecialCondition($"Print Area cá»§a worksheet '{config.WorksheetName}' chÆ°a Ä‘Ãºng vÃ¹ng {config.ExpectedRange}.");
+                return FailSpecialCondition($"Print Area của worksheet '{config.WorksheetName}' chưa đúng vùng {config.ExpectedRange}.");
             }
 
             if (config.RequireExactRange == true && printAreas.Any(area => !ExcelDefinedNameRangeMatches(area, expected)))
             {
-                return FailSpecialCondition($"Print Area cá»§a worksheet '{config.WorksheetName}' cÃ³ thÃªm vÃ¹ng ngoÃ i {config.ExpectedRange}.");
+                return FailSpecialCondition($"Print Area của worksheet '{config.WorksheetName}' có thêm vùng ngoài {config.ExpectedRange}.");
             }
 
-            return PassSpecialCondition($"Worksheet '{config.WorksheetName}' Ä‘Ã£ Ä‘áº·t Ä‘Ãºng Print Area.");
+            return PassSpecialCondition($"Worksheet '{config.WorksheetName}' đã đặt đúng Print Area.");
         }
 
         private static SpecialConditionEvalOutcome PassSpecialCondition(string message)
@@ -5537,7 +5537,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (column <= 0)
                 {
-                    error = $"KhÃ´ng xÃ¡c Ä‘á»‹nh Ä‘Æ°á»£c cá»™t sáº¯p xáº¿p '{key.HeaderName ?? key.Column}'.";
+                    error = $"Không xác định được cột sắp xếp '{key.HeaderName ?? key.Column}'.";
                     return false;
                 }
 
@@ -7558,12 +7558,12 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (config == null)
             {
-                return Fail("ChÆ°a cáº¥u hÃ¬nh Inserted Image (config trá»‘ng).");
+                return Fail("Chưa cấu hình Inserted Image (config trống).");
             }
 
             if (string.IsNullOrWhiteSpace(config.ImageHash))
             {
-                return Fail("ChÆ°a cÃ³ imageHash â€” áº£nh chuáº©n chÆ°a Ä‘Æ°á»£c upload/táº¡o hash á»Ÿ BE.");
+                return Fail("Chưa có imageHash — ảnh chuẩn chưa được upload/tạo hash ở BE.");
             }
 
             var documentPart = string.IsNullOrWhiteSpace(config.SourceFile)
@@ -7575,12 +7575,12 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (!package.TryGetXmlDocument(documentPart, out var documentDocument, out var documentError))
             {
-                return Fail($"KhÃ´ng tÃ¬m tháº¥y {documentPart} trong file há»c sinh.");
+                return Fail($"Không tìm thấy {documentPart} trong file học sinh.");
             }
 
             if (!package.TryGetRelationships(documentRelsPath, out var relationships, out var relsError))
             {
-                return Fail("KhÃ´ng tÃ¬m tháº¥y word/_rels/document.xml.rels.");
+                return Fail("Không tìm thấy word/_rels/document.xml.rels.");
             }
 
             XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -7607,7 +7607,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (drawings.Count == 0)
                 {
-                    return Fail("KhÃ´ng tÃ¬m tháº¥y hÃ¬nh áº£nh (w:drawing) nÃ o trong tÃ i liá»‡u.");
+                    return Fail("Không tìm thấy hình ảnh (w:drawing) nào trong tài liệu.");
                 }
 
                 string? lastMismatchInfo = null;
@@ -7624,7 +7624,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                     if (!relationships.TryGetValue(relationshipId, out var target) || string.IsNullOrWhiteSpace(target))
                     {
-                        lastMismatchInfo = $"Relationship {relationshipId} khÃ´ng cÃ³ Target há»£p lá»‡.";
+                        lastMismatchInfo = $"Relationship {relationshipId} không có Target hợp lệ.";
                         continue;
                     }
 
@@ -7632,13 +7632,13 @@ namespace MOS.ExcelGrading.Core.Services
 
                     if (!package.BinaryParts.TryGetValue(imagePath, out var imageBytes))
                     {
-                        lastMismatchInfo = $"KhÃ´ng Ä‘á»c Ä‘Æ°á»£c áº£nh {imagePath} trong file há»c sinh.";
+                        lastMismatchInfo = $"Không đọc được ảnh {imagePath} trong file học sinh.";
                         continue;
                     }
 
                     if (!IsImageMatch(package, imagePath, imageBytes, expectedHash, expectedPerceptualHash))
                     {
-                        lastMismatchInfo = $"TÃ¬m tháº¥y áº£nh {imagePath} nhÆ°ng khÃ´ng Ä‘Ãºng ná»™i dung yÃªu cáº§u.";
+                        lastMismatchInfo = $"Tìm thấy ảnh {imagePath} nhưng không đúng nội dung yêu cầu.";
                         continue;
                     }
 
@@ -7690,7 +7690,7 @@ namespace MOS.ExcelGrading.Core.Services
                         return new SpecialConditionEvalOutcome
                         {
                             IsPassed = true,
-                            Message = "ÄÃ£ chÃ¨n Ä‘Ãºng hÃ¬nh áº£nh yÃªu cáº§u."
+                            Message = "Đã chèn đúng hình ảnh yêu cầu."
                         };
                     }
 
@@ -7701,25 +7701,25 @@ namespace MOS.ExcelGrading.Core.Services
                         return new SpecialConditionEvalOutcome
                         {
                             IsPassed = true,
-                            Message = $"ÄÃ£ chÃ¨n Ä‘Ãºng hÃ¬nh áº£nh yÃªu cáº§u vá»›i cháº¿ Ä‘á»™ ngáº¯t dÃ²ng '{expectedWrap}'."
+                            Message = $"Đã chèn đúng hình ảnh yêu cầu với chế độ ngắt dòng '{expectedWrap}'."
                         };
                     }
 
-                    lastMismatchInfo = $"ÄÃ£ tÃ¬m tháº¥y Ä‘Ãºng áº£nh yÃªu cáº§u nhÆ°ng cháº¿ Ä‘á»™ ngáº¯t dÃ²ng Ä‘ang lÃ  '{actualWrap}' thay vÃ¬ '{expectedWrap}'.";
+                    lastMismatchInfo = $"Đã tìm thấy đúng ảnh yêu cầu nhưng chế độ ngắt dòng đang là '{actualWrap}' thay vì '{expectedWrap}'.";
                 }
 
-                return Fail(lastMismatchInfo ?? "KhÃ´ng tÃ¬m tháº¥y áº£nh nÃ o khá»›p vá»›i yÃªu cáº§u trong tÃ i liá»‡u.");
+                return Fail(lastMismatchInfo ?? "Không tìm thấy ảnh nào khớp với yêu cầu trong tài liệu.");
             }
             catch (XmlException ex)
             {
-                return Fail($"KhÃ´ng thá»ƒ phÃ¢n tÃ­ch XML: {ex.Message}");
+                return Fail($"Không thể phân tích XML: {ex.Message}");
             }
         }
 
         /// <summary>
-        /// wp:inline = "inline". wp:anchor cÃ³ 1 trong cÃ¡c pháº§n tá»­ wrap con:
+        /// wp:inline = "inline". wp:anchor có 1 trong các phần tử wrap con:
         /// wrapSquare/wrapTight/wrapThrough/wrapTopAndBottom/wrapNone
-        /// (behind/inFront phÃ¢n biá»‡t báº±ng attribute behindDoc trÃªn wp:anchor).
+        /// (behind/inFront phân biệt bằng attribute behindDoc trên wp:anchor).
         /// </summary>
         private static string? GetInsertedImageWrapMismatch(XElement drawing, XNamespace wp, string? expectedWrap)
         {
@@ -7913,12 +7913,12 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (config == null)
             {
-                return Fail("ChÆ°a cáº¥u hÃ¬nh Picture Bullet (config trá»‘ng).");
+                return Fail("Chưa cấu hình Picture Bullet (config trống).");
             }
 
             if (string.IsNullOrWhiteSpace(config.ImageHash))
             {
-                return Fail("ChÆ°a cÃ³ imageHash â€” áº£nh bullet chuáº©n chÆ°a Ä‘Æ°á»£c upload/táº¡o hash á»Ÿ BE.");
+                return Fail("Chưa có imageHash — ảnh bullet chuẩn chưa được upload/tạo hash ở BE.");
             }
 
             const string documentPart = "word/document.xml";
@@ -7927,17 +7927,17 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (!package.TryGetXmlDocument(documentPart, out var documentDocument, out var documentError))
             {
-                return Fail($"KhÃ´ng tÃ¬m tháº¥y {documentPart} trong file há»c sinh.");
+                return Fail($"Không tìm thấy {documentPart} trong file học sinh.");
             }
 
             if (!package.TryGetXmlDocument(numberingPath, out var numberingDocument, out var numberingError))
             {
-                return Fail("File há»c sinh khÃ´ng cÃ³ word/numbering.xml.");
+                return Fail("File học sinh không có word/numbering.xml.");
             }
 
             if (!package.TryGetRelationships(numberingRelsPath, out var relationships, out var relsError))
             {
-                return Fail("KhÃ´ng tÃ¬m tháº¥y word/_rels/numbering.xml.rels.");
+                return Fail("Không tìm thấy word/_rels/numbering.xml.rels.");
             }
 
             XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
@@ -7950,8 +7950,8 @@ namespace MOS.ExcelGrading.Core.Services
                 var expectedHash = ImageHashUtility.NormalizeHash(config.ImageHash);
                 var expectedPerceptualHash = config.PerceptualHash;
 
-                // Duyá»‡t toÃ n bá»™ paragraph trong document.xml, tÃ¬m báº¥t ká»³ paragraph nÃ o
-                // dÃ¹ng picture bullet á»Ÿ Ä‘Ãºng Level (náº¿u cÃ³ chá»‰ Ä‘á»‹nh) mÃ  áº£nh khá»›p expectedHash.
+                // Duyệt toàn bộ paragraph trong document.xml, tìm bất kỳ paragraph nào
+                // dùng picture bullet ở đúng Level (nếu có chỉ định) mà ảnh khớp expectedHash.
                 var allParagraphs = documentDocument.Descendants(w + "p").ToList();
                 var numById = numberingDocument.Descendants(w + "num")
                     .Where(element => !string.IsNullOrWhiteSpace(element.Attribute(w + "numId")?.Value))
@@ -8016,16 +8016,16 @@ namespace MOS.ExcelGrading.Core.Services
                     var lvlPicBulletIdVal = lvlElement?.Element(w + "lvlPicBulletId")?.Attribute(w + "val")?.Value;
                     if (!int.TryParse(lvlPicBulletIdVal, out var lvlPicBulletId))
                     {
-                        // Level nÃ y khÃ´ng dÃ¹ng picture bullet -> khÃ´ng tÃ­nh lÃ  "Ä‘Ã£ kiá»ƒm tra bullet"
+                        // Level này không dùng picture bullet -> không tính là "đã kiểm tra bullet"
                         continue;
                     }
 
                     checkedAnyBulletParagraph = true;
 
-                    // lvlPicBulletId -> numPicBullet -> r:id áº£nh
+                    // lvlPicBulletId -> numPicBullet -> r:id ảnh
                     if (!numPicBulletById.TryGetValue(lvlPicBulletId.ToString(), out var numPicBulletElement))
                     {
-                        lastMismatchInfo = $"numPicBulletId={lvlPicBulletId} khÃ´ng tá»“n táº¡i trong numbering.xml.";
+                        lastMismatchInfo = $"numPicBulletId={lvlPicBulletId} không tồn tại trong numbering.xml.";
                         continue;
                     }
 
@@ -8035,13 +8035,13 @@ namespace MOS.ExcelGrading.Core.Services
 
                     if (string.IsNullOrWhiteSpace(relationshipId))
                     {
-                        lastMismatchInfo = $"numPicBulletId={lvlPicBulletId} khÃ´ng cÃ³ tham chiáº¿u áº£nh.";
+                        lastMismatchInfo = $"numPicBulletId={lvlPicBulletId} không có tham chiếu ảnh.";
                         continue;
                     }
 
                     if (!relationships.TryGetValue(relationshipId, out var target) || string.IsNullOrWhiteSpace(target))
                     {
-                        lastMismatchInfo = $"Relationship {relationshipId} khÃ´ng cÃ³ Target há»£p lá»‡.";
+                        lastMismatchInfo = $"Relationship {relationshipId} không có Target hợp lệ.";
                         continue;
                     }
 
@@ -8049,7 +8049,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                     if (!package.BinaryParts.TryGetValue(imagePath, out var imageBytes))
                     {
-                        lastMismatchInfo = $"KhÃ´ng Ä‘á»c Ä‘Æ°á»£c áº£nh {imagePath} trong file há»c sinh.";
+                        lastMismatchInfo = $"Không đọc được ảnh {imagePath} trong file học sinh.";
                         continue;
                     }
 
@@ -8058,25 +8058,25 @@ namespace MOS.ExcelGrading.Core.Services
                         return new SpecialConditionEvalOutcome
                         {
                             IsPassed = true,
-                            Message = "Picture bullet Ä‘Ãºng hÃ¬nh áº£nh yÃªu cáº§u."
+                            Message = "Picture bullet đúng hình ảnh yêu cầu."
                         };
                     }
 
-                    lastMismatchInfo = $"TÃ¬m tháº¥y picture bullet (numId={numId}, level={ilvl}) nhÆ°ng áº£nh khÃ´ng khá»›p.";
+                    lastMismatchInfo = $"Tìm thấy picture bullet (numId={numId}, level={ilvl}) nhưng ảnh không khớp.";
                 }
 
                 if (!checkedAnyBulletParagraph)
                 {
                     return Fail(config.Level.HasValue
-                        ? $"KhÃ´ng tÃ¬m tháº¥y paragraph nÃ o dÃ¹ng picture bullet á»Ÿ level {config.Level.Value}."
-                        : "KhÃ´ng tÃ¬m tháº¥y paragraph nÃ o dÃ¹ng picture bullet trong tÃ i liá»‡u.");
+                        ? $"Không tìm thấy paragraph nào dùng picture bullet ở level {config.Level.Value}."
+                        : "Không tìm thấy paragraph nào dùng picture bullet trong tài liệu.");
                 }
 
-                return Fail(lastMismatchInfo ?? "Picture bullet khÃ´ng Ä‘Ãºng hÃ¬nh áº£nh yÃªu cáº§u.");
+                return Fail(lastMismatchInfo ?? "Picture bullet không đúng hình ảnh yêu cầu.");
             }
             catch (XmlException ex)
             {
-                return Fail($"KhÃ´ng thá»ƒ phÃ¢n tÃ­ch XML: {ex.Message}");
+                return Fail($"Không thể phân tích XML: {ex.Message}");
             }
         }
 
@@ -8189,7 +8189,7 @@ namespace MOS.ExcelGrading.Core.Services
                     cache);
             }
 
-            // KhÃ´ng nÃªn Ã¢m tháº§m coi mode láº¡ lÃ  normalized
+            // Không nên âm thầm coi mode lạ là normalized
             return new ExpectedMatchResult
             {
                 ExpectedValue = expectedValue,
@@ -8227,7 +8227,7 @@ namespace MOS.ExcelGrading.Core.Services
                 ? XmlGradingCompareModes.XmlContainsNormalized
                 : compareMode.Trim();
 
-            // Chuáº©n hÃ³a search space 1 láº§n duy nháº¥t (khÃ´ng Ä‘á»•i thá»© tá»± kÃ½ tá»± nÃªn cursor váº«n há»£p lá»‡)
+            // Chuẩn hóa search space 1 lần duy nhất (không đổi thứ tự ký tự nên cursor vẫn hợp lệ)
             var searchSpace = string.Equals(mode, XmlGradingCompareModes.XmlContainsNormalized, StringComparison.OrdinalIgnoreCase)
                 ? cache.GetNormalizedActual(sourceFile, actualXml, ignoreAttributes)
                 : actualXml;
@@ -8252,8 +8252,8 @@ namespace MOS.ExcelGrading.Core.Services
                     expected = expectedValue;
                 }
 
-                // TÃ¬m báº¯t Ä‘áº§u tá»« cursor hiá»‡n táº¡i -> Ä‘áº£m báº£o Ä‘Ãºng thá»© tá»± vÃ  liá»n máº¡ch,
-                // khÃ´ng cho phÃ©p match á»Ÿ má»™t occurrence Ä‘á»©ng trÆ°á»›c fragment trÆ°á»›c Ä‘Ã³.
+                // Tìm bắt đầu từ cursor hiện tại -> đảm bảo đúng thứ tự và liền mạch,
+                // không cho phép match ở một occurrence đứng trước fragment trước đó.
                 var index = string.IsNullOrEmpty(expected)
                     ? -1
                     : searchSpace.IndexOf(expected, cursor, StringComparison.Ordinal);
@@ -8269,8 +8269,8 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     cursor = index + expected.Length;
                 }
-                // Náº¿u khÃ´ng match, giá»¯ nguyÃªn cursor -> cÃ¡c fragment sau váº«n Ä‘Æ°á»£c thá»­,
-                // nhÆ°ng IsPassed cuá»‘i cÃ¹ng sáº½ = false vÃ¬ cÃ³ Ã­t nháº¥t 1 fragment missing.
+                // Nếu không match, giữ nguyên cursor -> các fragment sau vẫn được thử,
+                // nhưng IsPassed cuối cùng sẽ = false vì có ít nhất 1 fragment missing.
             }
 
             return results;
@@ -8365,19 +8365,19 @@ namespace MOS.ExcelGrading.Core.Services
 
             var text = value.Trim();
 
-            // Chuáº©n hÃ³a khoáº£ng tráº¯ng
+            // Chuẩn hóa khoảng trắng
             text = Regex.Replace(
                 text,
                 @"\s+",
                 " ");
 
-            // Chuáº©n hÃ³a khoáº£ng tráº¯ng quanh dáº¥u =
+            // Chuẩn hóa khoảng trắng quanh dấu =
             text = Regex.Replace(
                 text,
                 @"\s*=\s*",
                 "=");
 
-            // Chuáº©n hÃ³a khoáº£ng tráº¯ng trÆ°á»›c />
+            // Chuẩn hóa khoảng trắng trước />
             text = Regex.Replace(
                 text,
                 @"\s*/>",
@@ -8723,7 +8723,7 @@ namespace MOS.ExcelGrading.Core.Services
                     matches.Any(match => match.IsMatched),
 
                 var value when string.Equals(value, XmlGradingMatchPolicies.Ordered, StringComparison.OrdinalIgnoreCase) =>
-                    matches.All(match => match.IsMatched), // thá»© tá»± Ä‘Ã£ Ä‘Æ°á»£c Ä‘áº£m báº£o bá»Ÿi cursor khi tÃ¬m kiáº¿m
+                    matches.All(match => match.IsMatched), // thứ tự đã được đảm bảo bởi cursor khi tìm kiếm
 
                 _ => matches.All(match => match.IsMatched)
             };
@@ -8735,12 +8735,12 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (string.IsNullOrWhiteSpace(ruleSet.Subject))
             {
-                result.Errors.Add("subject khÃ´ng Ä‘Æ°á»£c rá»—ng.");
+                result.Errors.Add("subject không được rỗng.");
             }
 
             if (ruleSet.Projects.Count == 0)
             {
-                result.Errors.Add("projects pháº£i cÃ³ Ã­t nháº¥t 1 project.");
+                result.Errors.Add("projects phải có ít nhất 1 project.");
             }
 
             foreach (var project in ruleSet.Projects)
@@ -8748,12 +8748,12 @@ namespace MOS.ExcelGrading.Core.Services
                 var projectPrefix = string.IsNullOrWhiteSpace(project.ProjectCode) ? "project" : project.ProjectCode;
                 if (string.IsNullOrWhiteSpace(project.ProjectCode))
                 {
-                    result.Errors.Add("project.projectCode khÃ´ng Ä‘Æ°á»£c rá»—ng.");
+                    result.Errors.Add("project.projectCode không được rỗng.");
                 }
 
                 if (project.MaxScore <= 0)
                 {
-                    result.Errors.Add($"{projectPrefix}.maxScore pháº£i lá»›n hÆ¡n 0.");
+                    result.Errors.Add($"{projectPrefix}.maxScore phải lớn hơn 0.");
                 }
 
                 foreach (var task in project.Tasks)
@@ -8762,32 +8762,32 @@ namespace MOS.ExcelGrading.Core.Services
 
                     if (string.IsNullOrWhiteSpace(task.TaskId))
                     {
-                        result.Errors.Add($"{projectPrefix}.taskId khÃ´ng Ä‘Æ°á»£c rá»—ng.");
+                        result.Errors.Add($"{projectPrefix}.taskId không được rỗng.");
                     }
 
                     if (string.IsNullOrWhiteSpace(task.TaskName))
                     {
-                        result.Errors.Add($"{taskPrefix}.taskName khÃ´ng Ä‘Æ°á»£c rá»—ng.");
+                        result.Errors.Add($"{taskPrefix}.taskName không được rỗng.");
                     }
 
                     if (task.MaxScore <= 0)
                     {
-                        result.Errors.Add($"{taskPrefix}.maxScore pháº£i lá»›n hÆ¡n 0.");
+                        result.Errors.Add($"{taskPrefix}.maxScore phải lớn hơn 0.");
                     }
 
                     var hasSpecialCondition = task.SpecialCondition != null
                         && !string.IsNullOrWhiteSpace(task.SpecialCondition.Type);
 
-                    // Task há»£p lá»‡ khi cÃ³ Ã­t nháº¥t 1 Condition XML HOáº¶C cÃ³ specialCondition
-                    // (khÃ´ng cÃ²n báº¯t buá»™c pháº£i cÃ³ Condition XML náº¿u Ä‘Ã£ dÃ¹ng specialCondition).
+                    // Task hợp lệ khi có ít nhất 1 Condition XML HOẶC có specialCondition
+                    // (không còn bắt buộc phải có Condition XML nếu đã dùng specialCondition).
                     if (task.Conditions.Count == 0 && !hasSpecialCondition)
                     {
-                        result.Errors.Add($"{taskPrefix}.conditions pháº£i cÃ³ Ã­t nháº¥t 1 condition, hoáº·c pháº£i cÃ³ specialCondition.");
+                        result.Errors.Add($"{taskPrefix}.conditions phải có ít nhất 1 condition, hoặc phải có specialCondition.");
                     }
                     else
                     {
-                        // Tá»•ng Ä‘iá»ƒm = tá»•ng Conditions XML + Ä‘iá»ƒm riÃªng cá»§a specialCondition (náº¿u cÃ³).
-                        // Cho phÃ©p Task chá»‰ dÃ¹ng specialCondition (0 Condition XML) hoáº·c káº¿t há»£p cáº£ hai.
+                        // Tổng điểm = tổng Conditions XML + điểm riêng của specialCondition (nếu có).
+                        // Cho phép Task chỉ dùng specialCondition (0 Condition XML) hoặc kết hợp cả hai.
                         var totalConditionScore = task.Conditions.Sum(condition => condition.Score)
                             + (hasSpecialCondition ? task.SpecialCondition!.Score : 0m);
 
@@ -8797,7 +8797,7 @@ namespace MOS.ExcelGrading.Core.Services
                                 ? $"conditions + specialCondition = {totalConditionScore}"
                                 : $"conditions = {totalConditionScore}";
 
-                            result.Errors.Add($"{taskPrefix}: tá»•ng score ({scoreBreakdown}) pháº£i báº±ng task.maxScore ({task.MaxScore}).");
+                            result.Errors.Add($"{taskPrefix}: tổng score ({scoreBreakdown}) phải bằng task.maxScore ({task.MaxScore}).");
                         }
                     }
 
@@ -8826,16 +8826,16 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (jsonBytes >= twelveMb)
                 {
-                    result.Warnings.Add("Ruleset payload đang lớn hơn 12MB. Nên backfill sang grading_rule_projects và tránh lưu toàn bộ projects trong một document.");
+                    result.Warnings.Add("Ruleset payload đang lớn hơn 12MB. Nn backfill sang grading_rule_projects v trnh lưu ton bộ projects trong một document.");
                 }
                 else if (jsonBytes >= eightMb)
                 {
-                    result.Warnings.Add("Ruleset payload đang lớn hơn 8MB. Nên theo dõi dung lượng vì MongoDB giới hạn một document ở 16MB.");
+                    result.Warnings.Add("Ruleset payload đang lớn hơn 8MB. Nn theo di dung lượng v MongoDB giới hạn một document ở 16MB.");
                 }
             }
             catch
             {
-                result.Warnings.Add("Không estimate được dung lượng ruleset để cảnh báo giới hạn MongoDB document.");
+                result.Warnings.Add("Khng estimate được dung lượng ruleset để cảnh bo giới hạn MongoDB document.");
             }
         }
 
@@ -8847,26 +8847,26 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (string.IsNullOrWhiteSpace(condition.ConditionId))
             {
-                result.Errors.Add($"{taskPrefix}.conditionId khÃ´ng Ä‘Æ°á»£c rá»—ng.");
+                result.Errors.Add($"{taskPrefix}.conditionId không được rỗng.");
             }
 
             if (condition.Score <= 0)
             {
-                result.Errors.Add($"{conditionPrefix}.score pháº£i lá»›n hÆ¡n 0.");
+                result.Errors.Add($"{conditionPrefix}.score phải lớn hơn 0.");
             }
 
             if (string.IsNullOrWhiteSpace(condition.SourceFile))
             {
-                result.Errors.Add($"{conditionPrefix}.sourceFile khÃ´ng Ä‘Æ°á»£c rá»—ng.");
+                result.Errors.Add($"{conditionPrefix}.sourceFile không được rỗng.");
             }
             else if (!IsSafeSourceFile(condition.SourceFile))
             {
-                result.Errors.Add($"{conditionPrefix}.sourceFile khÃ´ng há»£p lá»‡ hoáº·c cÃ³ path traversal.");
+                result.Errors.Add($"{conditionPrefix}.sourceFile không hợp lệ hoặc có path traversal.");
             }
 
             if (condition.ExpectedVariants == null || condition.ExpectedVariants.Count == 0)
             {
-                result.Errors.Add($"{conditionPrefix}.expectedVariants pháº£i cÃ³ Ã­t nháº¥t 1 variant.");
+                result.Errors.Add($"{conditionPrefix}.expectedVariants phải có ít nhất 1 variant.");
             }
             else
             {
@@ -8875,7 +8875,7 @@ namespace MOS.ExcelGrading.Core.Services
                     var variant = condition.ExpectedVariants[variantIndex];
                     if (variant == null || variant.ExpectedValues.Count == 0 || variant.ExpectedValues.Any(string.IsNullOrWhiteSpace))
                     {
-                        result.Errors.Add($"{conditionPrefix}.expectedVariants[{variantIndex}].expectedValues pháº£i lÃ  array string khÃ´ng rá»—ng.");
+                        result.Errors.Add($"{conditionPrefix}.expectedVariants[{variantIndex}].expectedValues phải là array string không rỗng.");
                     }
                 }
             }
@@ -8887,7 +8887,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (!XmlGradingCompareModes.Supported.Contains(condition.CompareMode))
             {
-                result.Errors.Add($"{conditionPrefix}.compareMode khÃ´ng Ä‘Æ°á»£c há»— trá»£: {condition.CompareMode}.");
+                result.Errors.Add($"{conditionPrefix}.compareMode không được hỗ trợ: {condition.CompareMode}.");
             }
 
             if (string.IsNullOrWhiteSpace(condition.MatchPolicy))
@@ -8897,7 +8897,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (!XmlGradingMatchPolicies.Supported.Contains(condition.MatchPolicy))
             {
-                result.Errors.Add($"{conditionPrefix}.matchPolicy khÃ´ng Ä‘Æ°á»£c há»— trá»£: {condition.MatchPolicy}.");
+                result.Errors.Add($"{conditionPrefix}.matchPolicy không được hỗ trợ: {condition.MatchPolicy}.");
             }
 
             if (string.Equals(condition.CompareMode, XmlGradingCompareModes.XmlMinOccurrences, StringComparison.OrdinalIgnoreCase)
@@ -8916,7 +8916,7 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(condition.CompareMode, XmlGradingCompareModes.XmlEquivalentWholeFile, StringComparison.OrdinalIgnoreCase) &&
                 condition.ExpectedVariants?.Any(variant => variant.ExpectedValues.Count != 1) == true)
             {
-                result.Errors.Add($"{conditionPrefix}.xmlEquivalentWholeFile chá»‰ há»— trá»£ Ä‘Ãºng 1 expectedValue trong má»—i expectedVariant.");
+                result.Errors.Add($"{conditionPrefix}.xmlEquivalentWholeFile chỉ hỗ trợ đúng 1 expectedValue trong mỗi expectedVariant.");
             }
         }
 
@@ -8928,13 +8928,13 @@ namespace MOS.ExcelGrading.Core.Services
         {
             if (string.IsNullOrWhiteSpace(specialCondition.Type))
             {
-                result.Errors.Add($"{taskPrefix}.specialCondition.type khÃ´ng Ä‘Æ°á»£c rá»—ng.");
+                result.Errors.Add($"{taskPrefix}.specialCondition.type không được rỗng.");
                 return;
             }
 
             if (!SpecialConditionTypes.Supported.Contains(specialCondition.Type))
             {
-                result.Errors.Add($"{taskPrefix}.specialCondition.type khÃ´ng Ä‘Æ°á»£c há»— trá»£: {specialCondition.Type}.");
+                result.Errors.Add($"{taskPrefix}.specialCondition.type không được hỗ trợ: {specialCondition.Type}.");
                 return;
             }
 
@@ -8946,7 +8946,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (specialCondition.Score <= 0)
             {
-                result.Errors.Add($"{taskPrefix}.specialCondition.score pháº£i lá»›n hÆ¡n 0.");
+                result.Errors.Add($"{taskPrefix}.specialCondition.score phải lớn hơn 0.");
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))
@@ -8955,40 +8955,40 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (config == null)
                 {
-                    result.Errors.Add($"{taskPrefix}.specialCondition.config khÃ´ng Ä‘Æ°á»£c null.");
+                    result.Errors.Add($"{taskPrefix}.specialCondition.config không được null.");
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(config.ImageHash))
                 {
-                    result.Errors.Add($"{taskPrefix}.specialCondition.config.imageHash khÃ´ng Ä‘Æ°á»£c rá»—ng (áº£nh bullet chuáº©n chÆ°a Ä‘Æ°á»£c upload/táº¡o hash).");
+                    result.Errors.Add($"{taskPrefix}.specialCondition.config.imageHash không được rỗng (ảnh bullet chuẩn chưa được upload/tạo hash).");
                 }
 
                 if (config.Level.HasValue && config.Level.Value < 0)
                 {
-                    result.Errors.Add($"{taskPrefix}.specialCondition.config.level pháº£i >= 0.");
+                    result.Errors.Add($"{taskPrefix}.specialCondition.config.level phải >= 0.");
                 }
             }
 
-            // Má»šI
+            // MỚI
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase))
             {
                 var config = specialCondition.ImageInsertConfig;
 
                 if (config == null)
                 {
-                    result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig khÃ´ng Ä‘Æ°á»£c null.");
+                    result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig không được null.");
                     return;
                 }
 
                 if (string.IsNullOrWhiteSpace(config.ImageHash))
                 {
-                    result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.imageHash khÃ´ng Ä‘Æ°á»£c rá»—ng (áº£nh chuáº©n chÆ°a Ä‘Æ°á»£c upload/táº¡o hash).");
+                    result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.imageHash không được rỗng (ảnh chuẩn chưa được upload/tạo hash).");
                 }
 
                 if (!string.IsNullOrWhiteSpace(config.WrapType) && !ImageWrapTypes.Supported.Contains(config.WrapType))
                 {
-                    result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.wrapType khÃ´ng Ä‘Æ°á»£c há»— trá»£: {config.WrapType}.");
+                    result.Errors.Add($"{taskPrefix}.specialCondition.imageInsertConfig.wrapType không được hỗ trợ: {config.WrapType}.");
                 }
             }
 
@@ -10294,15 +10294,15 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.IsNullOrWhiteSpace(normalized))
                 return false;
 
-            // Pháº£i lÃ  Ä‘Æ°á»ng dáº«n tÆ°Æ¡ng Ä‘á»‘i trong Office ZIP package
+            // Phải là đường dẫn tương đối trong Office ZIP package
             if (Path.IsPathRooted(normalized))
                 return false;
 
-            // KhÃ´ng Ä‘Æ°á»£c báº¯t Ä‘áº§u báº±ng /
+            // Không được bắt đầu bằng /
             if (normalized.StartsWith("/", StringComparison.Ordinal))
                 return false;
 
-            // KhÃ´ng cho phÃ©p path traversal
+            // Không cho phép path traversal
             var segments = normalized.Split(
                 '/',
                 StringSplitOptions.RemoveEmptyEntries);
@@ -10313,14 +10313,14 @@ namespace MOS.ExcelGrading.Core.Services
                 return false;
             }
 
-            // KhÃ´ng cho phÃ©p segment rá»—ng báº¥t thÆ°á»ng
+            // Không cho phép segment rỗng bất thường
             if (segments.Any(segment =>
                 segment == "."))
             {
                 return false;
             }
 
-            // Chá»‰ cho phÃ©p XML hoáº·c RELS
+            // Chỉ cho phép XML hoặc RELS
             return normalized.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
                 || normalized.EndsWith(".rels", StringComparison.OrdinalIgnoreCase);
         }
@@ -10333,13 +10333,13 @@ namespace MOS.ExcelGrading.Core.Services
                 .Trim()
                 .Replace('\\', '/');
 
-            // Loáº¡i bá» ./ á»Ÿ Ä‘áº§u
+            // Loại bỏ ./ ở đầu
             while (normalized.StartsWith("./", StringComparison.Ordinal))
             {
                 normalized = normalized[2..];
             }
 
-            // KhÃ´ng cho phÃ©p / á»Ÿ Ä‘áº§u
+            // Không cho phép / ở đầu
             normalized = normalized.TrimStart('/');
 
             return normalized;
@@ -10376,18 +10376,18 @@ namespace MOS.ExcelGrading.Core.Services
                 return;
             }
 
-            // MaxScore cá»§a bÃ i = tá»•ng MaxScore do ngÆ°á»i táº¡o
-            // cáº¥u hÃ¬nh cho tá»«ng Task.
+            // MaxScore của bài = tổng MaxScore do người tạo
+            // cấu hình cho từng Task.
             result.MaxScore = gradableTasks.Sum(task => task.MaxScore);
 
-            // Äiá»ƒm thá»±c táº¿ = tá»•ng Ä‘iá»ƒm cÃ¡c Task Ä‘áº¡t Ä‘Æ°á»£c.
+            // Điểm thực tế = tổng điểm các Task đạt được.
             result.TotalScore = Math.Round(
                 gradableTasks.Sum(task => task.Score),
                 2,
                 MidpointRounding.AwayFromZero
             );
 
-            // KhÃ´ng cho vÆ°á»£t quÃ¡ Ä‘iá»ƒm tá»‘i Ä‘a.
+            // Không cho vượt quá điểm tối đa.
             result.TotalScore = Math.Min(
                 result.TotalScore,
                 result.MaxScore
@@ -10412,7 +10412,7 @@ namespace MOS.ExcelGrading.Core.Services
                             new()
                             {
                                 TaskId = "P22-T1",
-                                TaskName = "Sao chÃ©p Ä‘á»‹nh dáº¡ng tá»« tiÃªu Ä‘á» vÃ  phá»¥ Ä‘á» cá»§a trang tÃ­nh Task sang Project.",
+                                TaskName = "Sao chép định dạng từ tiêu đề và phụ đề của trang tính Task sang Project.",
                                 MaxScore = 18m,
                                 Conditions = new List<XmlGradingCondition>
                                 {
@@ -10436,9 +10436,9 @@ namespace MOS.ExcelGrading.Core.Services
                                         MatchPolicy = XmlGradingMatchPolicies.All,
                                         Feedback = new ConditionFeedback
                                         {
-                                            SuccessDetail = "ÄÃ£ xÃ¡c nháº­n XML tiÃªu Ä‘á»/phá»¥ Ä‘á» nguá»“n táº¡i Task!A1:A2.",
-                                            ErrorMessage = "KhÃ´ng tÃ¬m tháº¥y Ä‘áº§y Ä‘á»§ XML tiÃªu Ä‘á»/phá»¥ Ä‘á» nguá»“n táº¡i Task!A1:A2.",
-                                            FixAction = "Kiá»ƒm tra láº¡i ná»™i dung tiÃªu Ä‘á»/phá»¥ Ä‘á» trong sheet Task."
+                                            SuccessDetail = "Đã xác nhận XML tiêu đề/phụ đề nguồn tại Task!A1:A2.",
+                                            ErrorMessage = "Không tìm thấy đầy đủ XML tiêu đề/phụ đề nguồn tại Task!A1:A2.",
+                                            FixAction = "Kiểm tra lại nội dung tiêu đề/phụ đề trong sheet Task."
                                         }
                                     },
                                     new()
@@ -10460,9 +10460,9 @@ namespace MOS.ExcelGrading.Core.Services
                                         MatchPolicy = XmlGradingMatchPolicies.All,
                                         Feedback = new ConditionFeedback
                                         {
-                                            SuccessDetail = "Project!A1 cÃ³ XML Ä‘á»‹nh dáº¡ng Ä‘Ãºng.",
-                                            ErrorMessage = "Project!A1 chÆ°a cÃ³ XML Ä‘á»‹nh dáº¡ng Ä‘Ãºng.",
-                                            FixAction = "DÃ¹ng Format Painter sao chÃ©p Ä‘á»‹nh dáº¡ng tá»« Task!A1 sang Project!A1."
+                                            SuccessDetail = "Project!A1 có XML định dạng đúng.",
+                                            ErrorMessage = "Project!A1 chưa có XML định dạng đúng.",
+                                            FixAction = "Dùng Format Painter sao chép định dạng từ Task!A1 sang Project!A1."
                                         }
                                     },
                                     new()
@@ -10484,9 +10484,9 @@ namespace MOS.ExcelGrading.Core.Services
                                         MatchPolicy = XmlGradingMatchPolicies.All,
                                         Feedback = new ConditionFeedback
                                         {
-                                            SuccessDetail = "Project!A2 cÃ³ XML Ä‘á»‹nh dáº¡ng Ä‘Ãºng.",
-                                            ErrorMessage = "Project!A2 chÆ°a cÃ³ XML Ä‘á»‹nh dáº¡ng Ä‘Ãºng.",
-                                            FixAction = "DÃ¹ng Format Painter sao chÃ©p Ä‘á»‹nh dáº¡ng tá»« Task!A2 sang Project!A2."
+                                            SuccessDetail = "Project!A2 có XML định dạng đúng.",
+                                            ErrorMessage = "Project!A2 chưa có XML định dạng đúng.",
+                                            FixAction = "Dùng Format Painter sao chép định dạng từ Task!A2 sang Project!A2."
                                         }
                                     },
                                     new()
@@ -10508,9 +10508,9 @@ namespace MOS.ExcelGrading.Core.Services
                                         MatchPolicy = XmlGradingMatchPolicies.All,
                                         Feedback = new ConditionFeedback
                                         {
-                                            SuccessDetail = "Worksheet Project cÃ³ dá»¯ liá»‡u XML Ä‘á»ƒ kiá»ƒm tra Ä‘á»‹nh dáº¡ng.",
-                                            ErrorMessage = "KhÃ´ng tÃ¬m tháº¥y worksheet XML cáº§n kiá»ƒm tra.",
-                                            FixAction = "Kiá»ƒm tra láº¡i sheet Project vÃ  lÆ°u workbook trÆ°á»›c khi cháº¥m láº¡i."
+                                            SuccessDetail = "Worksheet Project có dữ liệu XML để kiểm tra định dạng.",
+                                            ErrorMessage = "Không tìm thấy worksheet XML cần kiểm tra.",
+                                            FixAction = "Kiểm tra lại sheet Project và lưu workbook trước khi chấm lại."
                                         }
                                     }
                                 }

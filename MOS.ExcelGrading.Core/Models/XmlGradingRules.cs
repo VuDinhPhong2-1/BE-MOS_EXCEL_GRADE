@@ -58,6 +58,11 @@ namespace MOS.ExcelGrading.Core.Models
     public const string PageBorder = "pageBorder";
     public const string WordTableSort = "wordTableSort";
     public const string WordParagraphList = "wordParagraphList";
+    public const string WordBookmark = "wordBookmark";
+    public const string WordCustomToc = "wordCustomToc";
+    public const string WordTextToTable = "wordTextToTable";
+    public const string WordBulletStyle = "wordBulletStyle";
+    public const string WordResolveComment = "wordResolveComment";
     public const string ExcelTableName = "excelTableName";
     public const string ExcelWorksheetPageSetup = "excelWorksheetPageSetup";
     public const string ExcelClearCellFormatting = "excelClearCellFormatting";
@@ -96,6 +101,11 @@ namespace MOS.ExcelGrading.Core.Models
             PageBorder,
             WordTableSort,
             WordParagraphList,
+            WordBookmark,
+            WordCustomToc,
+            WordTextToTable,
+            WordBulletStyle,
+            WordResolveComment,
             ExcelTableName,
             ExcelWorksheetPageSetup,
             ExcelClearCellFormatting,
@@ -369,6 +379,26 @@ public static class ImageWrapTypes
         [BsonElement("wordParagraphListConfig")]
         [JsonPropertyName("wordParagraphListConfig")]
         public WordParagraphListConfig? WordParagraphListConfig { get; set; }
+
+        [BsonElement("wordBookmarkConfig")]
+        [JsonPropertyName("wordBookmarkConfig")]
+        public WordBookmarkConfig? WordBookmarkConfig { get; set; }
+
+        [BsonElement("wordCustomTocConfig")]
+        [JsonPropertyName("wordCustomTocConfig")]
+        public WordCustomTocConfig? WordCustomTocConfig { get; set; }
+
+        [BsonElement("wordTextToTableConfig")]
+        [JsonPropertyName("wordTextToTableConfig")]
+        public WordTextToTableConfig? WordTextToTableConfig { get; set; }
+
+        [BsonElement("wordBulletStyleConfig")]
+        [JsonPropertyName("wordBulletStyleConfig")]
+        public WordBulletStyleConfig? WordBulletStyleConfig { get; set; }
+
+        [BsonElement("wordResolveCommentConfig")]
+        [JsonPropertyName("wordResolveCommentConfig")]
+        public WordResolveCommentConfig? WordResolveCommentConfig { get; set; }
 
         [BsonElement("excelTableNameConfig")]
         [JsonPropertyName("excelTableNameConfig")]
@@ -1173,6 +1203,130 @@ public static class ImageWrapTypes
         [BsonElement("requireSameNumbering")]
         [JsonPropertyName("requireSameNumbering")]
         public bool? RequireSameNumbering { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordBookmarkConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("bookmarkName")]
+        [JsonPropertyName("bookmarkName")]
+        public string? BookmarkName { get; set; }
+
+        [BsonElement("targetText")]
+        [JsonPropertyName("targetText")]
+        public string? TargetText { get; set; }
+
+        [BsonElement("caseSensitiveName")]
+        [JsonPropertyName("caseSensitiveName")]
+        public bool? CaseSensitiveName { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordTocStyleLevelConfig
+    {
+        [BsonElement("styleName")]
+        [JsonPropertyName("styleName")]
+        public string? StyleName { get; set; }
+
+        [BsonElement("level")]
+        [JsonPropertyName("level")]
+        public int? Level { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordCustomTocConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("anchorText")]
+        [JsonPropertyName("anchorText")]
+        public string? AnchorText { get; set; }
+
+        [BsonElement("requiredStyles")]
+        [JsonPropertyName("requiredStyles")]
+        public List<WordTocStyleLevelConfig> RequiredStyles { get; set; } = new();
+
+        [BsonElement("requireUnderAnchorText")]
+        [JsonPropertyName("requireUnderAnchorText")]
+        public bool? RequireUnderAnchorText { get; set; } = true;
+
+        [BsonElement("expectedFormat")]
+        [JsonPropertyName("expectedFormat")]
+        public string? ExpectedFormat { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordTextToTableConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("anchorText")]
+        [JsonPropertyName("anchorText")]
+        public string? AnchorText { get; set; }
+
+        [BsonElement("expectedColumns")]
+        [JsonPropertyName("expectedColumns")]
+        public int? ExpectedColumns { get; set; }
+
+        [BsonElement("expectedTableStyle")]
+        [JsonPropertyName("expectedTableStyle")]
+        public string? ExpectedTableStyle { get; set; }
+
+        [BsonElement("minRows")]
+        [JsonPropertyName("minRows")]
+        public int? MinRows { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordBulletStyleConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("numberingFile")]
+        [JsonPropertyName("numberingFile")]
+        public string? NumberingFile { get; set; } = "word/numbering.xml";
+
+        [BsonElement("anchorText")]
+        [JsonPropertyName("anchorText")]
+        public string? AnchorText { get; set; }
+
+        [BsonElement("expectedBulletChar")]
+        [JsonPropertyName("expectedBulletChar")]
+        public string? ExpectedBulletChar { get; set; }
+
+        [BsonElement("level")]
+        [JsonPropertyName("level")]
+        public int? Level { get; set; } = 0;
+
+        [BsonElement("minItems")]
+        [JsonPropertyName("minItems")]
+        public int? MinItems { get; set; } = 1;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordResolveCommentConfig
+    {
+        [BsonElement("commentsExtendedFile")]
+        [JsonPropertyName("commentsExtendedFile")]
+        public string? CommentsExtendedFile { get; set; } = "word/commentsExtended.xml";
+
+        [BsonElement("requireAllResolved")]
+        [JsonPropertyName("requireAllResolved")]
+        public bool? RequireAllResolved { get; set; } = true;
+
+        [BsonElement("targetText")]
+        [JsonPropertyName("targetText")]
+        public string? TargetText { get; set; }
     }
 
     [BsonIgnoreExtraElements]

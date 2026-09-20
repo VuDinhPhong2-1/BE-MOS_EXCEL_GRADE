@@ -1938,7 +1938,12 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.PageBorder, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordTableSort, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.WordParagraphList, StringComparison.OrdinalIgnoreCase),
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordParagraphList, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordBookmark, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordCustomToc, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordTextToTable, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordBulletStyle, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordResolveComment, StringComparison.OrdinalIgnoreCase),
                 "excel" => string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelWorksheetPageSetup, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelClearCellFormatting, StringComparison.OrdinalIgnoreCase)
@@ -2832,6 +2837,31 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordParagraphList, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateWordParagraphList(specialCondition.WordParagraphListConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordBookmark, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordBookmark(specialCondition.WordBookmarkConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordCustomToc, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordCustomToc(specialCondition.WordCustomTocConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordTextToTable, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordTextToTable(specialCondition.WordTextToTableConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordBulletStyle, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordBulletStyle(specialCondition.WordBulletStyleConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordResolveComment, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordResolveComment(specialCondition.WordResolveCommentConfig, package);
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase))
@@ -7020,6 +7050,170 @@ namespace MOS.ExcelGrading.Core.Services
             }
         }
 
+        private static SpecialConditionEvalOutcome EvaluateWordBookmark(WordBookmarkConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            if (config == null) return Fail("Chua cau hinh Word Bookmark (wordBookmarkConfig trong).");
+            var bookmarkName = config.BookmarkName?.Trim();
+            if (string.IsNullOrWhiteSpace(bookmarkName)) return Fail("wordBookmarkConfig.bookmarkName khong duoc rong.");
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var error)) return Fail(error ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var comparison = config.CaseSensitiveName == false ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
+            var bookmarkStart = document.Descendants(w + "bookmarkStart")
+                .FirstOrDefault(node => string.Equals(node.Attribute(w + "name")?.Value, bookmarkName, comparison));
+            if (bookmarkStart == null) return Fail($"Khong tim thay bookmark ten '{bookmarkName}'.");
+
+            var expectedText = NormalizePlainText(config.TargetText);
+            if (!string.IsNullOrWhiteSpace(expectedText))
+            {
+                var paragraph = bookmarkStart.Ancestors(w + "p").FirstOrDefault();
+                var paragraphText = paragraph == null ? string.Empty : BuildParagraphTextSnapshot(paragraph, w).Text;
+                if (!paragraphText.Contains(expectedText, StringComparison.OrdinalIgnoreCase))
+                {
+                    return Fail($"Bookmark '{bookmarkName}' khong nam trong paragraph chua text '{expectedText}'.");
+                }
+            }
+
+            return new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Da tao bookmark '{bookmarkName}' dung vi tri." };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordCustomToc(WordCustomTocConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            if (config == null) return Fail("Chua cau hinh Word Custom TOC (wordCustomTocConfig trong).");
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var error)) return Fail(error ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var paragraphs = document.Descendants(w + "body").Elements(w + "p").ToList();
+            var anchorText = NormalizePlainText(config.AnchorText);
+            var anchorIndex = string.IsNullOrWhiteSpace(anchorText) ? -1 : paragraphs.FindIndex(p => BuildParagraphTextSnapshot(p, w).Text.Contains(anchorText, StringComparison.OrdinalIgnoreCase));
+            if (config.RequireUnderAnchorText != false && anchorIndex < 0) return Fail($"Khong tim thay anchorText '{anchorText}' cho TOC.");
+
+            var tocParagraphs = paragraphs.Select((p, i) => new { Paragraph = p, Index = i })
+                .Where(item => item.Index > anchorIndex && IsTocParagraph(item.Paragraph, w))
+                .ToList();
+            if (tocParagraphs.Count == 0) return Fail("Khong tim thay Table of Contents sau anchor.");
+
+            var instruction = NormalizePlainText(string.Join(" ", tocParagraphs.SelectMany(x => x.Paragraph.Descendants(w + "instrText")).Select(x => x.Value)));
+            foreach (var style in config.RequiredStyles.Where(s => !string.IsNullOrWhiteSpace(s.StyleName) && s.Level.HasValue))
+            {
+                var styleLevel = style.Level.GetValueOrDefault();
+                if (!DoesTocInstructionContainStyleLevel(instruction, style.StyleName!, styleLevel))
+                {
+                    return Fail($"TOC chua cau hinh style '{style.StyleName}' level {styleLevel}.");
+                }
+            }
+
+            return new SpecialConditionEvalOutcome { IsPassed = true, Message = "Da chen custom Table of Contents dung cau hinh style level." };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordTextToTable(WordTextToTableConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            if (config == null) return Fail("Chua cau hinh Word Text To Table (wordTextToTableConfig trong).");
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var error)) return Fail(error ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var tables = document.Descendants(w + "tbl").ToList();
+            var anchor = NormalizePlainText(config.AnchorText);
+            if (!string.IsNullOrWhiteSpace(anchor)) tables = tables.Where(tbl => tbl.Descendants(w + "tr").FirstOrDefault()?.Descendants(w + "t").Any(t => NormalizePlainText(t.Value).Contains(anchor, StringComparison.OrdinalIgnoreCase)) == true).ToList();
+            foreach (var table in tables)
+            {
+                var rows = table.Elements(w + "tr").ToList();
+                if (config.MinRows.HasValue && rows.Count < config.MinRows.Value) continue;
+                if (config.ExpectedColumns.HasValue && rows.Any(row => row.Elements(w + "tc").Count() != config.ExpectedColumns.Value)) continue;
+                var style = table.Element(w + "tblPr")?.Element(w + "tblStyle")?.Attribute(w + "val")?.Value ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(config.ExpectedTableStyle) && !string.Equals(NormalizeStyleName(style), NormalizeStyleName(config.ExpectedTableStyle), StringComparison.OrdinalIgnoreCase)) continue;
+                return new SpecialConditionEvalOutcome { IsPassed = true, Message = "Da convert text thanh table dung yeu cau." };
+            }
+            return Fail("Khong tim thay table duoc convert tu text dung so cot/style yeu cau.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordBulletStyle(WordBulletStyleConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            if (config == null) return Fail("Chua cau hinh Word Bullet Style (wordBulletStyleConfig trong).");
+            var expectedChar = config.ExpectedBulletChar;
+            if (string.IsNullOrEmpty(expectedChar)) return Fail("wordBulletStyleConfig.expectedBulletChar khong duoc rong.");
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
+            var numberingFile = string.IsNullOrWhiteSpace(config.NumberingFile) ? "word/numbering.xml" : NormalizeSourceFile(config.NumberingFile);
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var docError)) return Fail(docError ?? $"Khong tim thay {sourceFile} trong file hoc sinh.");
+            if (!package.TryGetXmlDocument(numberingFile, out var numbering, out var numError)) return Fail(numError ?? $"Khong tim thay {numberingFile} trong file hoc sinh.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var paragraphs = document.Descendants(w + "body").Elements(w + "p").ToList();
+            var anchor = NormalizePlainText(config.AnchorText);
+            var start = string.IsNullOrWhiteSpace(anchor) ? 0 : paragraphs.FindIndex(p => BuildParagraphTextSnapshot(p, w).Text.Contains(anchor, StringComparison.OrdinalIgnoreCase)) + 1;
+            if (start <= 0 && !string.IsNullOrWhiteSpace(anchor)) return Fail($"Khong tim thay anchorText '{anchor}'.");
+            var matched = 0;
+            foreach (var p in paragraphs.Skip(start))
+            {
+                var numPr = p.Element(w + "pPr")?.Element(w + "numPr");
+                var numId = numPr?.Element(w + "numId")?.Attribute(w + "val")?.Value;
+                var ilvl = numPr?.Element(w + "ilvl")?.Attribute(w + "val")?.Value ?? "0";
+                if (string.IsNullOrWhiteSpace(numId) || !int.TryParse(ilvl, out var level) || level != (config.Level ?? 0)) continue;
+                var bulletChar = ResolveWordBulletCharacter(numbering, w, numId, level);
+                if (bulletChar == expectedChar) matched++;
+            }
+            return matched >= (config.MinItems ?? 1)
+                ? new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Da ap dung bullet '{expectedChar}' cho {matched} item." }
+                : Fail($"Chua tim thay du {config.MinItems ?? 1} bullet item dung ky tu '{expectedChar}'.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordResolveComment(WordResolveCommentConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            if (config == null) return Fail("Chua cau hinh Word Resolve Comment (wordResolveCommentConfig trong).");
+            var commentsExtendedFile = string.IsNullOrWhiteSpace(config.CommentsExtendedFile) ? "word/commentsExtended.xml" : NormalizeSourceFile(config.CommentsExtendedFile);
+            if (!package.TryGetXmlDocument(commentsExtendedFile, out var document, out var error)) return Fail(error ?? $"Khong tim thay {commentsExtendedFile}; comment co the chua duoc resolve.");
+            XNamespace w15 = "http://schemas.microsoft.com/office/word/2012/wordml";
+            var comments = document.Descendants(w15 + "commentEx").ToList();
+            if (comments.Count == 0) return Fail("Khong tim thay commentEx nao de xac minh resolved.");
+            var unresolved = comments.Where(c => !string.Equals(c.Attribute(w15 + "done")?.Value, "1", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (config.RequireAllResolved != false && unresolved.Count > 0) return Fail($"Con {unresolved.Count} comment chua duoc resolve.");
+            return new SpecialConditionEvalOutcome { IsPassed = true, Message = "Comment da duoc resolve." };
+        }
+
+        private static string NormalizeStyleName(string? value) => Regex.Replace(value ?? string.Empty, "[^A-Za-z0-9]", string.Empty);
+
+        private static bool IsTocParagraph(XElement paragraph, XNamespace w)
+        {
+            var styleValue = paragraph.Element(w + "pPr")?.Element(w + "pStyle")?.Attribute(w + "val")?.Value;
+            return paragraph.Descendants(w + "instrText").Any(t => t.Value.Contains("TOC", StringComparison.OrdinalIgnoreCase))
+                || string.Equals(styleValue, "TOCHeading", StringComparison.OrdinalIgnoreCase)
+                || styleValue?.StartsWith("TOC", StringComparison.OrdinalIgnoreCase) == true;
+        }
+
+        private static bool DoesTocInstructionContainStyleLevel(string instruction, string styleName, int level)
+        {
+            if (string.IsNullOrWhiteSpace(instruction) || string.IsNullOrWhiteSpace(styleName))
+            {
+                return false;
+            }
+
+            var escapedStyleName = Regex.Escape(styleName.Trim());
+            var escapedLevel = Regex.Escape(level.ToString(CultureInfo.InvariantCulture));
+            return Regex.IsMatch(
+                instruction,
+                $@"(^|[,\s""']){escapedStyleName}(\s*,\s*|\s*=\s*){escapedLevel}($|[,\s""'])",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        }
+
+        private static string? ResolveWordBulletCharacter(XDocument numbering, XNamespace w, string numId, int level)
+        {
+            var abstractNumId = numbering.Descendants(w + "num")
+                .FirstOrDefault(n => string.Equals(n.Attribute(w + "numId")?.Value, numId, StringComparison.Ordinal))
+                ?.Element(w + "abstractNumId")?.Attribute(w + "val")?.Value;
+            if (string.IsNullOrWhiteSpace(abstractNumId)) return null;
+            return numbering.Descendants(w + "abstractNum")
+                .FirstOrDefault(n => string.Equals(n.Attribute(w + "abstractNumId")?.Value, abstractNumId, StringComparison.Ordinal))
+                ?.Elements(w + "lvl")
+                .FirstOrDefault(l => string.Equals(l.Attribute(w + "ilvl")?.Value ?? "0", level.ToString(), StringComparison.Ordinal))
+                ?.Element(w + "lvlText")?.Attribute(w + "val")?.Value;
+        }
+
         private static SpecialConditionEvalOutcome EvaluateHyperlink(
             HyperlinkConfig? config,
             OfficePackage package)
@@ -10328,4 +10522,5 @@ namespace MOS.ExcelGrading.Core.Services
         }
     }
 }
+
 

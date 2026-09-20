@@ -7149,12 +7149,26 @@ namespace MOS.ExcelGrading.Core.Services
             var start = string.IsNullOrWhiteSpace(anchor) ? 0 : paragraphs.FindIndex(p => BuildParagraphTextSnapshot(p, w).Text.Contains(anchor, StringComparison.OrdinalIgnoreCase)) + 1;
             if (start <= 0 && !string.IsNullOrWhiteSpace(anchor)) return Fail($"Khong tim thay anchorText '{anchor}'.");
             var matched = 0;
+            var foundTargetListRegion = false;
+            var hasAnchor = !string.IsNullOrWhiteSpace(anchor);
             foreach (var p in paragraphs.Skip(start))
             {
                 var numPr = p.Element(w + "pPr")?.Element(w + "numPr");
                 var numId = numPr?.Element(w + "numId")?.Attribute(w + "val")?.Value;
                 var ilvl = numPr?.Element(w + "ilvl")?.Attribute(w + "val")?.Value ?? "0";
-                if (string.IsNullOrWhiteSpace(numId) || !int.TryParse(ilvl, out var level) || level != (config.Level ?? 0)) continue;
+
+                if (string.IsNullOrWhiteSpace(numId))
+                {
+                    if (hasAnchor && foundTargetListRegion && !string.IsNullOrWhiteSpace(BuildParagraphTextSnapshot(p, w).Text))
+                    {
+                        break;
+                    }
+
+                    continue;
+                }
+
+                foundTargetListRegion = true;
+                if (!int.TryParse(ilvl, out var level) || level != (config.Level ?? 0)) continue;
                 var bulletChar = ResolveWordBulletCharacter(numbering, w, numId, level);
                 if (IsEquivalentWordBulletCharacter(bulletChar, expectedChar)) matched++;
             }

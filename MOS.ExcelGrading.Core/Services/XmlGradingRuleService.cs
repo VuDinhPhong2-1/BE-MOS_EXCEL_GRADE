@@ -7156,7 +7156,7 @@ namespace MOS.ExcelGrading.Core.Services
                 var ilvl = numPr?.Element(w + "ilvl")?.Attribute(w + "val")?.Value ?? "0";
                 if (string.IsNullOrWhiteSpace(numId) || !int.TryParse(ilvl, out var level) || level != (config.Level ?? 0)) continue;
                 var bulletChar = ResolveWordBulletCharacter(numbering, w, numId, level);
-                if (bulletChar == expectedChar) matched++;
+                if (IsEquivalentWordBulletCharacter(bulletChar, expectedChar)) matched++;
             }
             return matched >= (config.MinItems ?? 1)
                 ? new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Da ap dung bullet '{expectedChar}' cho {matched} item." }
@@ -7213,6 +7213,34 @@ namespace MOS.ExcelGrading.Core.Services
                 ?.Elements(w + "lvl")
                 .FirstOrDefault(l => string.Equals(l.Attribute(w + "ilvl")?.Value ?? "0", level.ToString(), StringComparison.Ordinal))
                 ?.Element(w + "lvlText")?.Attribute(w + "val")?.Value;
+        }
+
+        private static bool IsEquivalentWordBulletCharacter(string? actualChar, string expectedChar)
+        {
+            var actual = NormalizeWordBulletCharacter(actualChar);
+            var expected = NormalizeWordBulletCharacter(expectedChar);
+
+            return !string.IsNullOrWhiteSpace(actual)
+                && !string.IsNullOrWhiteSpace(expected)
+                && string.Equals(actual, expected, StringComparison.Ordinal);
+        }
+
+        private static string NormalizeWordBulletCharacter(string? value)
+        {
+            var text = (value ?? string.Empty).Trim();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return string.Empty;
+            }
+
+            return text switch
+            {
+                "■" or "" or "\uF06E" or "n" => "solid-square",
+                "•" or "" or "·" => "solid-disc",
+                "○" or "o" or "O" or "¡" => "hollow-circle",
+                "✓" or "✔" or "" or "ü" => "checkmark",
+                _ => text
+            };
         }
 
         private static SpecialConditionEvalOutcome EvaluateHyperlink(

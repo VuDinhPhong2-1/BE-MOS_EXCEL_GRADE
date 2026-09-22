@@ -321,12 +321,12 @@ namespace MOS.ExcelGrading.Core.Services
             var now = current.SubmittedAt;
             if (!string.IsNullOrWhiteSpace(current.IpAddress))
             {
-                var recentSameIp = await _logs.Find(l => l.PortalId == portal.Id && l.IpAddress == current.IpAddress && l.SubmittedAt >= now.AddMinutes(-5)).ToListAsync();
-                var studentIds = recentSameIp.Select(l => l.StudentId).Append(current.StudentId).Distinct().ToList();
+                var sameIpSubmissions = await _logs.Find(l => l.PortalId == portal.Id && l.IpAddress == current.IpAddress && l.StudentId != current.StudentId).ToListAsync();
+                var studentIds = sameIpSubmissions.Select(l => l.StudentId).Append(current.StudentId).Distinct().ToList();
                 if (studentIds.Count >= 2)
                 {
                     tags.Add("SameIpMultipleStudents");
-                    await CreateAlertAsync(portal.Id, "SameIpMultipleStudents", "High", $"IP {current.IpAddress} đã nộp bài cho {studentIds.Count} học sinh khác nhau trong 5 phút.", studentIds, recentSameIp.Select(l => l.Id).Append(current.Id).Distinct().ToList());
+                    await CreateAlertAsync(portal.Id, "SameIpMultipleStudents", "High", $"IP {current.IpAddress} đã nộp bài cho {studentIds.Count} học sinh khác nhau trong link nộp bài này.", studentIds, sameIpSubmissions.Select(l => l.Id).Append(current.Id).Distinct().ToList());
                 }
             }
 

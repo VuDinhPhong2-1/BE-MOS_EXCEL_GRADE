@@ -273,7 +273,7 @@ namespace MOS.ExcelGrading.Core.Services
             var filter = Builders<SubmissionAlert>.Filter.Eq(a => a.PortalId, portalId);
             if (!includeDismissed) filter &= Builders<SubmissionAlert>.Filter.Eq(a => a.IsDismissed, false);
             var alerts = await _alerts.Find(filter).SortByDescending(a => a.CreatedAt).ToListAsync();
-            return alerts.Select(MapAlert).ToList();
+            return await MapAlertsAsync(alerts);
         }
 
         public async Task<int> GetUnreadAlertCountAsync(string portalId) =>
@@ -456,7 +456,34 @@ namespace MOS.ExcelGrading.Core.Services
             HasInstructions = !string.IsNullOrWhiteSpace(a.CurrentInstructionsFileId)
         };
 
-        private static SubmissionAlertResponse MapAlert(SubmissionAlert alert) => new()
+        private async Task<List<SubmissionAlertResponse>> MapAlertsAsync(List<SubmissionAlert> alerts)
+        {
+            if (alerts.Count == 0) return new List<SubmissionAlertResponse>();
+
+            var studentIds = alerts.SelectMany(a => a.InvolvedStudentIds).Distinct().ToList();
+            var logIds = alerts.SelectMany(a => a.InvolvedSubmissionLogIds).Distinct().ToList();
+            var students = studentIds.Count == 0
+                ? new List<Student>()
+                : await _students.Find(s => s.Id != null && studentIds.Contains(s.Id)).ToListAsync();
+            var logs = logIds.Count == 0
+                ? new List<SubmissionLog>()
+                : await _logs.Find(l => logIds.Contains(l.Id)).ToListAsync();
+            var classIds = logs.Select(l => l.ClassId)
+                .Concat(students.Select(s => s.ClassId).Where(id => !string.IsNullOrWhiteSpace(id))!)
+                .Distinct()
+                .ToList();
+            var assignmentIds = logs.Select(l => l.AssignmentId).Distinct().ToList();
+            var classes = classIds.Count == 0
+                ? new List<Class>()
+                : await _classes.Find(c => c.Id != null && classIds.Contains(c.Id)).ToListAsync();
+            var assignments = assignmentIds.Count == 0
+                ? new List<Assignment>()
+                : await _assignments.Find(a => assignmentIds.Contains(a.Id)).ToListAsync();
+
+            return alerts.Select(alert => MapAlert(alert, students, logs, classes, assignments)).ToList();
+        }
+
+        private static SubmissionAlertResponse MapAlert(SubmissionAlert alert, List<Student> students, List<SubmissionLog> logs, List<Class> classes, List<Assignment> assignments) => new()
         {
             Id = alert.Id,
             AlertType = alert.AlertType,
@@ -464,6 +491,33 @@ namespace MOS.ExcelGrading.Core.Services
             Message = alert.Message,
             InvolvedStudentIds = alert.InvolvedStudentIds,
             InvolvedSubmissionLogIds = alert.InvolvedSubmissionLogIds,
+            InvolvedStudents = alert.InvolvedStudentIds.Select(studentId =>
+            {
+                var student = students.FirstOrDefault(s => s.Id == studentId);
+                var latestLog = logs
+                    .Where(l => l.StudentId == studentId && alert.InvolvedSubmissionLogIds.Contains(l.Id))
+                    .OrderByDescending(l => l.SubmittedAt)
+                    .FirstOrDefault();
+                var classId = latestLog?.ClassId ?? student?.ClassId;
+                var assignmentId = latestLog?.AssignmentId;
+                var cls = classes.FirstOrDefault(c => c.Id == classId);
+                var assignment = assignments.FirstOrDefault(a => a.Id == assignmentId);
+
+                return new SubmissionAlertStudentResponse
+                {
+                    StudentId = studentId,
+                    StudentName = student == null ? "(Không rõ học sinh)" : FullName(student),
+                    ClassId = classId,
+                    ClassName = cls?.Name,
+                    AssignmentId = assignmentId,
+                    AssignmentName = assignment?.Name,
+                    FileName = latestLog?.FileName,
+                    IpAddress = latestLog?.IpAddress,
+                    ScoreValue = latestLog?.ScoreValue,
+                    MaxScore = latestLog?.MaxScore,
+                    SubmittedAt = latestLog?.SubmittedAt
+                };
+            }).ToList(),
             IsRead = alert.IsRead,
             IsDismissed = alert.IsDismissed,
             CreatedAt = alert.CreatedAt

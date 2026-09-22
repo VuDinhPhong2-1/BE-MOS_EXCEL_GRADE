@@ -133,8 +133,24 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string Message { get; set; } = string.Empty;
         public List<string> InvolvedStudentIds { get; set; } = new();
         public List<string> InvolvedSubmissionLogIds { get; set; } = new();
+        public List<SubmissionAlertStudentResponse> InvolvedStudents { get; set; } = new();
         public bool IsRead { get; set; }
         public bool IsDismissed { get; set; }
         public DateTime CreatedAt { get; set; }
+    }
+
+    public class SubmissionAlertStudentResponse
+    {
+        public string StudentId { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public string? ClassId { get; set; }
+        public string? ClassName { get; set; }
+        public string? AssignmentId { get; set; }
+        public string? AssignmentName { get; set; }
+        public string? FileName { get; set; }
+        public string? IpAddress { get; set; }
+        public double? ScoreValue { get; set; }
+        public double? MaxScore { get; set; }
+        public DateTime? SubmittedAt { get; set; }
     }
 }

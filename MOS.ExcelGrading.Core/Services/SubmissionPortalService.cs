@@ -253,31 +253,63 @@ namespace MOS.ExcelGrading.Core.Services
             var assignments = await _assignments.Find(a => portal.AssignmentIds.Contains(a.Id)).ToListAsync();
             var logs = await _logs.Find(l => l.PortalId == portal.Id).ToListAsync();
 
-            var rows = scores.Select(score =>
-            {
-                var student = students.FirstOrDefault(s => s.Id == score.StudentId);
-                var cls = classes.FirstOrDefault(c => c.Id == score.ClassId);
-                var assignment = assignments.FirstOrDefault(a => a.Id == score.AssignmentId);
-                return new SubmissionLeaderboardItem
+            var rows = string.IsNullOrWhiteSpace(assignmentId)
+                ? scores
+                    .GroupBy(score => score.StudentId)
+                    .Select(group =>
+                    {
+                        var firstScore = group.First();
+                        var student = students.FirstOrDefault(s => s.Id == group.Key);
+                        var cls = classes.FirstOrDefault(c => c.Id == firstScore.ClassId);
+                        var assignmentIdsForClass = assignments
+                            .Where(a => a.ClassId == firstScore.ClassId)
+                            .Select(a => a.Id)
+                            .ToHashSet();
+
+                        return new SubmissionLeaderboardItem
+                        {
+                            StudentId = group.Key,
+                            StudentName = student == null ? "(Không rõ)" : FullName(student),
+                            ClassId = firstScore.ClassId,
+                            ClassName = cls?.Name ?? "(Không rõ)",
+                            AssignmentId = null,
+                            AssignmentName = null,
+                            ScoreValue = group.Sum(score => score.ScoreValue ?? 0),
+                            MaxScore = assignments.Where(a => a.ClassId == firstScore.ClassId).Sum(a => a.MaxScore),
+                            GradedAt = group
+                                .Where(score => score.GradedAt.HasValue)
+                                .Select(score => score.GradedAt)
+                                .OrderByDescending(date => date)
+                                .FirstOrDefault(),
+                            SubmissionCount = logs.Count(l => l.StudentId == group.Key && assignmentIdsForClass.Contains(l.AssignmentId))
+                        };
+                    })
+                    .ToList()
+                : scores.Select(score =>
                 {
-                    StudentId = score.StudentId,
-                    StudentName = student == null ? "(Không rõ)" : FullName(student),
-                    ClassId = score.ClassId,
-                    ClassName = cls?.Name ?? "(Không rõ)",
-                    AssignmentId = string.IsNullOrWhiteSpace(assignmentId) ? null : score.AssignmentId,
-                    AssignmentName = string.IsNullOrWhiteSpace(assignmentId) ? null : assignment?.Name,
-                    ScoreValue = score.ScoreValue ?? 0,
-                    MaxScore = assignment?.MaxScore ?? 125,
-                    GradedAt = score.GradedAt,
-                    SubmissionCount = logs.Count(l => l.StudentId == score.StudentId && (string.IsNullOrWhiteSpace(assignmentId) || l.AssignmentId == assignmentId))
-                };
-            }).ToList();
+                    var student = students.FirstOrDefault(s => s.Id == score.StudentId);
+                    var cls = classes.FirstOrDefault(c => c.Id == score.ClassId);
+                    var assignment = assignments.FirstOrDefault(a => a.Id == score.AssignmentId);
+                    return new SubmissionLeaderboardItem
+                    {
+                        StudentId = score.StudentId,
+                        StudentName = student == null ? "(Không rõ)" : FullName(student),
+                        ClassId = score.ClassId,
+                        ClassName = cls?.Name ?? "(Không rõ)",
+                        AssignmentId = score.AssignmentId,
+                        AssignmentName = assignment?.Name,
+                        ScoreValue = score.ScoreValue ?? 0,
+                        MaxScore = assignment?.MaxScore ?? 125,
+                        GradedAt = score.GradedAt,
+                        SubmissionCount = logs.Count(l => l.StudentId == score.StudentId && l.AssignmentId == assignmentId)
+                    };
+                }).ToList();
 
             if (!string.IsNullOrWhiteSpace(classId))
             {
                 var cls = classes.FirstOrDefault(c => c.Id == classId);
                 var assignment = string.IsNullOrWhiteSpace(assignmentId) ? null : assignments.FirstOrDefault(a => a.Id == assignmentId);
-                var maxScore = assignment?.MaxScore ?? assignments.Where(a => a.ClassId == classId).DefaultIfEmpty().Max(a => a?.MaxScore ?? 125);
+                var maxScore = assignment?.MaxScore ?? assignments.Where(a => a.ClassId == classId).Sum(a => a.MaxScore);
                 var existingStudentIds = rows.Select(r => r.StudentId).ToHashSet();
                 rows.AddRange(students
                     .Where(student => !string.IsNullOrWhiteSpace(student.Id) && student.ClassId == classId && !existingStudentIds.Contains(student.Id))

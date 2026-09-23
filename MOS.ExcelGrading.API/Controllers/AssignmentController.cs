@@ -147,15 +147,21 @@ namespace MOS.ExcelGrading.API.Controllers
             var groupCode = projectCodeParts.Length == 2 ? projectCodeParts[0] : practice.Code;
             var groupName = GetGroupedPracticeDisplayName(groupCode, practice.Name);
             var subjectDisplay = GetSubjectDisplayName(normalizedSubject);
+            var effectiveMaxScore = project.MaxScore > 0
+                ? (double)project.MaxScore
+                : practiceProjectScore;
+            var descriptionScoreSource = project.MaxScore > 0
+                ? $"Điểm tối đa theo XML ruleset: {effectiveMaxScore:0.##} điểm."
+                : $"Quy đổi theo {groupName}: {effectiveMaxScore:0.##}/{practice.TotalScore} điểm.";
 
             return new GradingEndpointInfo
             {
                 Endpoint = endpoint,
                 DisplayName = $"Project {projectNumber:00} - {subjectDisplay}",
                 Description =
-                    $"XML ruleset active: {projectName}. Quy đổi theo {groupName}: {practiceProjectScore:0.##}/{practice.TotalScore} điểm.",
-                MaxScore = practiceProjectScore,
-                RawMaxScore = (double)project.MaxScore,
+                    $"XML ruleset active: {projectName}. {descriptionScoreSource}",
+                MaxScore = effectiveMaxScore,
+                RawMaxScore = effectiveMaxScore,
                 Subject = normalizedSubject,
                 PracticeCode = groupCode,
                 PracticeName = groupName,

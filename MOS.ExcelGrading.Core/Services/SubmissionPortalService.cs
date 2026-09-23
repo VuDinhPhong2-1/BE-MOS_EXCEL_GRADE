@@ -235,11 +235,20 @@ namespace MOS.ExcelGrading.Core.Services
         {
             var portal = await RequireOpenPortalAsync(token, validateTime: false);
             if (!portal.ShowLeaderboard) throw new InvalidOperationException("Bảng xếp hạng chưa được bật cho link này.");
+            if (!string.IsNullOrWhiteSpace(classId) && !portal.ClassIds.Contains(classId)) throw new InvalidOperationException("Lớp không thuộc link nộp bài này.");
+            if (!string.IsNullOrWhiteSpace(assignmentId) && !portal.AssignmentIds.Contains(assignmentId)) throw new InvalidOperationException("Bài tập không thuộc link nộp bài này.");
+
             var filter = Builders<Score>.Filter.In(s => s.AssignmentId, portal.AssignmentIds);
             if (!string.IsNullOrWhiteSpace(classId)) filter &= Builders<Score>.Filter.Eq(s => s.ClassId, classId);
             if (!string.IsNullOrWhiteSpace(assignmentId)) filter &= Builders<Score>.Filter.Eq(s => s.AssignmentId, assignmentId);
             var scores = await _scores.Find(filter).ToListAsync();
-            var students = await _students.Find(s => s.Id != null && scores.Select(x => x.StudentId).Contains(s.Id)).ToListAsync();
+            var scoreStudentIds = scores.Select(x => x.StudentId).Distinct().ToList();
+            var studentFilter = Builders<Student>.Filter.Ne(s => s.Id, null) & Builders<Student>.Filter.In(s => s.Id, scoreStudentIds);
+            if (!string.IsNullOrWhiteSpace(classId))
+            {
+                studentFilter |= Builders<Student>.Filter.Eq(s => s.ClassId, classId) & Builders<Student>.Filter.Eq(s => s.IsActive, true);
+            }
+            var students = await _students.Find(studentFilter).SortBy(s => s.MiddleName).ThenBy(s => s.FirstName).ToListAsync();
             var classes = await _classes.Find(c => c.Id != null && portal.ClassIds.Contains(c.Id)).ToListAsync();
             var assignments = await _assignments.Find(a => portal.AssignmentIds.Contains(a.Id)).ToListAsync();
             var logs = await _logs.Find(l => l.PortalId == portal.Id).ToListAsync();
@@ -262,7 +271,32 @@ namespace MOS.ExcelGrading.Core.Services
                     GradedAt = score.GradedAt,
                     SubmissionCount = logs.Count(l => l.StudentId == score.StudentId && (string.IsNullOrWhiteSpace(assignmentId) || l.AssignmentId == assignmentId))
                 };
-            }).OrderByDescending(r => r.ScoreValue).ThenBy(r => r.GradedAt ?? DateTime.MaxValue).ToList();
+            }).ToList();
+
+            if (!string.IsNullOrWhiteSpace(classId))
+            {
+                var cls = classes.FirstOrDefault(c => c.Id == classId);
+                var assignment = string.IsNullOrWhiteSpace(assignmentId) ? null : assignments.FirstOrDefault(a => a.Id == assignmentId);
+                var maxScore = assignment?.MaxScore ?? assignments.Where(a => a.ClassId == classId).DefaultIfEmpty().Max(a => a?.MaxScore ?? 125);
+                var existingStudentIds = rows.Select(r => r.StudentId).ToHashSet();
+                rows.AddRange(students
+                    .Where(student => !string.IsNullOrWhiteSpace(student.Id) && student.ClassId == classId && !existingStudentIds.Contains(student.Id))
+                    .Select(student => new SubmissionLeaderboardItem
+                    {
+                        StudentId = student.Id ?? string.Empty,
+                        StudentName = FullName(student),
+                        ClassId = classId,
+                        ClassName = cls?.Name ?? "(Không rõ)",
+                        AssignmentId = string.IsNullOrWhiteSpace(assignmentId) ? null : assignmentId,
+                        AssignmentName = string.IsNullOrWhiteSpace(assignmentId) ? null : assignment?.Name,
+                        ScoreValue = 0,
+                        MaxScore = maxScore,
+                        GradedAt = null,
+                        SubmissionCount = 0
+                    }));
+            }
+
+            rows = rows.OrderByDescending(r => r.ScoreValue).ThenBy(r => r.GradedAt ?? DateTime.MaxValue).ThenBy(r => r.StudentName).ToList();
             for (var i = 0; i < rows.Count; i++) rows[i].Rank = i + 1;
             return rows;
         }

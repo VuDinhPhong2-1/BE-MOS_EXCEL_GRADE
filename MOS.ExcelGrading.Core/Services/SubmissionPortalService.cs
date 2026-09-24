@@ -142,15 +142,27 @@ namespace MOS.ExcelGrading.Core.Services
             return students.Select(s => new PublicPortalStudentDto { Id = s.Id ?? string.Empty, ClassId = classId, FullName = FullName(s) }).ToList();
         }
 
+        public async Task<PublicPortalSubmitResult> GradePreviewAsync(string token, string classId, string studentId, string assignmentId, IFormFile file)
+        {
+            var portal = await RequireOpenPortalAsync(token, validateTime: true);
+            var grading = await GradeSubmissionFileAsync(portal, classId, studentId, assignmentId, file);
+            return new PublicPortalSubmitResult
+            {
+                ScoreValue = grading.ScoreValue,
+                MaxScore = grading.MaxScore,
+                Feedback = "Đã chấm thử. Điểm này chưa được ghi nhận cho đến khi bạn bấm Nộp bài.",
+                AutoGradingErrors = grading.AutoGradingErrors,
+                AutoGradingTaskResults = grading.TaskRequests,
+                SubmittedAt = DateTime.UtcNow,
+                Rank = null,
+                Alerts = new List<string>()
+            };
+        }
+
         public async Task<PublicPortalSubmitResult> GradeAndSubmitAsync(string token, string classId, string studentId, string assignmentId, IFormFile file, string? ipAddress, string? userAgent)
         {
             var portal = await RequireOpenPortalAsync(token, validateTime: true);
-            if (file == null || file.Length == 0) throw new InvalidOperationException("Vui lòng chọn file bài làm.");
-            await ValidateSubmissionScopeAsync(portal, classId, studentId, assignmentId);
-
-            var assignment = await _assignments.Find(a => a.Id == assignmentId && a.IsActive).FirstOrDefaultAsync()
-                ?? throw new InvalidOperationException("Không tìm thấy bài tập.");
-            if (string.IsNullOrWhiteSpace(assignment.GradingApiEndpoint)) throw new InvalidOperationException("Bài tập chưa cấu hình API chấm tự động.");
+            var grading = await GradeSubmissionFileAsync(portal, classId, studentId, assignmentId, file);
 
             var previousLogs = await _logs.Find(l => l.PortalId == portal.Id && l.StudentId == studentId && l.AssignmentId == assignmentId).ToListAsync();
             if (portal.MaxSubmissionsPerStudent > 0 && previousLogs.Count >= portal.MaxSubmissionsPerStudent)
@@ -161,25 +173,8 @@ namespace MOS.ExcelGrading.Core.Services
             await using var memory = new MemoryStream();
             await file.CopyToAsync(memory);
             var hash = Convert.ToHexString(SHA256.HashData(memory.ToArray())).ToLowerInvariant();
-            memory.Position = 0;
 
-            var (subject, projectCode) = ResolveEndpoint(assignment.GradingApiEndpoint);
-            var grading = await _xmlGradingRuleService.GradeAsync(memory, subject, projectCode);
-            var taskRequests = grading.TaskResults.Select(t => new AutoGradingTaskResultRequest
-            {
-                TaskId = t.TaskId,
-                TaskName = t.TaskName,
-                Score = (double)t.Score,
-                MaxScore = (double)t.MaxScore,
-                IsPassed = t.IsPassed,
-                Details = t.Details,
-                Errors = portal.ShowDetailedFeedback ? t.Errors : new List<string>(),
-                FixActions = portal.ShowDetailedFeedback ? t.FixActions.ToList() : new List<string>(),
-                DisplayIssues = portal.ShowDetailedFeedback ? t.DisplayIssues.Select(d => new AutoGradingDisplayIssueRequest { Heading = d.Heading, Message = d.Message, FixAction = d.FixAction }).ToList() : new List<AutoGradingDisplayIssueRequest>()
-            }).ToList();
-
-            var scoreValue = (double)grading.TotalScore;
-            var shouldPersist = await ShouldPersistScoreAsync(portal, studentId, assignmentId, scoreValue);
+            var shouldPersist = await ShouldPersistScoreAsync(portal, studentId, assignmentId, grading.ScoreValue);
             if (shouldPersist)
             {
                 await _scoreService.CreateOrUpdateScoreAsync(new CreateScoreRequest
@@ -187,10 +182,10 @@ namespace MOS.ExcelGrading.Core.Services
                     StudentId = studentId,
                     AssignmentId = assignmentId,
                     ClassId = classId,
-                    ScoreValue = scoreValue,
+                    ScoreValue = grading.ScoreValue,
                     Feedback = $"Nộp qua public link: {portal.Title}",
-                    AutoGradingErrors = portal.ShowDetailedFeedback ? grading.TaskResults.SelectMany(t => t.Errors).ToList() : new List<string>(),
-                    AutoGradingTaskResults = taskRequests
+                    AutoGradingErrors = grading.AutoGradingErrors,
+                    AutoGradingTaskResults = grading.TaskRequests
                 }, portal.CreatedBy ?? ObjectId.Empty.ToString());
             }
 
@@ -200,8 +195,8 @@ namespace MOS.ExcelGrading.Core.Services
                 StudentId = studentId,
                 ClassId = classId,
                 AssignmentId = assignmentId,
-                ScoreValue = scoreValue,
-                MaxScore = (double)grading.MaxScore,
+                ScoreValue = grading.ScoreValue,
+                MaxScore = grading.MaxScore,
                 IpAddress = ipAddress,
                 UserAgent = userAgent,
                 FileHash = hash,
@@ -220,11 +215,11 @@ namespace MOS.ExcelGrading.Core.Services
             var rank = leaderboard.FirstOrDefault(x => x.StudentId == studentId)?.Rank;
             return new PublicPortalSubmitResult
             {
-                ScoreValue = scoreValue,
-                MaxScore = (double)grading.MaxScore,
+                ScoreValue = grading.ScoreValue,
+                MaxScore = grading.MaxScore,
                 Feedback = "Đã chấm và nộp bài thành công.",
-                AutoGradingErrors = portal.ShowDetailedFeedback ? grading.TaskResults.SelectMany(t => t.Errors).ToList() : new List<string>(),
-                AutoGradingTaskResults = taskRequests,
+                AutoGradingErrors = grading.AutoGradingErrors,
+                AutoGradingTaskResults = grading.TaskRequests,
                 SubmittedAt = log.SubmittedAt,
                 Rank = rank,
                 Alerts = log.Alerts
@@ -459,6 +454,37 @@ namespace MOS.ExcelGrading.Core.Services
 
         private async Task<SubmissionPortal?> FindActiveByTokenAsync(string token) =>
             await _portals.Find(p => p.PublicToken == token && p.IsActive).FirstOrDefaultAsync();
+
+        private async Task<(double ScoreValue, double MaxScore, List<string> AutoGradingErrors, List<AutoGradingTaskResultRequest> TaskRequests)> GradeSubmissionFileAsync(SubmissionPortal portal, string classId, string studentId, string assignmentId, IFormFile file)
+        {
+            if (file == null || file.Length == 0) throw new InvalidOperationException("Vui lòng chọn file bài làm.");
+            await ValidateSubmissionScopeAsync(portal, classId, studentId, assignmentId);
+
+            var assignment = await _assignments.Find(a => a.Id == assignmentId && a.IsActive).FirstOrDefaultAsync()
+                ?? throw new InvalidOperationException("Không tìm thấy bài tập.");
+            if (string.IsNullOrWhiteSpace(assignment.GradingApiEndpoint)) throw new InvalidOperationException("Bài tập chưa cấu hình API chấm tự động.");
+
+            await using var memory = new MemoryStream();
+            await file.CopyToAsync(memory);
+            memory.Position = 0;
+
+            var (subject, projectCode) = ResolveEndpoint(assignment.GradingApiEndpoint);
+            var grading = await _xmlGradingRuleService.GradeAsync(memory, subject, projectCode);
+            var taskRequests = grading.TaskResults.Select(t => new AutoGradingTaskResultRequest
+            {
+                TaskId = t.TaskId,
+                TaskName = t.TaskName,
+                Score = (double)t.Score,
+                MaxScore = (double)t.MaxScore,
+                IsPassed = t.IsPassed,
+                Details = t.Details,
+                Errors = portal.ShowDetailedFeedback ? t.Errors : new List<string>(),
+                FixActions = portal.ShowDetailedFeedback ? t.FixActions.ToList() : new List<string>(),
+                DisplayIssues = portal.ShowDetailedFeedback ? t.DisplayIssues.Select(d => new AutoGradingDisplayIssueRequest { Heading = d.Heading, Message = d.Message, FixAction = d.FixAction }).ToList() : new List<AutoGradingDisplayIssueRequest>()
+            }).ToList();
+
+            return ((double)grading.TotalScore, (double)grading.MaxScore, portal.ShowDetailedFeedback ? grading.TaskResults.SelectMany(t => t.Errors).ToList() : new List<string>(), taskRequests);
+        }
 
         private static (string subject, string projectCode) ResolveEndpoint(string endpoint)
         {

@@ -49,6 +49,23 @@ namespace MOS.ExcelGrading.API.Controllers
             }
         }
 
+        [HttpPost("{token}/grade-preview")]
+        [RequestSizeLimit(524288000)]
+        public async Task<IActionResult> GradePreview(string token, [FromForm] string classId, [FromForm] string studentId, [FromForm] string assignmentId, [FromForm] IFormFile file)
+        {
+            try
+            {
+                return Ok(await _service.GradePreviewAsync(token, classId, studentId, assignmentId, file));
+            }
+            catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
+            catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error in public grade-preview");
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
+            }
+        }
+
         [HttpGet("{token}/leaderboard")]
         public async Task<IActionResult> GetLeaderboard(string token, [FromQuery] string? classId = null, [FromQuery] string? assignmentId = null)
         {

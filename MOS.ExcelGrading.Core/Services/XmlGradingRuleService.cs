@@ -1944,6 +1944,11 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordTextToTable, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordBulletStyle, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordResolveComment, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordCommentReply, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordDocumentInspector, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordParagraphStyle, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordTableAutoFit, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordViewSetting, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase),
                 "excel" => string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase)
@@ -2364,6 +2369,41 @@ namespace MOS.ExcelGrading.Core.Services
                     continue;
                 }
 
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordCommentReply, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordCommentReplyConfig?.CommentsFile, "word/comments.xml");
+                    AddXmlPart(specialCondition.WordCommentReplyConfig?.CommentsExtendedFile, "word/commentsExtended.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordDocumentInspector, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordDocumentInspectorConfig?.SourceFile, "word/document.xml");
+                    AddXmlPrefix("word/header");
+                    AddXmlPrefix("word/footer");
+                    AddXmlPrefix("docProps");
+                    AddXmlPrefix("customXml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordParagraphStyle, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordParagraphStyleConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordTableAutoFit, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordTableAutoFitConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordViewSetting, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordViewSettingConfig?.SettingsFile, "word/settings.xml");
+                    continue;
+                }
+
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase))
                 {
                     AddXmlPart(specialCondition.HyperlinkConfig?.SourceFile, "word/document.xml");
@@ -2437,6 +2477,41 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     AddXmlPart(specialCondition.WordParagraphListConfig?.SourceFile, "word/document.xml");
                     AddXmlPart("word/numbering.xml", "word/numbering.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordCommentReply, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordCommentReplyConfig?.CommentsFile, "word/comments.xml");
+                    AddXmlPart(specialCondition.WordCommentReplyConfig?.CommentsExtendedFile, "word/commentsExtended.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordDocumentInspector, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordDocumentInspectorConfig?.SourceFile, "word/document.xml");
+                    AddXmlPrefix("word/header");
+                    AddXmlPrefix("word/footer");
+                    AddXmlPrefix("docProps");
+                    AddXmlPrefix("customXml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordParagraphStyle, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordParagraphStyleConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordTableAutoFit, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordTableAutoFitConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordViewSetting, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordViewSettingConfig?.SettingsFile, "word/settings.xml");
                     continue;
                 }
 
@@ -2879,6 +2954,31 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordResolveComment, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateWordResolveComment(specialCondition.WordResolveCommentConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordCommentReply, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordCommentReply(specialCondition.WordCommentReplyConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordDocumentInspector, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordDocumentInspector(specialCondition.WordDocumentInspectorConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordParagraphStyle, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordParagraphStyle(specialCondition.WordParagraphStyleConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordTableAutoFit, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordTableAutoFit(specialCondition.WordTableAutoFitConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordViewSetting, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordViewSetting(specialCondition.WordViewSettingConfig, package);
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase))
@@ -7465,6 +7565,130 @@ namespace MOS.ExcelGrading.Core.Services
         }
 
         private static string NormalizeComparableCommentText(string? value) => Regex.Replace(value ?? string.Empty, "\\s+", " ").Trim();
+
+        private static SpecialConditionEvalOutcome EvaluateWordCommentReply(WordCommentReplyConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            if (config == null) return Fail("Chưa cấu hình Word Comment Reply.");
+            if (string.IsNullOrWhiteSpace(config.ExpectedReplyText)) return Fail("Chưa cấu hình expectedReplyText.");
+
+            var commentsFile = string.IsNullOrWhiteSpace(config.CommentsFile) ? "word/comments.xml" : NormalizeSourceFile(config.CommentsFile);
+            if (!package.TryGetXmlDocument(commentsFile, out var commentsDoc, out var error)) return Fail(error ?? $"Không tìm thấy {commentsFile}.");
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            XNamespace w15 = "http://schemas.microsoft.com/office/word/2012/wordml";
+            XNamespace w14 = "http://schemas.microsoft.com/office/word/2010/wordml";
+            var comparison = config.CaseSensitive == true ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+            var expectedReply = NormalizeComparableCommentText(config.ExpectedReplyText);
+            var comments = commentsDoc.Descendants(w + "comment").ToList();
+            var matchingReplyComments = comments.Where(c => NormalizeComparableCommentText(string.Concat(c.Descendants(w + "t").Select(t => t.Value))).Contains(expectedReply, comparison)).ToList();
+            if (matchingReplyComments.Count == 0) return Fail($"Không tìm thấy nội dung reply '{config.ExpectedReplyText}'.");
+
+            if (string.IsNullOrWhiteSpace(config.ParentCommentText))
+            {
+                return new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Đã tìm thấy reply '{config.ExpectedReplyText}'." };
+            }
+
+            var commentsExtendedFile = string.IsNullOrWhiteSpace(config.CommentsExtendedFile) ? "word/commentsExtended.xml" : NormalizeSourceFile(config.CommentsExtendedFile);
+            if (!package.TryGetXmlDocument(commentsExtendedFile, out var extDoc, out var extError)) return Fail(extError ?? $"Không tìm thấy {commentsExtendedFile} để xác minh reply-parent.");
+            var parentText = NormalizeComparableCommentText(config.ParentCommentText);
+            var parentParaIds = comments
+                .Where(c => NormalizeComparableCommentText(string.Concat(c.Descendants(w + "t").Select(t => t.Value))).Contains(parentText, comparison))
+                .SelectMany(c => c.Descendants(w + "p").Select(p => p.Attribute(w14 + "paraId")?.Value ?? p.Attribute(w15 + "paraId")?.Value))
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            if (parentParaIds.Count == 0) return Fail($"Không tìm thấy comment cha chứa '{config.ParentCommentText}'.");
+
+            var replyParaIds = matchingReplyComments
+                .SelectMany(c => c.Descendants(w + "p").Select(p => p.Attribute(w14 + "paraId")?.Value ?? p.Attribute(w15 + "paraId")?.Value))
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var linked = extDoc.Descendants(w15 + "commentEx").Any(c =>
+                replyParaIds.Contains(c.Attribute(w15 + "paraId")?.Value ?? string.Empty)
+                && parentParaIds.Contains(c.Attribute(w15 + "paraIdParent")?.Value ?? string.Empty));
+            return linked
+                ? new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Đã reply đúng comment với nội dung '{config.ExpectedReplyText}'." }
+                : Fail("Tìm thấy nội dung reply nhưng chưa liên kết đúng comment cha.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordDocumentInspector(WordDocumentInspectorConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            config ??= new WordDocumentInspectorConfig();
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var error)) return Fail(error ?? $"Không tìm thấy {sourceFile}.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            if (config.RequireNoHeaders != false && document.Descendants(w + "headerReference").Any()) return Fail("Tài liệu vẫn còn header reference.");
+            if (config.RequireNoFooters != false && document.Descendants(w + "footerReference").Any()) return Fail("Tài liệu vẫn còn footer reference.");
+            var headerFooterParts = package.XmlParts.Where(p => p.Key.StartsWith("word/header", StringComparison.OrdinalIgnoreCase) || p.Key.StartsWith("word/footer", StringComparison.OrdinalIgnoreCase)).ToList();
+            if (config.RequireNoHeaders != false && headerFooterParts.Any(p => p.Key.StartsWith("word/header", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(Regex.Replace(p.Value, "<[^>]+>", string.Empty)))) return Fail("Tài liệu vẫn còn nội dung header.");
+            if (config.RequireNoFooters != false && headerFooterParts.Any(p => p.Key.StartsWith("word/footer", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrWhiteSpace(Regex.Replace(p.Value, "<[^>]+>", string.Empty)))) return Fail("Tài liệu vẫn còn nội dung footer.");
+            if (config.RequireNoWatermarks != false && headerFooterParts.Any(p => p.Value.Contains("PowerPlusWaterMarkObject", StringComparison.OrdinalIgnoreCase) || p.Value.Contains("watermark", StringComparison.OrdinalIgnoreCase))) return Fail("Tài liệu vẫn còn watermark.");
+            if (config.PreserveDocumentProperties != false && !package.XmlParts.Keys.Any(k => k.StartsWith("docProps/", StringComparison.OrdinalIgnoreCase))) return Fail("Thiếu document properties; có thể đã xóa nhầm hidden properties.");
+            if (config.PreserveCustomXml != false && !package.XmlParts.Keys.Any(k => k.StartsWith("customXml/", StringComparison.OrdinalIgnoreCase))) return Fail("Thiếu customXml; có thể đã xóa nhầm hidden/custom data.");
+            return new SpecialConditionEvalOutcome { IsPassed = true, Message = "Document Inspector đã xóa header/footer/watermark và giữ lại dữ liệu ẩn cần thiết." };
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordParagraphStyle(WordParagraphStyleConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            if (config == null || string.IsNullOrWhiteSpace(config.TargetText) || string.IsNullOrWhiteSpace(config.ExpectedStyle)) return Fail("Chưa cấu hình targetText hoặc expectedStyle.");
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var error)) return Fail(error ?? $"Không tìm thấy {sourceFile}.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var comparison = config.CaseSensitive == true ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+            var expected = NormalizeStyleName(config.ExpectedStyle);
+            foreach (var p in document.Descendants(w + "p"))
+            {
+                var text = BuildParagraphTextSnapshot(p, w).Text;
+                if (!text.Contains(config.TargetText, comparison)) continue;
+                var style = p.Element(w + "pPr")?.Element(w + "pStyle")?.Attribute(w + "val")?.Value;
+                return string.Equals(NormalizeStyleName(style), expected, StringComparison.OrdinalIgnoreCase)
+                    ? new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Đoạn '{config.TargetText}' đã có style {config.ExpectedStyle}." }
+                    : Fail($"Đoạn '{config.TargetText}' có style '{style}', không phải '{config.ExpectedStyle}'.");
+            }
+            return Fail($"Không tìm thấy đoạn chứa '{config.TargetText}'.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordTableAutoFit(WordTableAutoFitConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            config ??= new WordTableAutoFitConfig();
+            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
+            if (!package.TryGetXmlDocument(sourceFile, out var document, out var error)) return Fail(error ?? $"Không tìm thấy {sourceFile}.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var tables = document.Descendants(w + "tbl").ToList();
+            XElement? table = null;
+            if (!string.IsNullOrWhiteSpace(config.AnchorText)) table = tables.FirstOrDefault(t => string.Concat(t.Descendants(w + "t").Select(x => x.Value)).Contains(config.AnchorText, StringComparison.OrdinalIgnoreCase));
+            table ??= tables.Skip(Math.Max(0, (config.TableIndex ?? 1) - 1)).FirstOrDefault();
+            if (table == null) return Fail("Không tìm thấy bảng cần kiểm tra AutoFit.");
+            var tblPr = table.Element(w + "tblPr");
+            var layoutType = tblPr?.Element(w + "tblLayout")?.Attribute(w + "type")?.Value;
+            var tblW = tblPr?.Element(w + "tblW");
+            var widthType = tblW?.Attribute(w + "type")?.Value;
+            var width = tblW?.Attribute(w + "w")?.Value;
+            var isAutoFitContents = !string.Equals(layoutType, "fixed", StringComparison.OrdinalIgnoreCase)
+                && (tblW == null || string.Equals(widthType, "auto", StringComparison.OrdinalIgnoreCase) || string.Equals(width, "0", StringComparison.OrdinalIgnoreCase));
+            return isAutoFitContents
+                ? new SpecialConditionEvalOutcome { IsPassed = true, Message = "Bảng đang ở chế độ AutoFit Contents." }
+                : Fail("Bảng chưa ở chế độ AutoFit Contents (vẫn có fixed layout/preferred width). ");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordViewSetting(WordViewSettingConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            if (config == null || string.IsNullOrWhiteSpace(config.SettingElement)) return Fail("Chưa cấu hình settingElement.");
+            var settingsFile = string.IsNullOrWhiteSpace(config.SettingsFile) ? "word/settings.xml" : NormalizeSourceFile(config.SettingsFile);
+            if (!package.TryGetXmlDocument(settingsFile, out var document, out var error)) return config?.AllowMissingAsPass == true ? new SpecialConditionEvalOutcome { IsPassed = true, Message = "Không tìm thấy setting; chấp nhận theo cấu hình." } : Fail(error ?? $"Không tìm thấy {settingsFile}.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var element = document.Descendants(w + config.SettingElement).FirstOrDefault();
+            if (element == null) return config.AllowMissingAsPass == true ? new SpecialConditionEvalOutcome { IsPassed = true, Message = "Setting không tồn tại; chấp nhận theo cấu hình." } : Fail($"Không tìm thấy setting {config.SettingElement}.");
+            var value = element.Attribute(w + "val")?.Value;
+            var enabled = value == null || value == "1" || value.Equals("true", StringComparison.OrdinalIgnoreCase) || value.Equals("on", StringComparison.OrdinalIgnoreCase);
+            return enabled == (config.ExpectedEnabled != false)
+                ? new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Setting {config.SettingElement} đạt yêu cầu." }
+                : Fail($"Setting {config.SettingElement} chưa đạt yêu cầu.");
+        }
 
         private static string NormalizeStyleName(string? value) => Regex.Replace(value ?? string.Empty, "[^A-Za-z0-9]", string.Empty);
 

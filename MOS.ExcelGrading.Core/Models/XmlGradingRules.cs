@@ -63,6 +63,11 @@ namespace MOS.ExcelGrading.Core.Models
     public const string WordTextToTable = "wordTextToTable";
     public const string WordBulletStyle = "wordBulletStyle";
     public const string WordResolveComment = "wordResolveComment";
+    public const string WordCommentReply = "wordCommentReply";
+    public const string WordDocumentInspector = "wordDocumentInspector";
+    public const string WordParagraphStyle = "wordParagraphStyle";
+    public const string WordTableAutoFit = "wordTableAutoFit";
+    public const string WordViewSetting = "wordViewSetting";
     public const string WordEndnote = "wordEndnote";
     public const string WordSmartArt = "wordSmartArt";
     public const string ExcelTableName = "excelTableName";
@@ -108,6 +113,11 @@ namespace MOS.ExcelGrading.Core.Models
             WordTextToTable,
             WordBulletStyle,
             WordResolveComment,
+            WordCommentReply,
+            WordDocumentInspector,
+            WordParagraphStyle,
+            WordTableAutoFit,
+            WordViewSetting,
             ExcelTableName,
             ExcelWorksheetPageSetup,
             ExcelClearCellFormatting,
@@ -401,6 +411,26 @@ public static class ImageWrapTypes
         [BsonElement("wordResolveCommentConfig")]
         [JsonPropertyName("wordResolveCommentConfig")]
         public WordResolveCommentConfig? WordResolveCommentConfig { get; set; }
+
+        [BsonElement("wordCommentReplyConfig")]
+        [JsonPropertyName("wordCommentReplyConfig")]
+        public WordCommentReplyConfig? WordCommentReplyConfig { get; set; }
+
+        [BsonElement("wordDocumentInspectorConfig")]
+        [JsonPropertyName("wordDocumentInspectorConfig")]
+        public WordDocumentInspectorConfig? WordDocumentInspectorConfig { get; set; }
+
+        [BsonElement("wordParagraphStyleConfig")]
+        [JsonPropertyName("wordParagraphStyleConfig")]
+        public WordParagraphStyleConfig? WordParagraphStyleConfig { get; set; }
+
+        [BsonElement("wordTableAutoFitConfig")]
+        [JsonPropertyName("wordTableAutoFitConfig")]
+        public WordTableAutoFitConfig? WordTableAutoFitConfig { get; set; }
+
+        [BsonElement("wordViewSettingConfig")]
+        [JsonPropertyName("wordViewSettingConfig")]
+        public WordViewSettingConfig? WordViewSettingConfig { get; set; }
 
         [BsonElement("wordEndnoteConfig")]
         [JsonPropertyName("wordEndnoteConfig")]
@@ -1341,6 +1371,118 @@ public static class ImageWrapTypes
         [BsonElement("targetText")]
         [JsonPropertyName("targetText")]
         public string? TargetText { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordCommentReplyConfig
+    {
+        [BsonElement("commentsFile")]
+        [JsonPropertyName("commentsFile")]
+        public string? CommentsFile { get; set; } = "word/comments.xml";
+
+        [BsonElement("commentsExtendedFile")]
+        [JsonPropertyName("commentsExtendedFile")]
+        public string? CommentsExtendedFile { get; set; } = "word/commentsExtended.xml";
+
+        [BsonElement("parentCommentText")]
+        [JsonPropertyName("parentCommentText")]
+        public string? ParentCommentText { get; set; }
+
+        [BsonElement("expectedReplyText")]
+        [JsonPropertyName("expectedReplyText")]
+        public string? ExpectedReplyText { get; set; }
+
+        [BsonElement("caseSensitive")]
+        [JsonPropertyName("caseSensitive")]
+        public bool? CaseSensitive { get; set; } = false;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordDocumentInspectorConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("requireNoHeaders")]
+        [JsonPropertyName("requireNoHeaders")]
+        public bool? RequireNoHeaders { get; set; } = true;
+
+        [BsonElement("requireNoFooters")]
+        [JsonPropertyName("requireNoFooters")]
+        public bool? RequireNoFooters { get; set; } = true;
+
+        [BsonElement("requireNoWatermarks")]
+        [JsonPropertyName("requireNoWatermarks")]
+        public bool? RequireNoWatermarks { get; set; } = true;
+
+        [BsonElement("preserveDocumentProperties")]
+        [JsonPropertyName("preserveDocumentProperties")]
+        public bool? PreserveDocumentProperties { get; set; } = true;
+
+        [BsonElement("preserveCustomXml")]
+        [JsonPropertyName("preserveCustomXml")]
+        public bool? PreserveCustomXml { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordParagraphStyleConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("targetText")]
+        [JsonPropertyName("targetText")]
+        public string? TargetText { get; set; }
+
+        [BsonElement("expectedStyle")]
+        [JsonPropertyName("expectedStyle")]
+        public string? ExpectedStyle { get; set; }
+
+        [BsonElement("caseSensitive")]
+        [JsonPropertyName("caseSensitive")]
+        public bool? CaseSensitive { get; set; } = false;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordTableAutoFitConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+
+        [BsonElement("tableIndex")]
+        [JsonPropertyName("tableIndex")]
+        public int? TableIndex { get; set; } = 1;
+
+        [BsonElement("anchorText")]
+        [JsonPropertyName("anchorText")]
+        public string? AnchorText { get; set; }
+
+        [BsonElement("autoFitType")]
+        [JsonPropertyName("autoFitType")]
+        public string? AutoFitType { get; set; } = "contents";
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordViewSettingConfig
+    {
+        [BsonElement("settingsFile")]
+        [JsonPropertyName("settingsFile")]
+        public string? SettingsFile { get; set; } = "word/settings.xml";
+
+        [BsonElement("settingElement")]
+        [JsonPropertyName("settingElement")]
+        public string? SettingElement { get; set; }
+
+        [BsonElement("expectedEnabled")]
+        [JsonPropertyName("expectedEnabled")]
+        public bool? ExpectedEnabled { get; set; } = true;
+
+        [BsonElement("allowMissingAsPass")]
+        [JsonPropertyName("allowMissingAsPass")]
+        public bool? AllowMissingAsPass { get; set; } = false;
     }
 
     [BsonIgnoreExtraElements]

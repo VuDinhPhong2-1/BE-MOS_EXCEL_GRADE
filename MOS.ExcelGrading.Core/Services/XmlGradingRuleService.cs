@@ -5256,6 +5256,11 @@ namespace MOS.ExcelGrading.Core.Services
             var columnStyles = GetExcelColumnStyles(worksheetDocument);
             var textRotations = GetExcelStyleTextRotations(stylesDocument);
             var matchedTexts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var expectedTexts = config.ExpectedTexts
+                .Select(NormalizeExcelConfiguredText)
+                .Where(text => !string.IsNullOrWhiteSpace(text))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
 
             foreach (var cell in worksheetDocument.Descendants(x + "c"))
             {
@@ -5265,7 +5270,7 @@ namespace MOS.ExcelGrading.Core.Services
                     continue;
                 }
 
-                var expectedText = config.ExpectedTexts.FirstOrDefault(text => string.Equals(text, cellText, StringComparison.OrdinalIgnoreCase));
+                var expectedText = expectedTexts.FirstOrDefault(text => string.Equals(text, cellText, StringComparison.OrdinalIgnoreCase));
                 if (string.IsNullOrWhiteSpace(expectedText))
                 {
                     continue;
@@ -5280,7 +5285,7 @@ namespace MOS.ExcelGrading.Core.Services
                 }
             }
 
-            var missingTexts = config.ExpectedTexts
+            var missingTexts = expectedTexts
                 .Where(text => !matchedTexts.Contains(text))
                 .ToList();
 
@@ -5295,6 +5300,14 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return PassSpecialCondition("Các tiêu đề đã được xoay chữ đúng Angle Counterclockwise.");
+        }
+
+        private static string NormalizeExcelConfiguredText(string? value)
+        {
+            return NormalizePlainText((value ?? string.Empty)
+                .Replace("\\r\\n", "\n", StringComparison.Ordinal)
+                .Replace("\\n", "\n", StringComparison.Ordinal)
+                .Replace("\\r", "\n", StringComparison.Ordinal));
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelMultiColumnSort(

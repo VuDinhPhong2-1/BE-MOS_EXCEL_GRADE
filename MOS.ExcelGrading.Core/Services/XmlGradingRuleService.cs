@@ -5689,8 +5689,12 @@ namespace MOS.ExcelGrading.Core.Services
                 }
                 else if (!string.IsNullOrWhiteSpace(key.HeaderName))
                 {
+                    var normalizedHeaderName = NormalizeExcelHeaderForComparison(key.HeaderName);
                     column = headerValues
-                        .FirstOrDefault(pair => string.Equals(pair.Value, key.HeaderName, StringComparison.OrdinalIgnoreCase))
+                        .FirstOrDefault(pair => string.Equals(
+                            NormalizeExcelHeaderForComparison(pair.Value),
+                            normalizedHeaderName,
+                            StringComparison.OrdinalIgnoreCase))
                         .Key;
                 }
 
@@ -5708,6 +5712,12 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return true;
+        }
+
+        private static string NormalizeExcelHeaderForComparison(string? value)
+        {
+            var normalized = NormalizeExcelConfiguredText(value);
+            return Regex.Replace(normalized, "\\s+", " ").Trim();
         }
 
         private static Dictionary<int, string> GetExcelRowValues(

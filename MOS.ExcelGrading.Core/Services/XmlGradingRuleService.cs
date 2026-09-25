@@ -5606,6 +5606,12 @@ namespace MOS.ExcelGrading.Core.Services
         private static Dictionary<int, int> GetExcelStyleTextRotations(XDocument stylesDocument)
         {
             XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var cellStyleXfs = stylesDocument
+                .Root?
+                .Element(x + "cellStyleXfs")?
+                .Elements(x + "xf")
+                .ToList() ?? new List<XElement>();
+
             var cellXfs = stylesDocument
                 .Root?
                 .Element(x + "cellXfs")?
@@ -5615,10 +5621,23 @@ namespace MOS.ExcelGrading.Core.Services
             var result = new Dictionary<int, int>();
             for (var index = 0; index < cellXfs.Count; index++)
             {
-                var alignment = cellXfs[index].Element(x + "alignment");
+                var cellXf = cellXfs[index];
+                var alignment = cellXf.Element(x + "alignment");
                 if (int.TryParse(alignment?.Attribute("textRotation")?.Value, out var textRotation))
                 {
                     result[index] = textRotation;
+                    continue;
+                }
+
+                if (int.TryParse(cellXf.Attribute("xfId")?.Value, out var xfId)
+                    && xfId >= 0
+                    && xfId < cellStyleXfs.Count)
+                {
+                    var styleAlignment = cellStyleXfs[xfId].Element(x + "alignment");
+                    if (int.TryParse(styleAlignment?.Attribute("textRotation")?.Value, out var inheritedTextRotation))
+                    {
+                        result[index] = inheritedTextRotation;
+                    }
                 }
             }
 
@@ -5685,20 +5704,38 @@ namespace MOS.ExcelGrading.Core.Services
         {
             XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
             var sharedStrings = GetExcelSharedStrings(package);
-            var row = worksheetDocument
-                .Descendants(x + "row")
-                .FirstOrDefault(item => int.TryParse(item.Attribute("r")?.Value, out var currentRow) && currentRow == rowIndex);
+            var currentRowIndex = 0;
+            XElement? row = null;
 
-            return row?
-                .Elements(x + "c")
-                .Select(cell => new
+            foreach (var item in worksheetDocument.Descendants(x + "row"))
+            {
+                currentRowIndex = ResolveExcelRowIndex(item, currentRowIndex);
+                if (currentRowIndex == rowIndex)
                 {
-                    Column = GetExcelColumnNumber(Regex.Match(cell.Attribute("r")?.Value ?? string.Empty, "^([A-Z]{1,3})", RegexOptions.IgnoreCase).Groups[1].Value),
-                    Text = NormalizePlainText(GetExcelCellDisplayText(cell, sharedStrings))
-                })
-                .Where(item => item.Column > 0)
-                .ToDictionary(item => item.Column, item => item.Text)
-                ?? new Dictionary<int, string>();
+                    row = item;
+                    break;
+                }
+            }
+
+            if (row == null)
+            {
+                return new Dictionary<int, string>();
+            }
+
+            var values = new Dictionary<int, string>();
+            var currentColumnIndex = 0;
+            foreach (var cell in row.Elements(x + "c"))
+            {
+                currentColumnIndex = ResolveExcelCellColumnIndex(cell, currentColumnIndex);
+                if (currentColumnIndex <= 0)
+                {
+                    continue;
+                }
+
+                values[currentColumnIndex] = NormalizePlainText(GetExcelCellDisplayText(cell, sharedStrings));
+            }
+
+            return values;
         }
 
         private static List<ExcelSortRow> GetExcelDataRowsForSort(
@@ -5711,31 +5748,50 @@ namespace MOS.ExcelGrading.Core.Services
             var headerRow = config.HeaderRow ?? 1;
             var hasDataRange = TryParseExcelRange(config.DataRange, out var startColumn, out var startRow, out var endColumn, out var endRow);
 
-            return worksheetDocument
-                .Descendants(x + "row")
-                .Select(row => new
+            var rows = new List<ExcelSortRow>();
+            var currentRowIndex = 0;
+            foreach (var row in worksheetDocument.Descendants(x + "row"))
+            {
+                currentRowIndex = ResolveExcelRowIndex(row, currentRowIndex);
+                if (currentRowIndex <= headerRow)
                 {
-                    Element = row,
-                    RowIndex = int.TryParse(row.Attribute("r")?.Value, out var rowIndex) ? rowIndex : 0
-                })
-                .Where(row => row.RowIndex > headerRow)
-                .Where(row => !hasDataRange || row.RowIndex >= startRow && row.RowIndex <= endRow)
-                .Select(row => new ExcelSortRow
+                    continue;
+                }
+
+                if (hasDataRange && (currentRowIndex < startRow || currentRowIndex > endRow))
                 {
-                    RowIndex = row.RowIndex,
-                    Values = row.Element
-                        .Elements(x + "c")
-                        .Select(cell => new
-                        {
-                            Column = GetExcelColumnNumber(Regex.Match(cell.Attribute("r")?.Value ?? string.Empty, "^([A-Z]{1,3})", RegexOptions.IgnoreCase).Groups[1].Value),
-                            Text = NormalizePlainText(GetExcelCellDisplayText(cell, sharedStrings))
-                        })
-                        .Where(item => item.Column > 0)
-                        .Where(item => !hasDataRange || item.Column >= startColumn && item.Column <= endColumn)
-                        .ToDictionary(item => item.Column, item => item.Text)
-                })
-                .Where(row => row.Values.Values.Any(value => !string.IsNullOrWhiteSpace(value)))
-                .ToList();
+                    continue;
+                }
+
+                var values = new Dictionary<int, string>();
+                var currentColumnIndex = 0;
+                foreach (var cell in row.Elements(x + "c"))
+                {
+                    currentColumnIndex = ResolveExcelCellColumnIndex(cell, currentColumnIndex);
+                    if (currentColumnIndex <= 0)
+                    {
+                        continue;
+                    }
+
+                    if (hasDataRange && (currentColumnIndex < startColumn || currentColumnIndex > endColumn))
+                    {
+                        continue;
+                    }
+
+                    values[currentColumnIndex] = NormalizePlainText(GetExcelCellDisplayText(cell, sharedStrings));
+                }
+
+                if (values.Values.Any(value => !string.IsNullOrWhiteSpace(value)))
+                {
+                    rows.Add(new ExcelSortRow
+                    {
+                        RowIndex = currentRowIndex,
+                        Values = values
+                    });
+                }
+            }
+
+            return rows;
         }
 
         private static int CompareExcelSortRows(
@@ -5747,7 +5803,25 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 left.Values.TryGetValue(sortKey.Column, out var leftValue);
                 right.Values.TryGetValue(sortKey.Column, out var rightValue);
-                var compare = CompareExcelSortValues(leftValue ?? string.Empty, rightValue ?? string.Empty);
+
+                var leftBlank = string.IsNullOrWhiteSpace(leftValue);
+                var rightBlank = string.IsNullOrWhiteSpace(rightValue);
+                if (leftBlank && rightBlank)
+                {
+                    continue;
+                }
+
+                if (leftBlank)
+                {
+                    return 1;
+                }
+
+                if (rightBlank)
+                {
+                    return -1;
+                }
+
+                var compare = CompareExcelSortValues(leftValue!, rightValue!);
                 if (compare != 0)
                 {
                     return sortKey.Descending ? -compare : compare;
@@ -5766,6 +5840,22 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return string.Compare(left, right, StringComparison.CurrentCultureIgnoreCase);
+        }
+
+        private static int ResolveExcelRowIndex(XElement row, int previousRowIndex)
+        {
+            return int.TryParse(row.Attribute("r")?.Value, out var rowIndex)
+                ? rowIndex
+                : previousRowIndex + 1;
+        }
+
+        private static int ResolveExcelCellColumnIndex(XElement cell, int previousColumnIndex)
+        {
+            var reference = cell.Attribute("r")?.Value ?? string.Empty;
+            var match = Regex.Match(reference, "^([A-Z]{1,3})", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+            return match.Success
+                ? GetExcelColumnNumber(match.Groups[1].Value)
+                : previousColumnIndex + 1;
         }
 
         private static bool ExcelDecimalAttributeEquals(string? actualValue, decimal expectedValue)

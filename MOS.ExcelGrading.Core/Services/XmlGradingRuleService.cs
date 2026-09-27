@@ -6151,8 +6151,12 @@ namespace MOS.ExcelGrading.Core.Services
             var paragraph = selected.Ancestors(w + "p").FirstOrDefault();
             var blocks = body.Elements().ToList();
             var index = paragraph == null ? -1 : blocks.IndexOf(paragraph);
-            if (index < 0 || !selected.Ancestors(wp + "inline").Any() || selected.Ancestors(wp + "anchor").Any())
-                return Fail("SmartArt phải ở chế độ In Line with Text trong một đoạn riêng trực tiếp thuộc thân tài liệu.");
+            if (index < 0)
+                return Fail("Đoạn chứa hoặc neo SmartArt phải trực tiếp thuộc thân tài liệu, không nằm trong bảng hay hộp văn bản.");
+            // Floating placement is measured by its anchor paragraph, not rendered page coordinates.
+            var placements = selected.Ancestors().Where(e => e.Name == wp + "inline" || e.Name == wp + "anchor").ToList();
+            if (placements.Count != 1 || placements[0].Parent?.Name != w + "drawing")
+                return Fail("SmartArt phải có cấu trúc In Line with Text hoặc Floating hợp lệ.");
             string Text(XElement p) => NormalizePlainText(BuildParagraphTextSnapshot(p, w, excludeTextBoxContent: true).Text);
             if (Text(paragraph!).Length != 0 || paragraph!.Descendants(w + "drawing").Count() != 1
                 || paragraph.Descendants(dgm + "relIds").Count() != 1 || paragraph.Descendants(w + "pict").Any())

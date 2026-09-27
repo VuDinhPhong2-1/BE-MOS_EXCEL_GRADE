@@ -20,9 +20,43 @@ public class WordMoveSmartArtTests
     public void ResolvesRelationshipRatherThanAssumingData1() => Assert.True(Evaluate(P("Heading") + Art() + P("Code of Ethics")));
 
     [Theory]
-    [InlineData("anchor")]
     [InlineData("unknown")]
     public void RejectsUnsupportedPlacement(string placement) => Assert.False(Evaluate(P("Heading") + Art(placement: placement) + P("Code of Ethics")));
+
+    [Fact]
+    public void AcceptsFloatingAtDestination() => Assert.True(Evaluate(P("Heading") + Art(placement: "anchor") + P("Code of Ethics")));
+
+    [Fact]
+    public void RejectsFloatingAtWrongDestination() => Assert.False(Evaluate(P("Other") + Art(placement: "anchor") + P("Code of Ethics")));
+
+    [Fact]
+    public void RejectsFloatingAtOldLocation()
+    {
+        var config = Config();
+        config.OriginalBeforeText = "Code of Ethics";
+        Assert.False(Evaluate(P("Heading") + Art(placement: "anchor") + P("Code of Ethics"), config));
+    }
+
+    [Theory]
+    [InlineData("inline")]
+    [InlineData("anchor")]
+    public void RejectsNestedAndSharedParagraphs(string placement)
+    {
+        var art = Art(placement: placement);
+        Assert.False(Evaluate(P("Heading") + "<w:tbl><w:tr><w:tc>" + art + "</w:tc></w:tr></w:tbl>" + P("Code of Ethics")));
+        Assert.False(Evaluate(P("Heading") + "<w:p><w:r><w:txbxContent>" + art + "</w:txbxContent></w:r></w:p>" + P("Code of Ethics")));
+        Assert.False(Evaluate(P("Heading") + art.Replace("</w:p>", "<w:r><w:t>Shared text</w:t></w:r></w:p>") + P("Code of Ethics")));
+    }
+
+    [Fact]
+    public void FloatingPreservesAdjacencyAndUniqueness()
+    {
+        var body = P("Heading") + Art(placement: "anchor") + P("Code of Ethics");
+        Assert.False(Evaluate(body + Art()));
+        Assert.False(Evaluate(body + P("Heading")));
+        Assert.False(Evaluate(P("Heading") + "<w:p/>" + Art(placement: "anchor") + P("Code of Ethics")));
+        Assert.False(Evaluate(body.Replace("<wp:anchor>", "<wp:anchor><wp:inline>").Replace("</wp:anchor>", "</wp:inline></wp:anchor>")));
+    }
 
     [Fact]
     public void RejectsDuplicateObjectsEvenWithSeparateDataParts() => Assert.False(Evaluate(P("Heading") + Art() + P("Code of Ethics") + Art("rId9")));

@@ -1951,7 +1951,8 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordTableAutoFit, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordViewSetting, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase),
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordSmartArtColors, StringComparison.OrdinalIgnoreCase),
                 "excel" => string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelWorksheetPageSetup, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelClearCellFormatting, StringComparison.OrdinalIgnoreCase)
@@ -2429,6 +2430,11 @@ namespace MOS.ExcelGrading.Core.Services
                     AddXmlPart(specialCondition.WordEndnoteConfig?.SourceFile, "word/document.xml");
                     AddXmlPart(specialCondition.WordEndnoteConfig?.EndnotesFile, "word/endnotes.xml");
                     continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordSmartArtColors, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordSmartArtColorsConfig?.ColorsFile, "word/diagrams/colors1.xml");
                 }
 
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase))
@@ -3001,6 +3007,11 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateWordSmartArt(specialCondition.WordSmartArtConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordSmartArtColors, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordSmartArtColors(specialCondition.WordSmartArtColorsConfig, package);
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase))
@@ -6984,6 +6995,31 @@ namespace MOS.ExcelGrading.Core.Services
             return new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Da tim thay endnote id {referenceId} dung anchor va noi dung." };
         }
 
+        private static SpecialConditionEvalOutcome EvaluateWordSmartArtColors(
+            WordSmartArtColorsConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            if (string.IsNullOrWhiteSpace(config?.ExpectedColorStyle))
+                return Fail("Chưa cấu hình kiểu màu SmartArt.");
+            var file = string.IsNullOrWhiteSpace(config.ColorsFile) ? "word/diagrams/colors1.xml" : NormalizeSourceFile(config.ColorsFile);
+            if (!package.TryGetXmlDocument(file, out var colors, out var error))
+                return Fail(error ?? $"Không tìm thấy {file}.");
+            XNamespace dgm = "http://schemas.openxmlformats.org/drawingml/2006/diagram";
+            if (colors.Root?.Name != dgm + "colorsDef")
+                return Fail("File không phải định nghĩa màu SmartArt.");
+            var expected = config.ExpectedColorStyle.Trim();
+            var id = colors.Root.Attribute("uniqueId")?.Value ?? "";
+            // Compare the style identifier, not incidental accent colors in shape overrides.
+            var actual = id.Split('/').Last().Split('#')[0];
+            var passed = string.Equals(id, expected, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+            return new SpecialConditionEvalOutcome
+            {
+                IsPassed = passed,
+                Message = passed ? "Màu SmartArt đúng yêu cầu." : $"Màu SmartArt '{id}' không khớp '{expected}'."
+            };
+        }
+
         private static SpecialConditionEvalOutcome EvaluateWordSmartArt(
             WordSmartArtConfig? config,
             OfficePackage package)
@@ -9769,6 +9805,14 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase))
             {
                 ValidateWordSmartArtSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordSmartArtColors, StringComparison.OrdinalIgnoreCase))
+            {
+                var config = specialCondition.WordSmartArtColorsConfig;
+                if (config == null || string.IsNullOrWhiteSpace(config.ExpectedColorStyle)
+                    || !IsSafeSourceFile(string.IsNullOrWhiteSpace(config.ColorsFile) ? "word/diagrams/colors1.xml" : config.ColorsFile))
+                    result.Errors.Add($"{taskPrefix}.specialCondition.wordSmartArtColorsConfig: cần kiểu màu và đường dẫn XML an toàn.");
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase))

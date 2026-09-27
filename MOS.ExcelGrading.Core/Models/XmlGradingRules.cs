@@ -71,6 +71,7 @@ namespace MOS.ExcelGrading.Core.Models
     public const string WordViewSetting = "wordViewSetting";
     public const string WordEndnote = "wordEndnote";
     public const string WordSmartArt = "wordSmartArt";
+    public const string WordSmartArtColors = "wordSmartArtColors";
     public const string ExcelTableName = "excelTableName";
     public const string ExcelWorksheetPageSetup = "excelWorksheetPageSetup";
     public const string ExcelClearCellFormatting = "excelClearCellFormatting";
@@ -445,6 +446,10 @@ public static class ImageWrapTypes
         [BsonElement("wordSmartArtConfig")]
         [JsonPropertyName("wordSmartArtConfig")]
         public WordSmartArtConfig? WordSmartArtConfig { get; set; }
+
+        [BsonElement("wordSmartArtColorsConfig")]
+        [JsonPropertyName("wordSmartArtColorsConfig")]
+        public WordSmartArtColorsConfig? WordSmartArtColorsConfig { get; set; }
 
         [BsonElement("excelTableNameConfig")]
         [JsonPropertyName("excelTableNameConfig")]
@@ -1574,6 +1579,17 @@ public static class ImageWrapTypes
     }
 
     [BsonIgnoreExtraElements]
+    public class WordSmartArtColorsConfig
+    {
+        [BsonElement("colorsFile")]
+        [JsonPropertyName("colorsFile")]
+        public string? ColorsFile { get; set; } = "word/diagrams/colors1.xml";
+
+        [BsonElement("expectedColorStyle")]
+        [JsonPropertyName("expectedColorStyle")]
+        public string? ExpectedColorStyle { get; set; }
+    }
+
     public class WordSmartArtConfig
     {
         [BsonElement("sourceFile")]

@@ -52,6 +52,7 @@ namespace MOS.ExcelGrading.Core.Models
     public const string Hyperlink = "hyperlink";
     public const string SectionBreakBeforeText = "sectionBreakBeforeText";
     public const string WordColumns = "wordColumns";
+    public const string WordMoveText = "wordMoveText";
     public const string PictureStyle = "pictureStyle";
     public const string TextBoxContainsText = "textBoxContainsText";
     public const string PageMargins = "pageMargins";
@@ -104,6 +105,7 @@ namespace MOS.ExcelGrading.Core.Models
             Hyperlink,
             SectionBreakBeforeText,
         WordColumns,
+        WordMoveText,
             PictureStyle,
             TextBoxContainsText,
             PageMargins,
@@ -370,6 +372,10 @@ public static class ImageWrapTypes
         [BsonElement("wordColumnsConfig")]
         [JsonPropertyName("wordColumnsConfig")]
         public WordColumnsConfig? WordColumnsConfig { get; set; }
+
+        [BsonElement("wordMoveTextConfig")]
+        [JsonPropertyName("wordMoveTextConfig")]
+        public WordMoveTextConfig? WordMoveTextConfig { get; set; }
 
         [BsonElement("pictureStyleConfig")]
         [JsonPropertyName("pictureStyleConfig")]

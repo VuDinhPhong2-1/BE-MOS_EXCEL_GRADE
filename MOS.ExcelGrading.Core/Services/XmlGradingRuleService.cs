@@ -1935,6 +1935,7 @@ namespace MOS.ExcelGrading.Core.Services
                 || string.Equals(specialConditionType, SpecialConditionTypes.WordColumns, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.TextBoxContainsText, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordMoveText, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.PageBorder, StringComparison.OrdinalIgnoreCase)
@@ -2347,6 +2348,9 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     continue;
                 }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordMoveText, StringComparison.OrdinalIgnoreCase))
+                    AddXmlPart("word/document.xml", "word/document.xml");
 
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))
                 {
@@ -2923,6 +2927,9 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 return EvaluateTextBoxContainsText(specialCondition.TextBoxContainsTextConfig, package);
             }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordMoveText, StringComparison.OrdinalIgnoreCase))
+                return EvaluateWordMoveText(specialCondition.WordMoveTextConfig, package);
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase))
             {
@@ -6077,6 +6084,66 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return name.ToString();
+        }
+
+        private static string? ValidateWordMoveTextConfig(WordMoveTextConfig? config)
+        {
+            if (config == null || string.IsNullOrWhiteSpace(config.ExpectedText)
+                || (string.IsNullOrWhiteSpace(config.AfterText) && string.IsNullOrWhiteSpace(config.BeforeText)))
+                return "Cần nội dung di chuyển và ít nhất một đoạn mốc ở đích.";
+            if (config.PasteMode != "ignore" && config.PasteMode != "default" && config.PasteMode != "custom")
+                return "Chế độ Paste không hợp lệ.";
+            if (config.PasteMode != "ignore" && string.IsNullOrWhiteSpace(config.ExpectedParagraphStyle))
+                return "Cần style đoạn đầu ra để kiểm tra kết quả Paste.";
+            return null;
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordMoveText(WordMoveTextConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            var error = ValidateWordMoveTextConfig(config);
+            if (error != null) return Fail(error);
+            if (!package.TryGetXmlDocument("word/document.xml", out var document, out var documentError))
+                return Fail(documentError ?? "Không đọc được tài liệu Word.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var body = document.Root?.Element(w + "body");
+            if (body == null) return Fail("Không tìm thấy thân tài liệu.");
+            string Text(XElement p) => NormalizePlainText(BuildParagraphTextSnapshot(p, w, excludeTextBoxContent: true).Text);
+            bool Matches(XElement p, string? text) => p.Name == w + "p" &&
+                string.Equals(Text(p), NormalizePlainText(text), StringComparison.OrdinalIgnoreCase);
+            var blocks = body.Elements().ToList();
+            var expected = NormalizePlainText(config!.ExpectedText);
+            // Search all paragraph scopes to reject copies left in tables/textboxes too.
+            var copies = body.Descendants(w + "p").Where(p => Text(p).Contains(expected, StringComparison.OrdinalIgnoreCase)).ToList();
+            if (copies.Count != 1) return Fail($"Nội dung phải xuất hiện duy nhất một lần; hiện tìm thấy {copies.Count} đoạn chứa nội dung.");
+            var target = copies[0];
+            var index = blocks.IndexOf(target);
+            if (index < 0 || !Matches(target, expected)) return Fail("Nội dung phải là một đoạn hoàn chỉnh trong thân tài liệu.");
+            bool AtLocation(string? after, string? before)
+            {
+                if (!string.IsNullOrWhiteSpace(after))
+                {
+                    var anchors = blocks.Where(p => Matches(p, after)).ToList();
+                    if (anchors.Count != 1 || index == 0 || blocks[index - 1] != anchors[0]) return false;
+                }
+                if (!string.IsNullOrWhiteSpace(before))
+                {
+                    var anchors = blocks.Where(p => Matches(p, before)).ToList();
+                    if (anchors.Count != 1 || index + 1 >= blocks.Count || blocks[index + 1] != anchors[0]) return false;
+                }
+                return true;
+            }
+            if ((!string.IsNullOrWhiteSpace(config.OriginalAfterText) || !string.IsNullOrWhiteSpace(config.OriginalBeforeText))
+                && AtLocation(config.OriginalAfterText, config.OriginalBeforeText))
+                return Fail("Nội dung vẫn nằm ở vị trí nguồn đã cấu hình.");
+            if (!AtLocation(config.AfterText, config.BeforeText)) return Fail("Nội dung chưa nằm liền kề đúng đoạn mốc đích hoặc mốc không duy nhất.");
+            if (config.PasteMode != "ignore")
+            {
+                var style = target.Element(w + "pPr")?.Element(w + "pStyle")?.Attribute(w + "val")?.Value;
+                if (!string.Equals(style, config.ExpectedParagraphStyle?.Trim(), StringComparison.Ordinal))
+                    return Fail($"Style đoạn sau Paste là '{style ?? "kế thừa mặc định"}', không khớp style yêu cầu.");
+            }
+            return new SpecialConditionEvalOutcome { IsPassed = true, Message = "Văn bản nằm đúng vị trí, không còn bản sao và đạt yêu cầu định dạng đã cấu hình." };
         }
 
         private static SpecialConditionEvalOutcome EvaluateTextBoxContainsText(
@@ -9876,6 +9943,12 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.TextBoxContainsText, StringComparison.OrdinalIgnoreCase))
             {
                 ValidateTextBoxContainsTextSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordMoveText, StringComparison.OrdinalIgnoreCase))
+            {
+                var error = ValidateWordMoveTextConfig(specialCondition.WordMoveTextConfig);
+                if (error != null) result.Errors.Add($"{taskPrefix}.specialCondition.wordMoveTextConfig: {error}");
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase))

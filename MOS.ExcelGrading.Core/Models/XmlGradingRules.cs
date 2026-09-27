@@ -1592,6 +1592,10 @@ public static class ImageWrapTypes
 
     public class WordSmartArtConfig
     {
+        [BsonElement("expectedLastNodeText")]
+        [JsonPropertyName("expectedLastNodeText")]
+        public string? ExpectedLastNodeText { get; set; }
+
         [BsonElement("sourceFile")]
         [JsonPropertyName("sourceFile")]
         public string? SourceFile { get; set; } = "word/document.xml";

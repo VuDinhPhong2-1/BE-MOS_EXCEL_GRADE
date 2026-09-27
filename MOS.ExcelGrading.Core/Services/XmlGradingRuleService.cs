@@ -7084,6 +7084,41 @@ namespace MOS.ExcelGrading.Core.Services
                 }
             }
 
+            if (!string.IsNullOrWhiteSpace(config.ExpectedLastNodeText))
+            {
+                // A flat process is ordered by parOf connections, not by ptLst storage order.
+                var points = data.Root?.Element(dgm + "ptLst")?.Elements(dgm + "pt").ToList()
+                    ?? new List<XElement>();
+                var roots = points.Where(p => (string?)p.Attribute("type") == "doc").ToList();
+                var nodes = points.Where(p => p.Attribute("type") == null || (string?)p.Attribute("type") == "node").ToList();
+                var ids = nodes.Select(p => (string?)p.Attribute("modelId")).ToList();
+                var edges = data.Root?.Element(dgm + "cxnLst")?.Elements(dgm + "cxn")
+                    .Where(c => (string?)c.Attribute("type") == "parOf").ToList() ?? new List<XElement>();
+                if (roots.Count != 1 || nodes.Count == 0 || ids.Any(string.IsNullOrWhiteSpace)
+                    || ids.Distinct().Count() != ids.Count || edges.Count != nodes.Count)
+                    return Fail("Không xác định được thứ tự ô SmartArt một cấp.");
+
+                var rootId = (string?)roots[0].Attribute("modelId");
+                var ordered = new SortedDictionary<int, string>();
+                foreach (var edge in edges)
+                {
+                    var destination = (string?)edge.Attribute("destId");
+                    if (string.IsNullOrWhiteSpace(rootId) || (string?)edge.Attribute("srcId") != rootId
+                        || destination == null || !ids.Contains(destination)
+                        || !int.TryParse((string?)edge.Attribute("srcOrd"), out var order) || order < 0
+                        || ordered.ContainsKey(order) || ordered.ContainsValue(destination))
+                        return Fail("Không xác định được thứ tự ô SmartArt một cấp.");
+                    ordered.Add(order, destination);
+                }
+
+                var lastNode = nodes.Single(p => (string?)p.Attribute("modelId") == ordered.Last().Value);
+                XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
+                var lastText = NormalizePlainText(string.Join(" ", lastNode.Elements(dgm + "t")
+                    .Elements(a + "p").Select(p => string.Concat(p.Descendants(a + "t").Select(t => t.Value)))));
+                if (!string.Equals(lastText, NormalizePlainText(config.ExpectedLastNodeText), comparison))
+                    return Fail($"Ô cuối SmartArt có nội dung '{lastText}', yêu cầu '{config.ExpectedLastNodeText}'.");
+            }
+
             if (config.ExpectedShapeCount.HasValue)
             {
                 var shapeCount = data.Descendants(dgm + "pt")
@@ -10988,6 +11023,7 @@ namespace MOS.ExcelGrading.Core.Services
             }
             if (string.IsNullOrWhiteSpace(config.ExpectedColorStyle)
                 && !config.ExpectedShapeCount.HasValue
+                    && string.IsNullOrWhiteSpace(config.ExpectedLastNodeText)
                 && string.IsNullOrWhiteSpace(config.ExpectedText)
                 && string.IsNullOrWhiteSpace(config.BeforeText)
                 && string.IsNullOrWhiteSpace(config.AfterText))

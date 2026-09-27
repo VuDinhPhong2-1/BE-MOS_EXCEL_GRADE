@@ -1931,7 +1931,8 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.InsertedImage, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ConvertTableToText, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.SectionBreakBeforeText, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(specialConditionType, SpecialConditionTypes.SectionBreakBeforeText, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(specialConditionType, SpecialConditionTypes.WordColumns, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.TextBoxContainsText, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase)
@@ -2417,6 +2418,12 @@ namespace MOS.ExcelGrading.Core.Services
                     continue;
                 }
 
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordColumns, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordColumnsConfig?.SourceFile, "word/document.xml");
+                    continue;
+                }
+
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase))
                 {
                     AddXmlPart(specialCondition.WordEndnoteConfig?.SourceFile, "word/document.xml");
@@ -2889,6 +2896,11 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.Hyperlink, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateHyperlink(specialCondition.HyperlinkConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordColumns, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateWordColumns(specialCondition.WordColumnsConfig, package);
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.SectionBreakBeforeText, StringComparison.OrdinalIgnoreCase))
@@ -6690,6 +6702,62 @@ namespace MOS.ExcelGrading.Core.Services
             return RawContains(actualXml, trimmed, trim: true);
         }
 
+        private static SpecialConditionEvalOutcome EvaluateWordColumns(WordColumnsConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            if (config == null || string.IsNullOrWhiteSpace(config.StartText) ||
+                string.IsNullOrWhiteSpace(config.EndText) || config.StartOccurrence < 1 ||
+                config.EndOccurrence < 1 || config.ExpectedColumnCount < 1)
+                return Fail("Cấu hình chia cột không hợp lệ.");
+
+            var source = string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : NormalizeSourceFile(config.SourceFile);
+            if (!package.TryGetXmlDocument(source, out var document, out var error))
+                return Fail(error ?? $"Không tìm thấy {source}.");
+
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var body = document.Root?.Element(w + "body");
+            if (body == null) return Fail("Không tìm thấy nội dung tài liệu Word.");
+            // Work on body blocks so tables between paragraphs cannot hide a range overflow.
+            var blocks = body.Elements().Where(e => e.Name != w + "sectPr").ToList();
+            int Find(string text, int occurrence) => blocks
+                .Select((element, index) => new { element, index })
+                .Where(item => item.element.Name == w + "p" && BuildParagraphTextSnapshot(item.element, w).Text
+                    .Contains(NormalizePlainText(text), StringComparison.OrdinalIgnoreCase))
+                .Skip(occurrence - 1).Select(item => item.index).DefaultIfEmpty(-1).First();
+            var start = Find(config.StartText, config.StartOccurrence);
+            var end = Find(config.EndText, config.EndOccurrence);
+            if (start < 0 || end < start) return Fail("Không tìm thấy phạm vi đoạn bắt đầu/kết thúc hợp lệ.");
+
+            var sectionStart = 0;
+            var sections = new List<(int Start, int End, XElement? Properties)>();
+            for (var i = 0; i < blocks.Count; i++)
+            {
+                var properties = blocks[i].Name == w + "p" ? blocks[i].Element(w + "pPr")?.Element(w + "sectPr") : null;
+                if (properties == null) continue;
+                sections.Add((sectionStart, i, properties));
+                sectionStart = i + 1;
+            }
+            if (sectionStart < blocks.Count)
+                sections.Add((sectionStart, blocks.Count - 1, body.Element(w + "sectPr")));
+
+            foreach (var section in sections.Where(s => s.Start <= end && s.End >= start))
+            {
+                if (section.Start < start || section.End > end)
+                    return Fail("Chia cột lấn ra ngoài phạm vi: cần ranh giới section ngay trước đoạn đầu và sau đoạn cuối.");
+                if (section.Properties == null) return Fail("Thiếu thuộc tính section trong phạm vi chia cột.");
+                var cols = section.Properties.Element(w + "cols");
+                var countText = cols?.Attribute(w + "num")?.Value;
+                // Unequal-width columns use explicit col children instead of num.
+                var unequal = cols?.Attribute(w + "equalWidth")?.Value;
+                var count = unequal == "0" || unequal == "false" || unequal == "off"
+                    ? cols!.Elements(w + "col").Count()
+                    : countText == null ? 1 : int.TryParse(countText, out var parsed) ? parsed : 0;
+                if (count != config.ExpectedColumnCount)
+                    return Fail($"Section trong phạm vi có {count} cột, yêu cầu {config.ExpectedColumnCount} cột.");
+            }
+            return new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Toàn bộ phạm vi có {config.ExpectedColumnCount} cột và không lấn sang đoạn trước/sau." };
+        }
+
         private static SpecialConditionEvalOutcome EvaluateSectionBreakBeforeText(
             SectionBreakBeforeTextConfig? config,
             OfficePackage package)
@@ -9682,6 +9750,15 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.SectionBreakBeforeText, StringComparison.OrdinalIgnoreCase))
             {
                 ValidateSectionBreakBeforeTextSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordColumns, StringComparison.OrdinalIgnoreCase))
+            {
+                var config = specialCondition.WordColumnsConfig;
+                if (config == null || string.IsNullOrWhiteSpace(config.StartText) || string.IsNullOrWhiteSpace(config.EndText) ||
+                    config.StartOccurrence < 1 || config.EndOccurrence < 1 || config.ExpectedColumnCount < 1 ||
+                    !IsSafeSourceFile(string.IsNullOrWhiteSpace(config.SourceFile) ? "word/document.xml" : config.SourceFile))
+                    result.Errors.Add($"{taskPrefix}.specialCondition.wordColumnsConfig không hợp lệ: cần đoạn đầu/cuối, số lần xuất hiện và số cột dương, file nguồn an toàn.");
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase))

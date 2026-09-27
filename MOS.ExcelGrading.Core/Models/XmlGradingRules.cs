@@ -51,6 +51,7 @@ namespace MOS.ExcelGrading.Core.Models
     public const string ConvertTableToText = "convertTableToText";
     public const string Hyperlink = "hyperlink";
     public const string SectionBreakBeforeText = "sectionBreakBeforeText";
+    public const string WordColumns = "wordColumns";
     public const string PictureStyle = "pictureStyle";
     public const string TextBoxContainsText = "textBoxContainsText";
     public const string PageMargins = "pageMargins";
@@ -101,6 +102,7 @@ namespace MOS.ExcelGrading.Core.Models
             ConvertTableToText,
             Hyperlink,
             SectionBreakBeforeText,
+        WordColumns,
             PictureStyle,
             TextBoxContainsText,
             PageMargins,
@@ -363,6 +365,10 @@ public static class ImageWrapTypes
         [BsonElement("sectionBreakBeforeTextConfig")]
         [JsonPropertyName("sectionBreakBeforeTextConfig")]
         public SectionBreakBeforeTextConfig? SectionBreakBeforeTextConfig { get; set; }
+
+        [BsonElement("wordColumnsConfig")]
+        [JsonPropertyName("wordColumnsConfig")]
+        public WordColumnsConfig? WordColumnsConfig { get; set; }
 
         [BsonElement("pictureStyleConfig")]
         [JsonPropertyName("pictureStyleConfig")]
@@ -1486,6 +1492,28 @@ public static class ImageWrapTypes
     }
 
     [BsonIgnoreExtraElements]
+    public class WordColumnsConfig
+    {
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; } = "word/document.xml";
+        [BsonElement("startText")]
+        [JsonPropertyName("startText")]
+        public string? StartText { get; set; }
+        [BsonElement("endText")]
+        [JsonPropertyName("endText")]
+        public string? EndText { get; set; }
+        [BsonElement("startOccurrence")]
+        [JsonPropertyName("startOccurrence")]
+        public int StartOccurrence { get; set; } = 1;
+        [BsonElement("endOccurrence")]
+        [JsonPropertyName("endOccurrence")]
+        public int EndOccurrence { get; set; } = 1;
+        [BsonElement("expectedColumnCount")]
+        [JsonPropertyName("expectedColumnCount")]
+        public int ExpectedColumnCount { get; set; } = 2;
+    }
+
     public class SectionBreakBeforeTextConfig
     {
         [BsonElement("sourceFile")]

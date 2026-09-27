@@ -33,7 +33,32 @@ namespace MOS.ExcelGrading.Word.UnitTests
             Assert.False(Evaluate("<dgm:pt modelId='root' type='doc'/>", "", true));
         }
 
-        private static bool Evaluate(string points, string edges, bool requireLast)
+        [Theory]
+        [InlineData(0, true)]
+        [InlineData(1, true)]
+        [InlineData(2, true)]
+        [InlineData(3, true)]
+        [InlineData(1, false)]
+        public void FullOrderChecksEveryPosition(int targetIndex, bool correct)
+        {
+            var expected = new List<string> { "First", "Second", "Third", "Fourth" };
+            expected[targetIndex] = "Be Accountable and Transparent";
+            var actual = new List<string>(expected);
+            if (!correct) (actual[1], actual[2]) = (actual[2], actual[1]);
+            var points = "<dgm:pt modelId='root' type='doc'/>";
+            var edges = "";
+            for (var i = 3; i >= 0; i--)
+            {
+                points += $"<dgm:pt modelId='n{i}'><dgm:t><a:p><a:r><a:t>{actual[i]}</a:t></a:r></a:p></dgm:t></dgm:pt>";
+                edges += $"<dgm:cxn type='parOf' srcId='root' destId='n{i}' srcOrd='{i}'/>";
+            }
+            // Full order supersedes the legacy last-node requirement.
+            Assert.Equal(correct, Evaluate(points, edges, true, expected));
+            Assert.False(Evaluate(points, edges, false, new List<string> { "First" }));
+            Assert.False(Evaluate(points, "", false, expected));
+        }
+
+        private static bool Evaluate(string points, string edges, bool requireLast, List<string>? expectedTexts = null)
         {
             var service = typeof(XmlGradingRuleService);
             var packageType = service.GetNestedType("OfficePackage", BindingFlags.NonPublic)!;
@@ -44,6 +69,7 @@ namespace MOS.ExcelGrading.Word.UnitTests
             var config = new WordSmartArtConfig
             {
                 ExpectedShapeCount = 4,
+                ExpectedNodeTexts = expectedTexts,
                 ExpectedText = "Be Accountable and Transparent",
                 ExpectedLastNodeText = requireLast ? "Be Accountable and Transparent" : null
             };

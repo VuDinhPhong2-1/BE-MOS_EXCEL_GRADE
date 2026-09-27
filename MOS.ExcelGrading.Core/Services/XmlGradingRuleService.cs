@@ -7084,7 +7084,8 @@ namespace MOS.ExcelGrading.Core.Services
                 }
             }
 
-            if (!string.IsNullOrWhiteSpace(config.ExpectedLastNodeText))
+            var hasExpectedOrder = config.ExpectedNodeTexts is { Count: > 0 };
+            if (hasExpectedOrder || !string.IsNullOrWhiteSpace(config.ExpectedLastNodeText))
             {
                 // A flat process is ordered by parOf connections, not by ptLst storage order.
                 var points = data.Root?.Element(dgm + "ptLst")?.Elements(dgm + "pt").ToList()
@@ -7111,12 +7112,25 @@ namespace MOS.ExcelGrading.Core.Services
                     ordered.Add(order, destination);
                 }
 
-                var lastNode = nodes.Single(p => (string?)p.Attribute("modelId") == ordered.Last().Value);
                 XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
-                var lastText = NormalizePlainText(string.Join(" ", lastNode.Elements(dgm + "t")
-                    .Elements(a + "p").Select(p => string.Concat(p.Descendants(a + "t").Select(t => t.Value)))));
-                if (!string.Equals(lastText, NormalizePlainText(config.ExpectedLastNodeText), comparison))
-                    return Fail($"Ô cuối SmartArt có nội dung '{lastText}', yêu cầu '{config.ExpectedLastNodeText}'.");
+                var actualTexts = ordered.Values.Select(id => nodes.Single(p => (string?)p.Attribute("modelId") == id))
+                    .Select(node => NormalizePlainText(string.Join(" ", node.Elements(dgm + "t")
+                        .Elements(a + "p").Select(p => string.Concat(p.Descendants(a + "t").Select(t => t.Value))))))
+                    .ToList();
+                if (config.ExpectedNodeTexts is { Count: > 0 } expectedNodeTexts)
+                {
+                    if (expectedNodeTexts.Any(string.IsNullOrWhiteSpace))
+                        return Fail("Danh sách nội dung ô SmartArt không được có ô trống.");
+                    if (actualTexts.Count != expectedNodeTexts.Count)
+                        return Fail($"SmartArt có {actualTexts.Count} ô, danh sách yêu cầu {expectedNodeTexts.Count} ô.");
+                    for (var i = 0; i < actualTexts.Count; i++)
+                    {
+                        if (!string.Equals(actualTexts[i], NormalizePlainText(expectedNodeTexts[i]), comparison))
+                            return Fail($"Ô SmartArt thứ {i + 1} có nội dung '{actualTexts[i]}', yêu cầu '{expectedNodeTexts[i]}'.");
+                    }
+                }
+                else if (!string.Equals(actualTexts.Last(), NormalizePlainText(config.ExpectedLastNodeText), comparison))
+                    return Fail($"Ô cuối SmartArt có nội dung '{actualTexts.Last()}', yêu cầu '{config.ExpectedLastNodeText}'.");
             }
 
             if (config.ExpectedShapeCount.HasValue)
@@ -11024,11 +11038,19 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.IsNullOrWhiteSpace(config.ExpectedColorStyle)
                 && !config.ExpectedShapeCount.HasValue
                     && string.IsNullOrWhiteSpace(config.ExpectedLastNodeText)
+                    && config.ExpectedNodeTexts is not { Count: > 0 }
                 && string.IsNullOrWhiteSpace(config.ExpectedText)
                 && string.IsNullOrWhiteSpace(config.BeforeText)
                 && string.IsNullOrWhiteSpace(config.AfterText))
             {
                 result.Warnings.Add($"{taskPrefix}.specialCondition.wordSmartArtConfig khong co dieu kien cu the de cham.");
+            }
+            if (config.ExpectedNodeTexts is { Count: > 0 })
+            {
+                if (config.ExpectedNodeTexts.Any(string.IsNullOrWhiteSpace))
+                    result.Errors.Add($"{taskPrefix}.specialCondition.wordSmartArtConfig.expectedNodeTexts không được có ô trống.");
+                if (config.ExpectedShapeCount.HasValue && config.ExpectedShapeCount.Value != config.ExpectedNodeTexts.Count)
+                    result.Errors.Add($"{taskPrefix}.specialCondition.wordSmartArtConfig.expectedNodeTexts phải có số ô bằng expectedShapeCount.");
             }
         }
 

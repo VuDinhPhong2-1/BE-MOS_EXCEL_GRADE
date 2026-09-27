@@ -1592,6 +1592,10 @@ public static class ImageWrapTypes
 
     public class WordSmartArtConfig
     {
+        [BsonElement("expectedNodeTexts")]
+        [JsonPropertyName("expectedNodeTexts")]
+        public List<string>? ExpectedNodeTexts { get; set; }
+
         [BsonElement("expectedLastNodeText")]
         [JsonPropertyName("expectedLastNodeText")]
         public string? ExpectedLastNodeText { get; set; }

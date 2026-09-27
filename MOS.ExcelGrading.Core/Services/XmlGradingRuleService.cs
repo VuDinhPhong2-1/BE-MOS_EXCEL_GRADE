@@ -7135,9 +7135,10 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (config.ExpectedShapeCount.HasValue)
             {
-                var shapeCount = data.Descendants(dgm + "pt")
-                    .Count(pt => string.Equals(pt.Attribute("type")?.Value, "node", StringComparison.OrdinalIgnoreCase)
-                        || pt.Descendants(dgm + "t").Any());
+                // Count content nodes, not presentation/transition points with text containers.
+                var shapeCount = data.Root?.Element(dgm + "ptLst")?.Elements(dgm + "pt")
+                    .Count(pt => pt.Attribute("type") == null
+                        || string.Equals(pt.Attribute("type")?.Value, "node", StringComparison.OrdinalIgnoreCase)) ?? 0;
                 if (shapeCount != config.ExpectedShapeCount.Value)
                 {
                     return Fail($"SmartArt co {shapeCount} node/shape, yeu cau {config.ExpectedShapeCount.Value}.");

@@ -58,7 +58,44 @@ namespace MOS.ExcelGrading.Word.UnitTests
             Assert.False(Evaluate(points, "", false, expected));
         }
 
-        private static bool Evaluate(string points, string edges, bool requireLast, List<string>? expectedTexts = null)
+        [Theory]
+        [InlineData(false, false)]
+        [InlineData(true, false)]
+        [InlineData(false, true)]
+        [InlineData(true, true)]
+        public void ShapeCountIgnoresNonContentPointsWithText(bool omitNodeType, bool checkOrder)
+        {
+            var points = "<dgm:pt modelId='root' type='doc'><dgm:t/></dgm:pt>";
+            var edges = "";
+            var texts = new List<string> { "First", "Second", "Third", "Be Accountable and Transparent" };
+            for (var i = 0; i < texts.Count; i++)
+            {
+                var type = omitNodeType ? "" : " type='node'";
+                points += $"<dgm:pt modelId='n{i}'{type}><dgm:t><a:p><a:r><a:t>{texts[i]}</a:t></a:r></a:p></dgm:t></dgm:pt>";
+                edges += $"<dgm:cxn type='parOf' srcId='root' destId='n{i}' srcOrd='{i}'/>";
+            }
+            foreach (var type in new[] { "pres", "parTrans", "sibTrans" })
+                points += $"<dgm:pt modelId='{type}' type='{type}'><dgm:t><a:p><a:r><a:t>Display text</a:t></a:r></a:p></dgm:t></dgm:pt>";
+
+            Assert.True(Evaluate(points, edges, checkOrder, checkOrder ? texts : null));
+            Assert.False(Evaluate(points, edges, checkOrder, checkOrder ? texts : null, 3));
+            Assert.False(Evaluate(points, edges, checkOrder, checkOrder ? texts : null, 5));
+        }
+
+        [Theory]
+        [InlineData(false)]
+        [InlineData(true)]
+        public void ShapeCountIncludesContentNodesWithoutText(bool emptyTextElement)
+        {
+            var points = "<dgm:pt modelId='n0'><dgm:t><a:p><a:r><a:t>Be Accountable and Transparent</a:t></a:r></a:p></dgm:t></dgm:pt>";
+            for (var i = 1; i < 4; i++)
+                points += $"<dgm:pt modelId='n{i}'>{(emptyTextElement ? "<dgm:t/>" : "")}</dgm:pt>";
+
+            Assert.True(Evaluate(points, "", false));
+            Assert.False(Evaluate(points, "", false, expectedShapeCount: 3));
+        }
+
+        private static bool Evaluate(string points, string edges, bool requireLast, List<string>? expectedTexts = null, int expectedShapeCount = 4)
         {
             var service = typeof(XmlGradingRuleService);
             var packageType = service.GetNestedType("OfficePackage", BindingFlags.NonPublic)!;
@@ -68,7 +105,7 @@ namespace MOS.ExcelGrading.Word.UnitTests
             parts["word/diagrams/data1.xml"] = $"<dgm:dataModel xmlns:dgm='http://schemas.openxmlformats.org/drawingml/2006/diagram' xmlns:a='http://schemas.openxmlformats.org/drawingml/2006/main'><dgm:ptLst>{points}</dgm:ptLst><dgm:cxnLst>{edges}</dgm:cxnLst></dgm:dataModel>";
             var config = new WordSmartArtConfig
             {
-                ExpectedShapeCount = 4,
+                ExpectedShapeCount = expectedShapeCount,
                 ExpectedNodeTexts = expectedTexts,
                 ExpectedText = "Be Accountable and Transparent",
                 ExpectedLastNodeText = requireLast ? "Be Accountable and Transparent" : null

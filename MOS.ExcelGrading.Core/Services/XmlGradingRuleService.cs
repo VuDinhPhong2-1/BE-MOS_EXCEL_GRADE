@@ -6749,11 +6749,6 @@ namespace MOS.ExcelGrading.Core.Services
                 var target = matches[occurrence - 1];
                 var candidateParagraphs = new List<(XElement Paragraph, string Position)>();
 
-                if (config.AllowSameParagraphSectPr != false)
-                {
-                    candidateParagraphs.Add((target.Paragraph, "cung paragraph voi targetText"));
-                }
-
                 if (target.Index > 0)
                 {
                     if (config.RequireImmediateBefore != false)
@@ -6767,16 +6762,36 @@ namespace MOS.ExcelGrading.Core.Services
                     }
                 }
 
+                // Keep the legacy same-paragraph option, but prefer a boundary before the target.
+                if (config.AllowSameParagraphSectPr != false)
+                {
+                    candidateParagraphs.Add((target.Paragraph, "cung paragraph voi targetText"));
+                }
+
                 var expectedType = string.IsNullOrWhiteSpace(config.BreakType)
                     ? "continuous"
                     : config.BreakType.Trim();
 
                 foreach (var candidate in candidateParagraphs)
                 {
-                    var sectPr = candidate.Paragraph.Element(w + "pPr")?.Element(w + "sectPr");
-                    if (sectPr == null)
+                    var boundary = candidate.Paragraph.Element(w + "pPr")?.Element(w + "sectPr");
+                    if (boundary == null)
                     {
                         continue;
+                    }
+
+                    // Paragraph sectPr closes the PREVIOUS section. The next sectPr
+                    // describes the section opened by this boundary, including its start type.
+                    var sectPr = candidate.Paragraph.ElementsAfterSelf()
+                        .Select(element => element.Name == w + "sectPr"
+                            ? element
+                            : element.Name == w + "p"
+                                ? element.Element(w + "pPr")?.Element(w + "sectPr")
+                                : null)
+                        .FirstOrDefault(properties => properties != null);
+                    if (sectPr == null)
+                    {
+                        return Fail("Không tìm thấy thuộc tính của section sau ranh giới ngắt.");
                     }
 
                     var actualType = sectPr.Element(w + "type")?.Attribute(w + "val")?.Value;

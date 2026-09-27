@@ -1936,6 +1936,7 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.PictureStyle, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.TextBoxContainsText, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordMoveText, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordMoveSmartArt, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.DocumentStyleSet, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.PageBorder, StringComparison.OrdinalIgnoreCase)
@@ -2347,6 +2348,13 @@ namespace MOS.ExcelGrading.Core.Services
                 if (specialCondition == null || string.IsNullOrWhiteSpace(specialCondition.Type))
                 {
                     continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordMoveSmartArt, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart("word/document.xml", "word/document.xml");
+                    AddXmlPart("word/_rels/document.xml.rels", "word/_rels/document.xml.rels");
+                    AddXmlPrefix("word/diagrams");
                 }
 
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordMoveText, StringComparison.OrdinalIgnoreCase))
@@ -2930,6 +2938,9 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordMoveText, StringComparison.OrdinalIgnoreCase))
                 return EvaluateWordMoveText(specialCondition.WordMoveTextConfig, package);
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordMoveSmartArt, StringComparison.OrdinalIgnoreCase))
+                return EvaluateWordMoveSmartArt(specialCondition.WordMoveSmartArtConfig, package);
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase))
             {
@@ -6084,6 +6095,86 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return name.ToString();
+        }
+
+        private static string? ValidateWordMoveSmartArtConfig(WordMoveSmartArtConfig? config)
+        {
+            if (config == null || string.IsNullOrWhiteSpace(config.NodeText)
+                || (string.IsNullOrWhiteSpace(config.AfterText) && string.IsNullOrWhiteSpace(config.BeforeText)))
+                return "Cần văn bản một node SmartArt và ít nhất một đoạn mốc đích.";
+            return null;
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordMoveSmartArt(WordMoveSmartArtConfig? config, OfficePackage package)
+        {
+            static SpecialConditionEvalOutcome Fail(string message) => new() { IsPassed = false, Message = message };
+            var error = ValidateWordMoveSmartArtConfig(config);
+            if (error != null) return Fail(error);
+            if (!package.TryGetXmlDocument("word/document.xml", out var document, out _)
+                || !package.TryGetXmlDocument("word/_rels/document.xml.rels", out var relationships, out _))
+                return Fail("Không đọc được tài liệu hoặc relationship SmartArt.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            XNamespace dgm = "http://schemas.openxmlformats.org/drawingml/2006/diagram";
+            XNamespace a = "http://schemas.openxmlformats.org/drawingml/2006/main";
+            XNamespace r = "http://schemas.openxmlformats.org/officeDocument/2006/relationships";
+            XNamespace rel = "http://schemas.openxmlformats.org/package/2006/relationships";
+            XNamespace wp = "http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing";
+            var body = document.Root?.Element(w + "body");
+            if (body == null) return Fail("Không tìm thấy thân tài liệu.");
+            var matches = new List<XElement>();
+            foreach (var reference in body.Descendants(dgm + "relIds"))
+            {
+                var id = reference.Attribute(r + "dm")?.Value;
+                var links = relationships.Root?.Elements(rel + "Relationship")
+                    .Where(e => e.Attribute("Id")?.Value == id).ToList();
+                if (string.IsNullOrWhiteSpace(id) || links == null || links.Count != 1)
+                    return Fail("Relationship SmartArt bị thiếu hoặc không duy nhất.");
+                var link = links[0];
+                var target = link.Attribute("Target")?.Value;
+                if (link.Attribute("TargetMode")?.Value == "External" || string.IsNullOrWhiteSpace(target)
+                    || link.Attribute("Type")?.Value != r.NamespaceName + "/diagramData")
+                    return Fail("Relationship dữ liệu SmartArt không hợp lệ.");
+                var path = ResolveRelationshipTarget("word/document.xml", target);
+                if (!package.TryGetXmlDocument(path, out var data, out _)
+                    || data.Root?.Name != dgm + "dataModel")
+                    return Fail("Không đọc được dữ liệu SmartArt.");
+                var nodes = data.Root.Element(dgm + "ptLst")?.Elements(dgm + "pt")
+                    .Where(p => p.Attribute("type") == null || p.Attribute("type")?.Value == "node");
+                if (nodes != null && nodes.Any(p => string.Equals(
+                    NormalizePlainText(string.Join(" ", p.Elements(dgm + "t").Elements(a + "p")
+                        .Select(paragraph => string.Concat(paragraph.Descendants(a + "t").Select(t => t.Value))))),
+                    NormalizePlainText(config!.NodeText), StringComparison.OrdinalIgnoreCase)))
+                    matches.Add(reference);
+            }
+            if (matches.Count != 1) return Fail($"Cần đúng một SmartArt khớp node; tìm thấy {matches.Count} đối tượng trong thân tài liệu.");
+            var selected = matches[0];
+            var paragraph = selected.Ancestors(w + "p").FirstOrDefault();
+            var blocks = body.Elements().ToList();
+            var index = paragraph == null ? -1 : blocks.IndexOf(paragraph);
+            if (index < 0 || !selected.Ancestors(wp + "inline").Any() || selected.Ancestors(wp + "anchor").Any())
+                return Fail("SmartArt phải ở chế độ In Line with Text trong một đoạn riêng trực tiếp thuộc thân tài liệu.");
+            string Text(XElement p) => NormalizePlainText(BuildParagraphTextSnapshot(p, w, excludeTextBoxContent: true).Text);
+            if (Text(paragraph!).Length != 0 || paragraph!.Descendants(w + "drawing").Count() != 1
+                || paragraph.Descendants(dgm + "relIds").Count() != 1 || paragraph.Descendants(w + "pict").Any())
+                return Fail("Đoạn SmartArt không được chứa văn bản hoặc đối tượng khác.");
+            bool AtLocation(string? after, string? before)
+            {
+                bool Check(string? text, int offset)
+                {
+                    if (string.IsNullOrWhiteSpace(text)) return true;
+                    var anchors = blocks.Where(p => p.Name == w + "p" && string.Equals(Text(p),
+                        NormalizePlainText(text), StringComparison.OrdinalIgnoreCase)).ToList();
+                    var position = index + offset;
+                    return anchors.Count == 1 && position >= 0 && position < blocks.Count && blocks[position] == anchors[0];
+                }
+                return Check(after, -1) && Check(before, 1);
+            }
+            if ((!string.IsNullOrWhiteSpace(config!.OriginalAfterText) || !string.IsNullOrWhiteSpace(config.OriginalBeforeText))
+                && AtLocation(config.OriginalAfterText, config.OriginalBeforeText))
+                return Fail("SmartArt vẫn nằm ở vị trí nguồn đã cấu hình.");
+            if (!AtLocation(config.AfterText, config.BeforeText))
+                return Fail("SmartArt chưa liền kề đúng các mốc đích hoặc mốc không duy nhất.");
+            return new SpecialConditionEvalOutcome { IsPassed = true, Message = "SmartArt duy nhất nằm đúng vị trí đích đã cấu hình." };
         }
 
         private static string? ValidateWordMoveTextConfig(WordMoveTextConfig? config)
@@ -9949,6 +10040,12 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 var error = ValidateWordMoveTextConfig(specialCondition.WordMoveTextConfig);
                 if (error != null) result.Errors.Add($"{taskPrefix}.specialCondition.wordMoveTextConfig: {error}");
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordMoveSmartArt, StringComparison.OrdinalIgnoreCase))
+            {
+                var error = ValidateWordMoveSmartArtConfig(specialCondition.WordMoveSmartArtConfig);
+                if (error != null) result.Errors.Add($"{taskPrefix}.specialCondition.wordMoveSmartArtConfig: {error}");
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PageMargins, StringComparison.OrdinalIgnoreCase))

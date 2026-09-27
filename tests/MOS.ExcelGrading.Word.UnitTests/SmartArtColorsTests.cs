@@ -41,6 +41,10 @@ namespace MOS.ExcelGrading.Word.UnitTests
 
         [Theory]
         [InlineData("accent5_6", true)]
+        [InlineData("urn:microsoft.com/office/officeart/2005/8/colors/colorful5", true)]
+        [InlineData("urn:microsoft.com/office/officeart/2005/8/colors/COLORFUL5#0", true)]
+        [InlineData("urn:microsoft.com/office/officeart/2005/8/colors/colorful4", false)]
+        [InlineData("colorful5_extra", false)]
         [InlineData("urn:microsoft.com/office/officeart/2005/8/colors/accent5_6", true)]
         [InlineData("urn:microsoft.com/office/officeart/2005/8/colors/accent5_6#0", true)]
         [InlineData("accent5_6_extra", false)]
@@ -61,7 +65,16 @@ namespace MOS.ExcelGrading.Word.UnitTests
         [InlineData("<colorsDef uniqueId='accent5_6'/>")]
         public void MissingOrInvalidPartFails(string? xml) => Assert.False(Evaluate(xml));
 
-        private static bool Evaluate(string? xml)
+        [Theory]
+        [InlineData("colorful5", true)]
+        [InlineData("colorful4", false)]
+        [InlineData("colorful5_extra", false)]
+        public void CanonicalColorfulStyleMatchesExactly(string id, bool expected)
+        {
+            Assert.Equal(expected, Evaluate($"<dgm:colorsDef xmlns:dgm='http://schemas.openxmlformats.org/drawingml/2006/diagram' uniqueId='urn:microsoft.com/office/officeart/2005/8/colors/{id}'/>", "colorful5"));
+        }
+
+        private static bool Evaluate(string? xml, string expectedStyle = "accent5_6")
         {
             var service = typeof(XmlGradingRuleService);
             var packageType = service.GetNestedType("OfficePackage", BindingFlags.NonPublic)!;
@@ -70,7 +83,7 @@ namespace MOS.ExcelGrading.Word.UnitTests
             if (xml != null) parts["word/diagrams/colors2.xml"] = xml;
             var method = service.GetMethod("EvaluateWordSmartArtColors", BindingFlags.NonPublic | BindingFlags.Static)!;
             var outcome = method.Invoke(null, new object[] {
-                new WordSmartArtColorsConfig { ColorsFile = "word/diagrams/colors2.xml", ExpectedColorStyle = "accent5_6" }, package })!;
+                new WordSmartArtColorsConfig { ColorsFile = "word/diagrams/colors2.xml", ExpectedColorStyle = expectedStyle }, package })!;
             return (bool)outcome.GetType().GetProperty("IsPassed")!.GetValue(outcome)!;
         }
     }

@@ -7012,7 +7012,10 @@ namespace MOS.ExcelGrading.Core.Services
             // Compare the style identifier, not incidental accent colors in shape overrides.
             var actual = id.Split('/').Last().Split('#')[0];
             var passed = string.Equals(id, expected, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase);
+                || string.Equals(actual, expected, StringComparison.OrdinalIgnoreCase)
+                // Older editor versions saved this label-derived alias instead of Word's style ID.
+                || (string.Equals(expected, "accent5_6", StringComparison.OrdinalIgnoreCase)
+                    && string.Equals(actual, "colorful5", StringComparison.OrdinalIgnoreCase));
             return new SpecialConditionEvalOutcome
             {
                 IsPassed = passed,

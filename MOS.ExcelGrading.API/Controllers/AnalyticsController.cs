@@ -31,12 +31,16 @@ namespace MOS.ExcelGrading.API.Controllers
         public async Task<IActionResult> GetWeakTasks(
             string classId,
             [FromQuery] string? projectEndpoint = null,
-            [FromQuery] int top = 10)
+            [FromQuery] int top = 10,
+            [FromQuery] string[]? assignmentIds = null)
         {
             if (!HasPermission(Permissions.ViewGrades))
                 return Forbid();
 
-            var result = await _analyticsService.GetWeakTasksAsync(classId, projectEndpoint, top);
+            if (assignmentIds?.Any(id => !MongoDB.Bson.ObjectId.TryParse(id, out _)) == true)
+                return BadRequest(new { message = "Assignment IDs must be valid ObjectIds." });
+
+            var result = await _analyticsService.GetWeakTasksAsync(classId, projectEndpoint, top, assignmentIds);
             return Ok(result);
         }
 

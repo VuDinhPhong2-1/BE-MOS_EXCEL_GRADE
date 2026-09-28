@@ -15,7 +15,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
             bool persistToDatabase = false);
 
         Task<ClassAnalyticsOverviewResponse> GetClassOverviewAsync(string classId);
-        Task<List<WeakTaskResponse>> GetWeakTasksAsync(string classId, string? projectEndpoint, int top);
+        Task<List<WeakTaskResponse>> GetWeakTasksAsync(string classId, string? projectEndpoint, int top, string[]? assignmentIds = null);
         Task<List<ProjectPerformanceResponse>> GetProjectPerformanceAsync(string classId);
     }
 }

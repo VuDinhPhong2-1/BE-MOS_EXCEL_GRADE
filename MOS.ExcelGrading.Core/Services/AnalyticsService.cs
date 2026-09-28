@@ -95,7 +95,7 @@ namespace MOS.ExcelGrading.Core.Services
             };
         }
 
-        public async Task<List<WeakTaskResponse>> GetWeakTasksAsync(string classId, string? projectEndpoint, int top)
+        public async Task<List<WeakTaskResponse>> GetWeakTasksAsync(string classId, string? projectEndpoint, int top, string[]? assignmentIds = null)
         {
             var filter = Builders<GradingAttempt>.Filter.Eq(a => a.ClassId, classId);
             if (!string.IsNullOrWhiteSpace(projectEndpoint))
@@ -103,23 +103,35 @@ namespace MOS.ExcelGrading.Core.Services
                 filter &= Builders<GradingAttempt>.Filter.Eq(a => a.ProjectEndpoint, projectEndpoint);
             }
 
+            var filterByAssignment = assignmentIds?.Length > 0;
+            if (filterByAssignment)
+            {
+                filter &= Builders<GradingAttempt>.Filter.In(a => a.AssignmentId, assignmentIds);
+            }
             var attempts = await _gradingAttempts.Find(filter).ToListAsync();
+            return RankWeakTasks(attempts, top, filterByAssignment);
+        }
+
+        public static List<WeakTaskResponse> RankWeakTasks(IEnumerable<GradingAttempt> attempts, int top, bool filterByAssignment)
+        {
             var latestAttemptsByStudent = attempts
                 .Where(a => !string.IsNullOrWhiteSpace(a.StudentId))
-                .GroupBy(a => new { a.StudentId, ProjectEndpoint = a.ProjectEndpoint ?? string.Empty })
+                .Where(a => !filterByAssignment || !string.IsNullOrWhiteSpace(a.AssignmentId))
+                .GroupBy(a => new { a.StudentId, Scope = filterByAssignment ? a.AssignmentId : a.ProjectEndpoint ?? string.Empty })
                 .Select(g => g
                     .OrderByDescending(a => a.GradedAt)
                     .ThenByDescending(a => a.Id, StringComparer.Ordinal)
                     .First())
                 .ToList();
-            if (latestAttemptsByStudent.Count == 0)
+            if (!filterByAssignment && latestAttemptsByStudent.Count == 0)
             {
-                latestAttemptsByStudent = attempts;
+                latestAttemptsByStudent = attempts.ToList();
             }
 
             var taskStats = latestAttemptsByStudent
                 .SelectMany(a => (a.TaskResults ?? new List<GradingAttemptTask>()).Select(t => new
                 {
+                    AssignmentId = filterByAssignment ? a.AssignmentId : null,
                     ProjectEndpoint = a.ProjectEndpoint ?? string.Empty,
                     ProjectId = a.ProjectId ?? string.Empty,
                     Task = t
@@ -127,6 +139,7 @@ namespace MOS.ExcelGrading.Core.Services
                 .Where(x => x.Task != null && !string.Equals(x.Task.TaskId, "SCORE-SAVE", StringComparison.OrdinalIgnoreCase))
                 .GroupBy(x => new
                 {
+                    x.AssignmentId,
                     ProjectEndpoint = x.ProjectEndpoint,
                     ProjectId = x.ProjectId,
                     TaskId = x.Task.TaskId ?? string.Empty,
@@ -142,6 +155,7 @@ namespace MOS.ExcelGrading.Core.Services
 
                     return new WeakTaskResponse
                     {
+                        AssignmentId = g.Key.AssignmentId,
                         ProjectEndpoint = g.Key.ProjectEndpoint,
                         ProjectId = g.Key.ProjectId,
                         TaskId = g.Key.TaskId,
@@ -153,6 +167,9 @@ namespace MOS.ExcelGrading.Core.Services
                 })
                 .OrderByDescending(t => t.FailedRate)
                 .ThenByDescending(t => t.FailedCount)
+                .ThenBy(t => t.AssignmentId, StringComparer.Ordinal)
+                .ThenBy(t => t.ProjectEndpoint, StringComparer.Ordinal)
+                .ThenBy(t => t.TaskId, StringComparer.Ordinal)
                 .Take(Math.Max(1, top))
                 .ToList();
 

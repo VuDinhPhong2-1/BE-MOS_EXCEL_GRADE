@@ -61,6 +61,7 @@ export function mapOverviewToGaugeData(d: ClassAnalyticsOverviewResponse) {
 `GET /api/analytics/class/{classId}/weak-tasks?projectEndpoint=excel/project09&top=10`
 
 - `projectEndpoint` is optional.
+- Repeated `assignmentIds` are optional. Selected mode uses latest student/assignment attempts, excludes unidentified legacy attempts, and returns `assignmentId` for name lookup in the class assignment list. The combined ranking and denominator rules are documented in `../API_CONTRACT.md`; overview is not filtered.
 - `top` is optional; backend default is `10`.
 - Use canonical project endpoints such as `excel/project09` when filtering. Legacy values such as `project09` may appear in old persisted attempts and should be handled defensively in UI labels.
 

@@ -12,6 +12,7 @@ namespace MOS.ExcelGrading.Core.DTOs
 
     public class WeakTaskResponse
     {
+        public string? AssignmentId { get; set; }
         public string TaskId { get; set; } = string.Empty;
         public string TaskName { get; set; } = string.Empty;
         public string ProjectEndpoint { get; set; } = string.Empty;

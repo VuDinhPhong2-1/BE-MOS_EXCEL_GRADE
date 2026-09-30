@@ -8044,21 +8044,30 @@ namespace MOS.ExcelGrading.Core.Services
 
             var commentsExtendedFile = string.IsNullOrWhiteSpace(config.CommentsExtendedFile) ? "word/commentsExtended.xml" : NormalizeSourceFile(config.CommentsExtendedFile);
             if (!package.TryGetXmlDocument(commentsExtendedFile, out var extDoc, out var extError)) return Fail(extError ?? $"Không tìm thấy {commentsExtendedFile} để xác minh reply-parent.");
+            var replyParaIdsInExtended = extDoc.Descendants(w15 + "commentEx")
+                .Select(c => c.Attribute(w15 + "paraId")?.Value)
+                .Where(v => !string.IsNullOrWhiteSpace(v))
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+            var parentCommentsInOrder = comments
+                .Where(c => !c.Descendants(w + "p")
+                    .Select(p => p.Attribute(w14 + "paraId")?.Value ?? p.Attribute(w15 + "paraId")?.Value)
+                    .Any(v => !string.IsNullOrWhiteSpace(v) && replyParaIdsInExtended.Contains(v)))
+                .ToList();
             IEnumerable<XElement> parentComments;
             if (hasParentIndex)
             {
                 var parentIndex = config.ParentCommentIndex!.Value;
-                if (parentIndex > comments.Count)
+                if (parentIndex > parentCommentsInOrder.Count)
                 {
-                    return Fail($"parentCommentIndex {parentIndex} vượt quá số comment hiện có ({comments.Count}).");
+                    return Fail($"parentCommentIndex {parentIndex} vượt quá số parent comment hiện có ({parentCommentsInOrder.Count}).");
                 }
 
-                parentComments = new[] { comments[parentIndex - 1] };
+                parentComments = new[] { parentCommentsInOrder[parentIndex - 1] };
             }
             else
             {
                 var parentText = NormalizeComparableCommentText(config.ParentCommentText);
-                parentComments = comments
+                parentComments = parentCommentsInOrder
                     .Where(c => NormalizeComparableCommentText(string.Concat(c.Descendants(w + "t").Select(t => t.Value))).Contains(parentText, comparison));
             }
 

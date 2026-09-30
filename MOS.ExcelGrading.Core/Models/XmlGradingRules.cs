@@ -1411,6 +1411,10 @@ public static class ImageWrapTypes
         [JsonPropertyName("parentCommentText")]
         public string? ParentCommentText { get; set; }
 
+        [BsonElement("parentCommentIndex")]
+        [JsonPropertyName("parentCommentIndex")]
+        public int? ParentCommentIndex { get; set; }
+
         [BsonElement("expectedReplyText")]
         [JsonPropertyName("expectedReplyText")]
         public string? ExpectedReplyText { get; set; }

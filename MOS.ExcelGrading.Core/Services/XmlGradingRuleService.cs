@@ -8031,20 +8031,47 @@ namespace MOS.ExcelGrading.Core.Services
             var matchingReplyComments = comments.Where(c => NormalizeComparableCommentText(string.Concat(c.Descendants(w + "t").Select(t => t.Value))).Contains(expectedReply, comparison)).ToList();
             if (matchingReplyComments.Count == 0) return Fail($"Không tìm thấy nội dung reply '{config.ExpectedReplyText}'.");
 
-            if (string.IsNullOrWhiteSpace(config.ParentCommentText))
+            var hasParentIndex = config.ParentCommentIndex.HasValue;
+            if (hasParentIndex && config.ParentCommentIndex!.Value < 1)
+            {
+                return Fail("parentCommentIndex phải là số nguyên bắt đầu từ 1.");
+            }
+
+            if (!hasParentIndex && string.IsNullOrWhiteSpace(config.ParentCommentText))
             {
                 return new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Đã tìm thấy reply '{config.ExpectedReplyText}'." };
             }
 
             var commentsExtendedFile = string.IsNullOrWhiteSpace(config.CommentsExtendedFile) ? "word/commentsExtended.xml" : NormalizeSourceFile(config.CommentsExtendedFile);
             if (!package.TryGetXmlDocument(commentsExtendedFile, out var extDoc, out var extError)) return Fail(extError ?? $"Không tìm thấy {commentsExtendedFile} để xác minh reply-parent.");
-            var parentText = NormalizeComparableCommentText(config.ParentCommentText);
-            var parentParaIds = comments
-                .Where(c => NormalizeComparableCommentText(string.Concat(c.Descendants(w + "t").Select(t => t.Value))).Contains(parentText, comparison))
+            IEnumerable<XElement> parentComments;
+            if (hasParentIndex)
+            {
+                var parentIndex = config.ParentCommentIndex!.Value;
+                if (parentIndex > comments.Count)
+                {
+                    return Fail($"parentCommentIndex {parentIndex} vượt quá số comment hiện có ({comments.Count}).");
+                }
+
+                parentComments = new[] { comments[parentIndex - 1] };
+            }
+            else
+            {
+                var parentText = NormalizeComparableCommentText(config.ParentCommentText);
+                parentComments = comments
+                    .Where(c => NormalizeComparableCommentText(string.Concat(c.Descendants(w + "t").Select(t => t.Value))).Contains(parentText, comparison));
+            }
+
+            var parentParaIds = parentComments
                 .SelectMany(c => c.Descendants(w + "p").Select(p => p.Attribute(w14 + "paraId")?.Value ?? p.Attribute(w15 + "paraId")?.Value))
                 .Where(v => !string.IsNullOrWhiteSpace(v))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            if (parentParaIds.Count == 0) return Fail($"Không tìm thấy comment cha chứa '{config.ParentCommentText}'.");
+            if (parentParaIds.Count == 0)
+            {
+                return hasParentIndex
+                    ? Fail($"Comment thứ {config.ParentCommentIndex} không có paraId để xác minh reply.")
+                    : Fail($"Không tìm thấy comment cha chứa '{config.ParentCommentText}'.");
+            }
 
             var replyParaIds = matchingReplyComments
                 .SelectMany(c => c.Descendants(w + "p").Select(p => p.Attribute(w14 + "paraId")?.Value ?? p.Attribute(w15 + "paraId")?.Value))

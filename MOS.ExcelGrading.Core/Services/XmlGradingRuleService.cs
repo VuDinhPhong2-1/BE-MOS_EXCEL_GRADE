@@ -8045,6 +8045,7 @@ namespace MOS.ExcelGrading.Core.Services
             var commentsExtendedFile = string.IsNullOrWhiteSpace(config.CommentsExtendedFile) ? "word/commentsExtended.xml" : NormalizeSourceFile(config.CommentsExtendedFile);
             if (!package.TryGetXmlDocument(commentsExtendedFile, out var extDoc, out var extError)) return Fail(extError ?? $"Không tìm thấy {commentsExtendedFile} để xác minh reply-parent.");
             var replyParaIdsInExtended = extDoc.Descendants(w15 + "commentEx")
+                .Where(c => !string.IsNullOrWhiteSpace(c.Attribute(w15 + "paraIdParent")?.Value))
                 .Select(c => c.Attribute(w15 + "paraId")?.Value)
                 .Where(v => !string.IsNullOrWhiteSpace(v))
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);

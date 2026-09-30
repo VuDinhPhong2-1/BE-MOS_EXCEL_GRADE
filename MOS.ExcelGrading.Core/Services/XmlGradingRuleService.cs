@@ -8054,7 +8054,7 @@ namespace MOS.ExcelGrading.Core.Services
                     .Select(p => p.Attribute(w14 + "paraId")?.Value ?? p.Attribute(w15 + "paraId")?.Value)
                     .Any(v => !string.IsNullOrWhiteSpace(v) && replyParaIdsInExtended.Contains(v)))
                 .ToList();
-            IEnumerable<XElement> parentComments;
+            IEnumerable<XElement> parentComments = parentCommentsInOrder;
             if (hasParentIndex)
             {
                 var parentIndex = config.ParentCommentIndex!.Value;
@@ -8065,10 +8065,12 @@ namespace MOS.ExcelGrading.Core.Services
 
                 parentComments = new[] { parentCommentsInOrder[parentIndex - 1] };
             }
-            else
+
+            if (!string.IsNullOrWhiteSpace(config.ParentCommentText))
             {
                 var parentText = NormalizeComparableCommentText(config.ParentCommentText);
-                parentComments = parentCommentsInOrder
+                var selectedParentComments = parentComments.ToList();
+                parentComments = selectedParentComments
                     .Where(c => NormalizeComparableCommentText(string.Concat(c.Descendants(w + "t").Select(t => t.Value))).Contains(parentText, comparison));
             }
 
@@ -8078,9 +8080,9 @@ namespace MOS.ExcelGrading.Core.Services
                 .ToHashSet(StringComparer.OrdinalIgnoreCase);
             if (parentParaIds.Count == 0)
             {
-                return hasParentIndex
-                    ? Fail($"Comment thứ {config.ParentCommentIndex} không có paraId để xác minh reply.")
-                    : Fail($"Không tìm thấy comment cha chứa '{config.ParentCommentText}'.");
+                return !string.IsNullOrWhiteSpace(config.ParentCommentText)
+                    ? Fail($"Không tìm thấy comment cha phù hợp với các điều kiện parentCommentIndex/parentCommentText.")
+                    : Fail($"Comment thứ {config.ParentCommentIndex} không có paraId để xác minh reply.");
             }
 
             var replyParaIds = matchingReplyComments

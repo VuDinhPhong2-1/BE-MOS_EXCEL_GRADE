@@ -159,7 +159,7 @@ namespace MOS.ExcelGrading.Core.Services
             };
         }
 
-        public async Task<PublicPortalSubmitResult> GradeAndSubmitAsync(string token, string classId, string studentId, string assignmentId, IFormFile file, string? ipAddress, string? userAgent)
+        public async Task<PublicPortalSubmitResult> GradeAndSubmitAsync(string token, string classId, string studentId, string assignmentId, IFormFile file, string? ipAddress, string? deviceId, string? userAgent)
         {
             var portal = await RequireOpenPortalAsync(token, validateTime: true);
             var grading = await GradeSubmissionFileAsync(portal, classId, studentId, assignmentId, file);
@@ -198,6 +198,7 @@ namespace MOS.ExcelGrading.Core.Services
                 ScoreValue = grading.ScoreValue,
                 MaxScore = grading.MaxScore,
                 IpAddress = ipAddress,
+                DeviceId = NormalizeDeviceId(deviceId),
                 UserAgent = userAgent,
                 FileHash = hash,
                 FileName = file.FileName,
@@ -380,14 +381,14 @@ namespace MOS.ExcelGrading.Core.Services
         {
             var tags = new List<string>();
             var now = current.SubmittedAt;
-            if (!string.IsNullOrWhiteSpace(current.IpAddress))
+            if (!string.IsNullOrWhiteSpace(current.DeviceId))
             {
-                var sameIpSubmissions = await _logs.Find(l => l.PortalId == portal.Id && l.IpAddress == current.IpAddress && l.StudentId != current.StudentId).ToListAsync();
-                var studentIds = sameIpSubmissions.Select(l => l.StudentId).Append(current.StudentId).Distinct().ToList();
+                var sameDeviceSubmissions = await _logs.Find(l => l.PortalId == portal.Id && l.DeviceId == current.DeviceId && l.StudentId != current.StudentId).ToListAsync();
+                var studentIds = sameDeviceSubmissions.Select(l => l.StudentId).Append(current.StudentId).Distinct().ToList();
                 if (studentIds.Count >= 2)
                 {
-                    tags.Add("SameIpMultipleStudents");
-                    await CreateAlertAsync(portal.Id, "SameIpMultipleStudents", "High", $"IP {current.IpAddress} đã nộp bài cho {studentIds.Count} học sinh khác nhau trong link nộp bài này.", studentIds, sameIpSubmissions.Select(l => l.Id).Append(current.Id).Distinct().ToList());
+                    tags.Add("SameDeviceMultipleStudents");
+                    await CreateAlertAsync(portal.Id, "SameDeviceMultipleStudents", "High", $"Một máy đã nộp bài cho {studentIds.Count} học sinh khác nhau trong link nộp bài này.", studentIds, sameDeviceSubmissions.Select(l => l.Id).Append(current.Id).Distinct().ToList());
                 }
             }
 
@@ -421,6 +422,13 @@ namespace MOS.ExcelGrading.Core.Services
         private async Task CreateAlertAsync(string portalId, string type, string severity, string message, List<string> studentIds, List<string> logIds)
         {
             await _alerts.InsertOneAsync(new SubmissionAlert { PortalId = portalId, AlertType = type, Severity = severity, Message = message, InvolvedStudentIds = studentIds, InvolvedSubmissionLogIds = logIds, CreatedAt = DateTime.UtcNow });
+        }
+
+        private static string? NormalizeDeviceId(string? deviceId)
+        {
+            if (string.IsNullOrWhiteSpace(deviceId)) return null;
+            var normalized = deviceId.Trim();
+            return normalized.Length <= 100 ? normalized : null;
         }
 
         private async Task<bool> ShouldPersistScoreAsync(SubmissionPortal portal, string studentId, string assignmentId, double scoreValue)

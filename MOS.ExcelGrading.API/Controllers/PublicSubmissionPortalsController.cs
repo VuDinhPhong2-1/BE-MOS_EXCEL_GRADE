@@ -37,8 +37,9 @@ namespace MOS.ExcelGrading.API.Controllers
             try
             {
                 var ip = HttpContext.Connection.RemoteIpAddress?.ToString();
+                var deviceId = Request.Headers["X-Device-Id"].ToString();
                 var userAgent = Request.Headers.UserAgent.ToString();
-                return Ok(await _service.GradeAndSubmitAsync(token, classId, studentId, assignmentId, file, ip, userAgent));
+                return Ok(await _service.GradeAndSubmitAsync(token, classId, studentId, assignmentId, file, ip, deviceId, userAgent));
             }
             catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
             catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }

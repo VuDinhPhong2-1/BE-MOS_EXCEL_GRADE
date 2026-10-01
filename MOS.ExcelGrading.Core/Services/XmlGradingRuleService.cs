@@ -8148,16 +8148,65 @@ namespace MOS.ExcelGrading.Core.Services
             if (!string.IsNullOrWhiteSpace(config.AnchorText)) table = tables.FirstOrDefault(t => string.Concat(t.Descendants(w + "t").Select(x => x.Value)).Contains(config.AnchorText, StringComparison.OrdinalIgnoreCase));
             table ??= tables.Skip(Math.Max(0, (config.TableIndex ?? 1) - 1)).FirstOrDefault();
             if (table == null) return Fail("Không tìm thấy bảng cần kiểm tra AutoFit.");
+            if (config.ExpectedColumnWidthsInches is { Count: > 0 })
+            {
+                const double dxaPerInch = 1440d;
+                var tolerance = Math.Max(0, config.ToleranceInches ?? 0.05);
+                if (config.ExpectedColumnWidthsInches.Any(width => double.IsNaN(width) || double.IsInfinity(width) || width < 0)) return Fail("expectedColumnWidthsInches phải chứa các số không âm hợp lệ.");
+
+                // Word can preserve the original tblGrid after a manual resize. Prefer
+                // the explicit cell widths from the first row, and use tblGrid only as
+                // a fallback for documents that do not persist usable tcW values.
+                var cellWidths = table.Elements(w + "tr").FirstOrDefault()?.Elements(w + "tc")
+                    .Select(cell =>
+                    {
+                        var width = cell.Element(w + "tcPr")?.Element(w + "tcW");
+                        return string.Equals(width?.Attribute(w + "type")?.Value, "dxa", StringComparison.OrdinalIgnoreCase)
+                            && double.TryParse(width?.Attribute(w + "w")?.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dxa)
+                            ? dxa / dxaPerInch
+                            : (double?)null;
+                    }).ToList();
+                var gridWidths = table.Element(w + "tblGrid")?.Elements(w + "gridCol")
+                    .Select(column => double.TryParse(column.Attribute(w + "w")?.Value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dxa) ? dxa / dxaPerInch : (double?)null)
+                    .ToList();
+                var actualWidths = cellWidths is { Count: > 0 } && cellWidths.Count == config.ExpectedColumnWidthsInches.Count && cellWidths.All(width => width is >= 0)
+                    ? cellWidths
+                    : gridWidths;
+                if (actualWidths is null || actualWidths.Count != config.ExpectedColumnWidthsInches.Count || actualWidths.Any(width => width is null)) return Fail($"Số cột không khớp hoặc bảng không có đủ độ rộng cột; yêu cầu {config.ExpectedColumnWidthsInches.Count}.");
+                var mismatches = config.ExpectedColumnWidthsInches.Select((expected, index) => new { expected, actual = actualWidths[index]!.Value, index }).Where(item => Math.Abs(item.actual - item.expected) > tolerance).ToList();
+                if (mismatches.Count > 0)
+                {
+                    var details = string.Join(", ", mismatches.Select(item => $"cột {item.index + 1}: thực tế {item.actual:0.###} in, yêu cầu {item.expected:0.###} in"));
+                    return Fail($"Độ rộng cột chưa khớp (dung sai ±{tolerance:0.###} in): {details}.");
+                }
+                return new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Độ rộng {actualWidths.Count} cột khớp với cấu hình inch (dung sai ±{tolerance:0.###} in)." };
+            }
+
             var tblPr = table.Element(w + "tblPr");
             var layoutType = tblPr?.Element(w + "tblLayout")?.Attribute(w + "type")?.Value;
-            var tblW = tblPr?.Element(w + "tblW");
-            var widthType = tblW?.Attribute(w + "type")?.Value;
-            var width = tblW?.Attribute(w + "w")?.Value;
-            var isAutoFitContents = !string.Equals(layoutType, "fixed", StringComparison.OrdinalIgnoreCase)
-                && (tblW == null || string.Equals(widthType, "auto", StringComparison.OrdinalIgnoreCase) || string.Equals(width, "0", StringComparison.OrdinalIgnoreCase));
-            return isAutoFitContents
-                ? new SpecialConditionEvalOutcome { IsPassed = true, Message = "Bảng đang ở chế độ AutoFit Contents." }
-                : Fail("Bảng chưa ở chế độ AutoFit Contents (vẫn có fixed layout/preferred width). ");
+            var preferredWidthType = tblPr?.Element(w + "tblW")?.Attribute(w + "type")?.Value;
+            var expectedType = string.IsNullOrWhiteSpace(config.AutoFitType)
+                ? "contents"
+                : config.AutoFitType.Trim().ToLowerInvariant();
+
+            if (expectedType is not ("contents" or "fixed"))
+            {
+                return Fail($"autoFitType '{config.AutoFitType}' không được hỗ trợ; chỉ chấp nhận 'contents' hoặc 'fixed'.");
+            }
+
+            // Word commonly serializes AutoFit Contents as tblW/@w:type="auto"
+            // without writing tblLayout. Accept that representation as well as
+            // the explicit tblLayout/@w:type="autofit" representation, but never
+            // accept a table explicitly marked as fixed.
+            var isMatch = expectedType == "fixed"
+                ? string.Equals(layoutType, "fixed", StringComparison.OrdinalIgnoreCase)
+                : !string.Equals(layoutType, "fixed", StringComparison.OrdinalIgnoreCase)
+                    && (string.Equals(layoutType, "autofit", StringComparison.OrdinalIgnoreCase)
+                        || string.Equals(preferredWidthType, "auto", StringComparison.OrdinalIgnoreCase));
+
+            return isMatch
+                ? new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Bảng đạt chế độ AutoFit {expectedType}." }
+                : Fail($"Bảng chưa đạt chế độ AutoFit {expectedType}; layout hiện tại là '{layoutType ?? preferredWidthType ?? "không khai báo"}'.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateWordViewSetting(WordViewSettingConfig? config, OfficePackage package)

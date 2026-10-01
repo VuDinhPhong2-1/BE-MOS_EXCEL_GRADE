@@ -1490,6 +1490,14 @@ public static class ImageWrapTypes
         [BsonElement("autoFitType")]
         [JsonPropertyName("autoFitType")]
         public string? AutoFitType { get; set; } = "contents";
+
+        [BsonElement("expectedColumnWidthsInches")]
+        [JsonPropertyName("expectedColumnWidthsInches")]
+        public List<double>? ExpectedColumnWidthsInches { get; set; }
+
+        [BsonElement("toleranceInches")]
+        [JsonPropertyName("toleranceInches")]
+        public double? ToleranceInches { get; set; } = 0.05;
     }
 
     [BsonIgnoreExtraElements]

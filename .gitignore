@@ -27,3 +27,4 @@ _buildcheck_vi/
 artifacts/
 buildcheck_api/
 MOS.ExcelGrading.API/.data-protection-keys/
+run-local.sh

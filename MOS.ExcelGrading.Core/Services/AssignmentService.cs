@@ -1,4 +1,4 @@
-﻿// MOS.ExcelGrading.Core/Services/AssignmentService.cs
+// MOS.ExcelGrading.Core/Services/AssignmentService.cs
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -344,9 +344,10 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (!string.IsNullOrWhiteSpace(request.GradingType) &&
                     request.GradingType != GradingTypes.Auto &&
-                    request.GradingType != GradingTypes.Manual)
+                    request.GradingType != GradingTypes.Manual &&
+                    request.GradingType != GradingTypes.Paper)
                 {
-                    throw new ArgumentException("GradingType phải là 'auto' hoặc 'manual'");
+                    throw new ArgumentException("GradingType phải là 'auto', 'manual' hoặc 'paper'");
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.GradingType) &&
@@ -449,8 +450,8 @@ namespace MOS.ExcelGrading.Core.Services
                 if (request.ProjectCode != null)
                     updateDefinitions.Add(builder.Set(a => a.ProjectCode, nextProjectCode));
 
-                // If switching to manual grading, clear endpoint.
-                if (request.GradingType == GradingTypes.Manual)
+                // If switching to manual or paper grading, clear endpoint.
+                if (request.GradingType == GradingTypes.Manual || request.GradingType == GradingTypes.Paper)
                     updateDefinitions.Add(builder.Set(a => a.GradingApiEndpoint, null));
 
                 if (request.IsActive.HasValue)
@@ -548,9 +549,10 @@ namespace MOS.ExcelGrading.Core.Services
 
                 var normalizedGradingType = (request.GradingType ?? string.Empty).Trim().ToLowerInvariant();
                 if (normalizedGradingType != GradingTypes.Auto &&
-                    normalizedGradingType != GradingTypes.Manual)
+                    normalizedGradingType != GradingTypes.Manual &&
+                    normalizedGradingType != GradingTypes.Paper)
                 {
-                    throw new ArgumentException("GradingType phải là 'auto' hoặc 'manual'");
+                    throw new ArgumentException("GradingType phải là 'auto', 'manual' hoặc 'paper'");
                 }
 
                 if (!AssignmentExamTypes.IsValid(request.ExamType))

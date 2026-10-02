@@ -1,4 +1,4 @@
-﻿// MOS.ExcelGrading.Core/Models/Assignment.cs
+// MOS.ExcelGrading.Core/Models/Assignment.cs
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel.DataAnnotations;
@@ -110,6 +110,7 @@ namespace MOS.ExcelGrading.Core.Models
     {
         public const string Auto = "auto";
         public const string Manual = "manual";
+        public const string Paper = "paper";
     }
 
     public static class AssignmentExamTypes

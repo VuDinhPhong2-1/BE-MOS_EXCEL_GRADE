@@ -1,4 +1,4 @@
-﻿using MOS.ExcelGrading.Core.Interfaces;
+using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Services;
 using MOS.ExcelGrading.Core.Models;
 using MOS.ExcelGrading.API.Middlewares;
@@ -94,6 +94,7 @@ builder.Services.AddScoped<IComputerRoomService, ComputerRoomService>();
 builder.Services.AddScoped<IExamPublicationService, ExamPublicationService>();
 builder.Services.AddScoped<IExamSessionService, ExamSessionService>();
 builder.Services.AddScoped<ISubmissionPortalService, SubmissionPortalService>();
+builder.Services.AddScoped<IBonusPointService, BonusPointService>();
 builder.Services.AddScoped<IImageAssetService, PictureBulletAssetService>();
 // ========== CẤU HÌNH JWT AUTHENTICATION ==========
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");

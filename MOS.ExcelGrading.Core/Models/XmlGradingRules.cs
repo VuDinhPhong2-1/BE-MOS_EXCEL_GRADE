@@ -74,6 +74,11 @@ namespace MOS.ExcelGrading.Core.Models
     public const string WordEndnote = "wordEndnote";
     public const string WordSmartArt = "wordSmartArt";
     public const string WordSmartArtColors = "wordSmartArtColors";
+    public const string WordDocumentProperty = "wordDocumentProperty";
+    public const string WordInsertSymbol = "wordInsertSymbol";
+    public const string WordFontFormat = "wordFontFormat";
+    public const string WordTrackChanges = "wordTrackChanges";
+    public const string WordInsertComment = "wordInsertComment";
     public const string ExcelTableName = "excelTableName";
     public const string ExcelWorksheetPageSetup = "excelWorksheetPageSetup";
     public const string ExcelClearCellFormatting = "excelClearCellFormatting";
@@ -125,6 +130,11 @@ namespace MOS.ExcelGrading.Core.Models
             WordParagraphStyle,
             WordTableAutoFit,
             WordViewSetting,
+            WordDocumentProperty,
+            WordInsertSymbol,
+            WordFontFormat,
+            WordTrackChanges,
+            WordInsertComment,
             ExcelTableName,
             ExcelWorksheetPageSetup,
             ExcelClearCellFormatting,
@@ -375,6 +385,22 @@ public static class ImageWrapTypes
         [JsonPropertyName("wordColumnsConfig")]
         public WordColumnsConfig? WordColumnsConfig { get; set; }
 
+
+        [BsonElement("wordDocumentPropertyConfig")]
+        [JsonPropertyName("wordDocumentPropertyConfig")]
+        public WordDocumentPropertyConfig? WordDocumentPropertyConfig { get; set; }
+        [BsonElement("wordInsertSymbolConfig")]
+        [JsonPropertyName("wordInsertSymbolConfig")]
+        public WordInsertSymbolConfig? WordInsertSymbolConfig { get; set; }
+        [BsonElement("wordFontFormatConfig")]
+        [JsonPropertyName("wordFontFormatConfig")]
+        public WordFontFormatConfig? WordFontFormatConfig { get; set; }
+        [BsonElement("wordTrackChangesConfig")]
+        [JsonPropertyName("wordTrackChangesConfig")]
+        public WordTrackChangesConfig? WordTrackChangesConfig { get; set; }
+        [BsonElement("wordInsertCommentConfig")]
+        [JsonPropertyName("wordInsertCommentConfig")]
+        public WordInsertCommentConfig? WordInsertCommentConfig { get; set; }
         [BsonElement("wordMoveTextConfig")]
         [JsonPropertyName("wordMoveTextConfig")]
         public WordMoveTextConfig? WordMoveTextConfig { get; set; }
@@ -1498,6 +1524,51 @@ public static class ImageWrapTypes
         [BsonElement("toleranceInches")]
         [JsonPropertyName("toleranceInches")]
         public double? ToleranceInches { get; set; } = 0.05;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordDocumentPropertyConfig
+    {
+        public string? SourceFile { get; set; } = "docProps/core.xml";
+        public string? PropertyName { get; set; }
+        public string? ExpectedValue { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordInsertSymbolConfig
+    {
+        public string? SourceFile { get; set; } = "word/document.xml";
+        public string? TargetText { get; set; }
+        public string? ExpectedSymbol { get; set; }
+        public string? Position { get; set; } = "after";
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordFontFormatConfig
+    {
+        public string? SourceFile { get; set; } = "word/document.xml";
+        public List<string>? TargetTexts { get; set; }
+        public string? ExpectedFormat { get; set; } = "smallCaps";
+        public bool? RequireAllTargets { get; set; } = true;
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordTrackChangesConfig
+    {
+        public string? SettingsFile { get; set; } = "word/settings.xml";
+        public bool? RequireTracking { get; set; } = true;
+        public bool? RequireLock { get; set; } = true;
+        public string? ExpectedPassword { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class WordInsertCommentConfig
+    {
+        public string? CommentsFile { get; set; } = "word/comments.xml";
+        public string? SourceFile { get; set; } = "word/document.xml";
+        public string? TargetText { get; set; }
+        public string? ExpectedCommentText { get; set; }
+        public bool? CaseSensitive { get; set; } = false;
     }
 
     [BsonIgnoreExtraElements]

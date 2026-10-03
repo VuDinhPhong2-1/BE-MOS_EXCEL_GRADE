@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO.Compression;
 using System.Security;
+using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
@@ -1954,7 +1955,12 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordViewSetting, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.WordSmartArt, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.WordSmartArtColors, StringComparison.OrdinalIgnoreCase),
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordSmartArtColors, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordDocumentProperty, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordInsertSymbol, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordFontFormat, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordTrackChanges, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.WordInsertComment, StringComparison.OrdinalIgnoreCase),
                 "excel" => string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableName, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelWorksheetPageSetup, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelClearCellFormatting, StringComparison.OrdinalIgnoreCase)
@@ -2415,6 +2421,26 @@ namespace MOS.ExcelGrading.Core.Services
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordViewSetting, StringComparison.OrdinalIgnoreCase))
                 {
                     AddXmlPart(specialCondition.WordViewSettingConfig?.SettingsFile, "word/settings.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordDocumentProperty, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordDocumentPropertyConfig?.SourceFile, "docProps/core.xml");
+                    AddXmlPart("docProps/custom.xml", "docProps/custom.xml");
+                    continue;
+                }
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordInsertSymbol, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialCondition.Type, SpecialConditionTypes.WordFontFormat, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialCondition.Type, SpecialConditionTypes.WordInsertComment, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordInsertSymbolConfig?.SourceFile ?? specialCondition.WordFontFormatConfig?.SourceFile ?? specialCondition.WordInsertCommentConfig?.SourceFile, "word/document.xml");
+                    AddXmlPart(specialCondition.WordInsertCommentConfig?.CommentsFile, "word/comments.xml");
+                    continue;
+                }
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordTrackChanges, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddXmlPart(specialCondition.WordTrackChangesConfig?.SettingsFile, "word/settings.xml");
                     continue;
                 }
 
@@ -3017,6 +3043,17 @@ namespace MOS.ExcelGrading.Core.Services
                 return EvaluateWordViewSetting(specialCondition.WordViewSettingConfig, package);
             }
 
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordDocumentProperty, StringComparison.OrdinalIgnoreCase))
+                return EvaluateWordDocumentProperty(specialCondition.WordDocumentPropertyConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordInsertSymbol, StringComparison.OrdinalIgnoreCase))
+                return EvaluateWordInsertSymbol(specialCondition.WordInsertSymbolConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordFontFormat, StringComparison.OrdinalIgnoreCase))
+                return EvaluateWordFontFormat(specialCondition.WordFontFormatConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordTrackChanges, StringComparison.OrdinalIgnoreCase))
+                return EvaluateWordTrackChanges(specialCondition.WordTrackChangesConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordInsertComment, StringComparison.OrdinalIgnoreCase))
+                return EvaluateWordInsertComment(specialCondition.WordInsertCommentConfig, package);
+
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordEndnote, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateWordEndnote(specialCondition.WordEndnoteConfig, package);
@@ -3615,9 +3652,9 @@ namespace MOS.ExcelGrading.Core.Services
                         .All(expected =>
                             matchingSeries.Any(item =>
                                 item.SeriesNames.Any(value =>
-                                    string.Equals(value, expected.name, StringComparison.OrdinalIgnoreCase))
+                                    string.Equals(value, expected.name, StringComparison.OrdinalIgnoreCase)
                                 || item.SeriesNameFormulas.Any(value =>
-                                    string.Equals(value, expected.reference, StringComparison.OrdinalIgnoreCase))));
+                                    string.Equals(value, expected.reference, StringComparison.OrdinalIgnoreCase)))));
                 var pointCountOk = !config.ExpectedPointCount.HasValue
                     || chartDocument.Descendants(c + "ptCount").Any(item =>
                         int.TryParse(item.Attribute("val")?.Value, out var count) && count == config.ExpectedPointCount.Value);
@@ -8207,6 +8244,160 @@ namespace MOS.ExcelGrading.Core.Services
             return isMatch
                 ? new SpecialConditionEvalOutcome { IsPassed = true, Message = $"Bảng đạt chế độ AutoFit {expectedType}." }
                 : Fail($"Bảng chưa đạt chế độ AutoFit {expectedType}; layout hiện tại là '{layoutType ?? preferredWidthType ?? "không khai báo"}'.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordDocumentProperty(WordDocumentPropertyConfig? config, OfficePackage package)
+        {
+            if (config == null || string.IsNullOrWhiteSpace(config.PropertyName) || string.IsNullOrWhiteSpace(config.ExpectedValue)) return FailSpecialCondition("wordDocumentProperty yêu cầu propertyName và expectedValue.");
+            var files = string.Equals(config.SourceFile, "docProps/custom.xml", StringComparison.OrdinalIgnoreCase) ? new[] { "docProps/custom.xml" } : new[] { config.SourceFile ?? "docProps/core.xml", "docProps/custom.xml" };
+            foreach (var file in files)
+            {
+                if (!package.TryGetXmlDocument(file, out var doc, out _)) continue;
+                var name = config.PropertyName.Trim();
+                var element = doc.Descendants().FirstOrDefault(e => string.Equals(e.Name.LocalName, name, StringComparison.OrdinalIgnoreCase)
+                    || (name.Equals("Status", StringComparison.OrdinalIgnoreCase) && e.Name.LocalName.Equals("contentStatus", StringComparison.OrdinalIgnoreCase)));
+                var value = element?.Value.Trim();
+                if (value != null) return string.Equals(value, config.ExpectedValue.Trim(), StringComparison.Ordinal)
+                    ? PassSpecialCondition($"Thuộc tính tài liệu '{name}' đã là '{config.ExpectedValue}'.")
+                    : FailSpecialCondition($"Thuộc tính '{name}' có giá trị '{value}', yêu cầu '{config.ExpectedValue}'.");
+            }
+            return FailSpecialCondition($"Không tìm thấy thuộc tính tài liệu '{config.PropertyName}'.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordInsertSymbol(WordInsertSymbolConfig? config, OfficePackage package)
+        {
+            if (config == null || string.IsNullOrWhiteSpace(config.TargetText) || string.IsNullOrWhiteSpace(config.ExpectedSymbol)) return FailSpecialCondition("wordInsertSymbol yêu cầu targetText và expectedSymbol.");
+            if (!package.TryGetXmlDocument(config.SourceFile ?? "word/document.xml", out var doc, out var error)) return FailSpecialCondition(error ?? "Không tìm thấy word/document.xml.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var expected = config.ExpectedSymbol.Trim();
+            if (expected.StartsWith("U+", StringComparison.OrdinalIgnoreCase)) expected = char.ConvertFromUtf32(Convert.ToInt32(expected[2..], 16));
+            var paragraphs = doc.Descendants(w + "p").Where(p => BuildParagraphTextSnapshot(p, w).Text.Contains(config.TargetText, StringComparison.OrdinalIgnoreCase));
+            foreach (var p in paragraphs)
+            {
+                var text = BuildParagraphTextSnapshot(p, w).Text;
+                var symbols = string.Concat(p.Descendants(w + "sym").Select(s => { var v = s.Attribute(w + "char")?.Value; return string.IsNullOrWhiteSpace(v) ? "" : char.ConvertFromUtf32(Convert.ToInt32(v, 16)); }));
+                if (((text.Contains(expected, StringComparison.Ordinal) || symbols.Contains(expected, StringComparison.Ordinal)) && (config.Position ?? "after").Equals("contains", StringComparison.OrdinalIgnoreCase))
+                    || text.Contains(config.TargetText + expected, StringComparison.OrdinalIgnoreCase)) return PassSpecialCondition("Đã tìm thấy ký hiệu đúng yêu cầu.");
+            }
+            return FailSpecialCondition($"Không tìm thấy ký hiệu '{config.ExpectedSymbol}' sau '{config.TargetText}'.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordFontFormat(WordFontFormatConfig? config, OfficePackage package)
+        {
+            if (config?.TargetTexts == null || config.TargetTexts.Count == 0 || string.IsNullOrWhiteSpace(config.ExpectedFormat)) return FailSpecialCondition("wordFontFormat yêu cầu targetTexts và expectedFormat.");
+            if (!package.TryGetXmlDocument(config.SourceFile ?? "word/document.xml", out var doc, out var error)) return FailSpecialCondition(error ?? "Không tìm thấy word/document.xml.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var missing = config.TargetTexts.Where(t => string.IsNullOrWhiteSpace(t) || !doc.Descendants(w + "p").Any(p => BuildParagraphTextSnapshot(p, w).Text.Contains(t, StringComparison.OrdinalIgnoreCase) && p.Descendants(w + config.ExpectedFormat).Any())).ToList();
+            return missing.Count == 0 ? PassSpecialCondition("Các tiêu đề đã có định dạng yêu cầu.") : FailSpecialCondition($"Thiếu định dạng '{config.ExpectedFormat}' tại: {string.Join(", ", missing)}.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordTrackChanges(WordTrackChangesConfig? config, OfficePackage package)
+        {
+            if (!package.TryGetXmlDocument(config?.SettingsFile ?? "word/settings.xml", out var doc, out var error)) return FailSpecialCondition(error ?? "Không tìm thấy word/settings.xml.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            if (config?.RequireTracking != false && doc.Descendants(w + "trackRevisions").FirstOrDefault() == null) return FailSpecialCondition("Tài liệu chưa bật Track Changes.");
+            if (config?.RequireLock != false)
+            {
+                var protection = doc.Descendants(w + "documentProtection").FirstOrDefault();
+                if (protection == null || !string.Equals(protection.Attribute(w + "edit")?.Value, "trackedChanges", StringComparison.OrdinalIgnoreCase) || protection.Attribute(w + "enforcement")?.Value is not ("1" or "true")) return FailSpecialCondition("Track Changes chưa được khóa bằng document protection.");
+                var hasPasswordMetadata = !string.IsNullOrWhiteSpace(GetWordProtectionAttribute(protection, "hash", "hashValue"))
+                    && !string.IsNullOrWhiteSpace(GetWordProtectionAttribute(protection, "salt", "saltValue"))
+                    || !string.IsNullOrWhiteSpace(GetWordProtectionAttribute(protection, "cryptProviderType"))
+                    && !string.IsNullOrWhiteSpace(GetWordProtectionAttribute(protection, "cryptAlgorithmClass"))
+                    && !string.IsNullOrWhiteSpace(GetWordProtectionAttribute(protection, "cryptSpinCount", "spinCount"));
+                if (!hasPasswordMetadata) return FailSpecialCondition("documentProtection chưa có metadata mật khẩu hợp lệ.");
+                if (!string.IsNullOrEmpty(config?.ExpectedPassword) && !IsWordProtectionPasswordValid(protection, config.ExpectedPassword))
+                    return FailSpecialCondition("Mật khẩu khóa Track Changes không đúng.");
+            }
+            return PassSpecialCondition("Track Changes đã bật và được khóa đúng cấu hình.");
+        }
+
+        private static bool IsWordProtectionPasswordValid(XElement protection, string expectedPassword)
+        {
+            var legacyHashText = GetWordProtectionAttribute(protection, "hash");
+            var saltText = GetWordProtectionAttribute(protection, "saltValue", "salt");
+            if (!string.IsNullOrWhiteSpace(legacyHashText)
+                && string.IsNullOrWhiteSpace(saltText))
+                return IsLegacyWordProtectionPasswordValid(legacyHashText, expectedPassword);
+
+            // Word 2010+ stores the password as Base64(SHA-512(password + salt), spun).
+            // Do not normalize expectedPassword: spaces and casing are significant.
+            var hashText = GetWordProtectionAttribute(protection, "hashValue", "hash");
+            if (string.IsNullOrWhiteSpace(hashText) || string.IsNullOrWhiteSpace(saltText)) return false;
+
+            try
+            {
+                var expectedHash = Convert.FromBase64String(hashText);
+                var salt = Convert.FromBase64String(saltText);
+                var spinText = GetWordProtectionAttribute(protection, "spinCount", "cryptSpinCount");
+                var spinCount = string.IsNullOrEmpty(spinText) ? 100000 : int.Parse(spinText, CultureInfo.InvariantCulture);
+                if (spinCount < 0) return false;
+
+                var passwordBytes = Encoding.Unicode.GetBytes(expectedPassword);
+                var hashInput = new byte[salt.Length + passwordBytes.Length];
+                Buffer.BlockCopy(salt, 0, hashInput, 0, salt.Length);
+                Buffer.BlockCopy(passwordBytes, 0, hashInput, salt.Length, passwordBytes.Length);
+                var hash = SHA512.HashData(hashInput);
+                for (var i = 0; i < spinCount; i++)
+                {
+                    var iteration = BitConverter.GetBytes(i);
+                    var iterationInput = new byte[hash.Length + iteration.Length];
+                    Buffer.BlockCopy(hash, 0, iterationInput, 0, hash.Length);
+                    Buffer.BlockCopy(iteration, 0, iterationInput, hash.Length, iteration.Length);
+                    hash = SHA512.HashData(iterationInput);
+                }
+                return CryptographicOperations.FixedTimeEquals(hash, expectedHash);
+            }
+            catch (FormatException) { return false; }
+            catch (OverflowException) { return false; }
+            catch (ArgumentOutOfRangeException) { return false; }
+        }
+
+        private static string? GetWordProtectionAttribute(XElement element, params string[] localNames)
+            => element.Attributes().FirstOrDefault(attribute => localNames.Contains(attribute.Name.LocalName, StringComparer.Ordinal))?.Value;
+
+        private static bool IsLegacyWordProtectionPasswordValid(string storedHash, string password)
+        {
+            // Legacy w:hash is the 16-bit Word password verifier, not a Base64 digest.
+            var hash = 0;
+            for (var index = password.Length - 1; index >= 0; index--)
+            {
+                var rotated = ((hash >> 14) & 0x01) | ((hash << 1) & 0x7fff);
+                hash = rotated ^ password[index];
+            }
+            hash = (hash ^ password.Length ^ 0xCE4B) & 0xffff;
+
+            var normalizedStoredHash = storedHash.Trim();
+            if (normalizedStoredHash.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                normalizedStoredHash = normalizedStoredHash[2..];
+            if (ushort.TryParse(normalizedStoredHash, NumberStyles.HexNumber, CultureInfo.InvariantCulture, out var parsed)
+                && parsed == hash) return true;
+            if (ushort.TryParse(normalizedStoredHash, NumberStyles.Integer, CultureInfo.InvariantCulture, out parsed)
+                && parsed == hash) return true;
+
+            try
+            {
+                var encoded = Convert.FromBase64String(normalizedStoredHash);
+                return encoded.Length == 2
+                    && ((encoded[0] | (encoded[1] << 8)) == hash || (encoded[1] | (encoded[0] << 8)) == hash);
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateWordInsertComment(WordInsertCommentConfig? config, OfficePackage package)
+        {
+            if (config == null || string.IsNullOrWhiteSpace(config.ExpectedCommentText)) return FailSpecialCondition("wordInsertComment yêu cầu expectedCommentText.");
+            if (!package.TryGetXmlDocument(config.CommentsFile ?? "word/comments.xml", out var comments, out var error)) return FailSpecialCondition(error ?? "Không tìm thấy word/comments.xml.");
+            XNamespace w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            var comparison = config.CaseSensitive == true ? StringComparison.Ordinal : StringComparison.OrdinalIgnoreCase;
+            var found = comments.Descendants(w + "comment").Any(c => string.Concat(c.Descendants(w + "t").Select(t => t.Value)).Contains(config.ExpectedCommentText, comparison));
+            if (!found) return FailSpecialCondition($"Không tìm thấy comment '{config.ExpectedCommentText}'.");
+            if (!string.IsNullOrWhiteSpace(config.TargetText) && package.TryGetXmlDocument(config.SourceFile ?? "word/document.xml", out var document, out _)
+                && !document.Descendants(w + "p").Any(p => BuildParagraphTextSnapshot(p, w).Text.Contains(config.TargetText, comparison) && p.Descendants(w + "commentRangeStart").Any())) return FailSpecialCondition($"Comment chưa được neo vào '{config.TargetText}'.");
+            return PassSpecialCondition("Đã tìm thấy comment đúng nội dung và vị trí.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateWordViewSetting(WordViewSettingConfig? config, OfficePackage package)

@@ -1,0 +1,128 @@
+{
+  "projectCode": "project05",
+  "projectName": "Excel Project 05 – Surplus Bikes",
+  "maxScore": 142.0,
+  "tasks": [
+    {
+      "taskId": "P05-T1",
+      "taskName": "Trên trang tính Catalog, cố định các hàng 1 đến 3 để luôn hiển thị khi cuộn dọc.",
+      "maxScore": 28.4,
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelFreezePanes",
+        "score": 28.4,
+        "feedback": {
+          "successDetail": "Đã cố định (Freeze Panes) thành công các hàng từ 1 đến 3 trên trang tính 'Catalog'.",
+          "errorMessage": "Chưa cố định đúng các hàng 1 đến 3 trên trang tính 'Catalog' hoặc đã cố định nhầm cột.",
+          "fixAction": "Chọn ô A4 (hoặc chọn toàn bộ hàng 4) trên trang tính 'Catalog', vào thẻ View -> nhóm Window -> chọn Freeze Panes -> Freeze Panes."
+        },
+        "excelFreezePanesConfig": {
+          "worksheetName": "Catalog",
+          "topLeftCell": "A4",
+          "ySplit": 3,
+          "xSplit": 0,
+          "requireNoColumnFreeze": true
+        }
+      }
+    },
+    {
+      "taskId": "P05-T2",
+      "taskName": "Thay đổi thuộc tính Status của tài liệu thành Draft.",
+      "maxScore": 28.4,
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelDocumentProperty",
+        "score": 28.4,
+        "feedback": {
+          "successDetail": "Đã thiết lập thuộc tính Status của tài liệu thành 'Draft'.",
+          "errorMessage": "Chưa thiết lập thuộc tính Status của tài liệu thành 'Draft'.",
+          "fixAction": "Vào thẻ File -> chọn Info -> chọn Show All Properties -> tại mục Status nhập 'Draft' (hoặc vào Properties -> Advanced Properties -> Custom -> Name: Status, Value: Draft)."
+        },
+        "excelDocumentPropertyConfig": {
+          "propertyName": "Status",
+          "expectedValue": "Draft",
+          "sourceFile": ""
+        }
+      }
+    },
+    {
+      "taskId": "P05-T3",
+      "taskName": "Cấu hình vùng in để chỉ in phạm vi ô A1:F17 trên trang tính Q1 Sales.",
+      "maxScore": 28.4,
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelPrintArea",
+        "score": 28.4,
+        "feedback": {
+          "successDetail": "Đã cấu hình vùng in (Print Area) chính xác cho phạm vi A1:F17 trên trang tính 'Q1 Sales'.",
+          "errorMessage": "Chưa đặt vùng in (Print Area) hoặc phạm vi vùng in chưa đúng vùng A1:F17 trên trang tính 'Q1 Sales'.",
+          "fixAction": "Trên trang tính 'Q1 Sales', quét chọn vùng ô A1:F17 -> vào thẻ Page Layout -> nhóm Page Setup -> chọn Print Area -> Set Print Area."
+        },
+        "excelPrintAreaConfig": {
+          "worksheetName": "Q1 Sales",
+          "expectedRange": "A1:F17",
+          "requireExactRange": true
+        }
+      }
+    },
+    {
+      "taskId": "P05-T4",
+      "taskName": "Tại ô B19 trên trang tính Q1 Sales, nhập công thức tính tổng cột Total sử dụng tên cột thay cho địa chỉ ô.",
+      "maxScore": 28.4,
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelFormulaReferences",
+        "score": 28.4,
+        "feedback": {
+          "successDetail": "Đã nhập đúng công thức tính tổng cột Total tại ô B19 trên trang tính 'Q1 Sales' sử dụng tên cột.",
+          "errorMessage": "Công thức tại ô B19 trên trang tính 'Q1 Sales' chưa đúng, chưa dùng hàm SUM hoặc tham chiếu trực tiếp địa chỉ ô thay vì tên cột Total.",
+          "fixAction": "Tại ô B19 trên trang tính 'Q1 Sales', nhập công thức =SUM(Total) hoặc =SUM([Total]) (hoặc chọn toàn bộ dữ liệu cột Total trong bảng). Không dùng tham chiếu ô trực tiếp như F4:F17."
+        },
+        "excelFormulaReferencesConfig": {
+          "worksheetName": "Q1 Sales",
+          "cell": "B19",
+          "requiredReferences": [
+            "Total"
+          ],
+          "requiredFunctions": [
+            "SUM"
+          ],
+          "requiredFormulaFragments": [],
+          "expectedFormula": "",
+          "expectedValue": "",
+          "requireOnlyDefinedNameReferences": true
+        }
+      }
+    },
+    {
+      "taskId": "P05-T5",
+      "taskName": "Tại ô B4 trên trang tính Catalog, nhập công thức để nối chuỗi Description và Style được phân tách bằng dấu gạch ngang ' - '.",
+      "maxScore": 28.4,
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelFormulaReferences",
+        "score": 28.4,
+        "feedback": {
+          "successDetail": "Đã nhập đúng công thức nối Description và Style phân tách bằng ' - ' tại ô B4 trên trang tính 'Catalog'.",
+          "errorMessage": "Công thức tại ô B4 trên trang tính 'Catalog' chưa đúng, chưa tham chiếu đủ cột Description, Style hoặc thiếu chuỗi phân tách ' - '.",
+          "fixAction": "Tại ô B4 trên trang tính 'Catalog', nhập công thức =[@Description] & \" - \" & [@Style] hoặc =CONCAT([@Description], \" - \", [@Style]) hoặc =CONCATENATE([@Description], \" - \", [@Style])."
+        },
+        "excelFormulaReferencesConfig": {
+          "worksheetName": "Catalog",
+          "cell": "B4",
+          "requiredReferences": [
+            "Description",
+            "Style"
+          ],
+          "requiredFunctions": [],
+          "requiredFormulaFragments": [
+            "\" - \""
+          ],
+          "expectedFormula": "",
+          "expectedValue": "",
+          "requireOnlyDefinedNameReferences": true
+        }
+      }
+    }
+  ]
+}

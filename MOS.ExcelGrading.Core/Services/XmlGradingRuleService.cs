@@ -229,7 +229,6 @@ namespace MOS.ExcelGrading.Core.Services
         {
             var filters = new List<FilterDefinition<GradingRuleSet>>();
             var normalizedSubject = NormalizeKey(subject ?? string.Empty);
-
             if (!string.IsNullOrWhiteSpace(normalizedSubject))
             {
                 filters.Add(Builders<GradingRuleSet>.Filter.Eq(ruleSet => ruleSet.Subject, normalizedSubject));
@@ -694,7 +693,7 @@ namespace MOS.ExcelGrading.Core.Services
 
         public async Task<GradingRuleSet?> GetActiveRuleSetAsync(string subject, string projectCode)
         {
-            var normalizedSubject = NormalizeKey(subject);
+            var normalizedSubject = subject ?? string.Empty;
             var normalizedProjectCode = NormalizeKey(projectCode);
 
             if (string.IsNullOrWhiteSpace(normalizedSubject) || string.IsNullOrWhiteSpace(normalizedProjectCode))
@@ -1924,7 +1923,7 @@ namespace MOS.ExcelGrading.Core.Services
 
         private static bool IsSpecialConditionSupportedForSubject(string specialConditionType, string subject)
         {
-            var normalizedSubject = NormalizeKey(subject);
+            var normalizedSubject = subject ?? string.Empty;
 
             return normalizedSubject switch
             {
@@ -2731,7 +2730,8 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelDocumentProperty, StringComparison.OrdinalIgnoreCase))
                 {
-                    AddXmlPart(specialCondition.ExcelDocumentPropertyConfig?.SourceFile, "docProps/custom.xml");
+                    AddXmlPart(specialCondition.ExcelDocumentPropertyConfig?.SourceFile, "docProps/core.xml");
+                    AddXmlPart("docProps/custom.xml", "docProps/custom.xml");
                     continue;
                 }
 
@@ -5498,29 +5498,67 @@ namespace MOS.ExcelGrading.Core.Services
                 return FailSpecialCondition("Chưa cấu hình tên thuộc tính hoặc giá trị cần kiểm tra.");
             }
 
-            var sourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? "docProps/custom.xml" : config.SourceFile;
-            if (!package.TryGetXmlDocument(sourceFile, out var propertyDocument, out var propertyError))
+            var files = !string.IsNullOrWhiteSpace(config.SourceFile)
+                ? new[] { config.SourceFile.Trim() }
+                : new[] { "docProps/core.xml", "docProps/custom.xml" };
+
+            var propertyFound = false;
+            foreach (var file in files)
             {
-                return FailSpecialCondition(propertyError ?? $"Không tìm thấy {sourceFile} trong file học sinh.");
+                if (!package.TryGetXmlDocument(file, out var doc, out _))
+                {
+                    continue;
+                }
+
+                var targetName = config.PropertyName.Trim();
+                // 1. Kiểm tra core properties (cp:contentStatus hoặc element local name khớp propertyName)
+                var coreElement = doc.Descendants().FirstOrDefault(e =>
+                    string.Equals(e.Name.LocalName, targetName, StringComparison.OrdinalIgnoreCase)
+                    || (targetName.Equals("Status", StringComparison.OrdinalIgnoreCase)
+                        && e.Name.LocalName.Equals("contentStatus", StringComparison.OrdinalIgnoreCase)));
+
+                if (coreElement != null)
+                {
+                    propertyFound = true;
+                    var actualValue = NormalizePlainText(coreElement.Value);
+                    if (string.Equals(actualValue, config.ExpectedValue.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return PassSpecialCondition($"Thuộc tính '{targetName}' đã có giá trị đúng.");
+                    }
+                    return FailSpecialCondition($"Thuộc tính '{targetName}' có giá trị '{actualValue}', yêu cầu '{config.ExpectedValue}'.");
+                }
+
+                // 2. Kiểm tra custom properties (property name="...")
+                XNamespace custom = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties";
+                var customElement = doc.Descendants(custom + "property")
+                    .FirstOrDefault(item => string.Equals(item.Attribute("name")?.Value, targetName, StringComparison.OrdinalIgnoreCase))
+                    ?? doc.Descendants().FirstOrDefault(item =>
+                        item.Name.LocalName.Equals("property", StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(item.Attribute("name")?.Value, targetName, StringComparison.OrdinalIgnoreCase));
+
+                if (customElement != null)
+                {
+                    propertyFound = true;
+                    var actualValue = NormalizePlainText(string.Concat(customElement.Elements().Select(element => element.Value)));
+                    if (string.IsNullOrWhiteSpace(actualValue))
+                    {
+                        actualValue = NormalizePlainText(customElement.Value);
+                    }
+
+                    if (string.Equals(actualValue, config.ExpectedValue.Trim(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return PassSpecialCondition($"Thuộc tính '{targetName}' đã có giá trị đúng.");
+                    }
+                    return FailSpecialCondition($"Thuộc tính '{targetName}' có giá trị '{actualValue}', yêu cầu '{config.ExpectedValue}'.");
+                }
             }
 
-            XNamespace custom = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties";
-            var property = propertyDocument
-                .Descendants(custom + "property")
-                .FirstOrDefault(item => string.Equals(item.Attribute("name")?.Value, config.PropertyName, StringComparison.OrdinalIgnoreCase));
-
-            if (property == null)
+            if (!propertyFound)
             {
                 return FailSpecialCondition($"Chưa thêm thuộc tính '{config.PropertyName}' vào workbook.");
             }
 
-            var actualValue = NormalizePlainText(string.Concat(property.Elements().Select(element => element.Value)));
-            if (!string.Equals(actualValue, config.ExpectedValue, StringComparison.OrdinalIgnoreCase))
-            {
-                return FailSpecialCondition($"Thuộc tính '{config.PropertyName}' chưa có giá trị '{config.ExpectedValue}'.");
-            }
-
-            return PassSpecialCondition($"Thuộc tính '{config.PropertyName}' đã có giá trị đúng.");
+            return FailSpecialCondition($"Thuộc tính '{config.PropertyName}' chưa có giá trị '{config.ExpectedValue}'.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelPrintArea(
@@ -8314,6 +8352,206 @@ namespace MOS.ExcelGrading.Core.Services
 
         private static bool IsWordProtectionPasswordValid(XElement protection, string expectedPassword)
         {
+            return IsWordProtectionPasswordValidCore(protection, expectedPassword);
+        }
+
+        private static readonly int[] WordProtectionInitialCodeArray =
+        [
+            0xE1F0, 0x1D0F, 0xCC9C, 0x84C0, 0x110C, 0x0E10, 0xF1CE,
+            0x313E, 0x1872, 0xE139, 0xD40F, 0x84F9, 0x280C, 0xA96A,
+            0x4EC3
+        ];
+
+        private static readonly int[][] WordProtectionEncryptionMatrix =
+        [
+            [0xAEFC, 0x4DD9, 0x9BB2, 0x2745, 0x4E8A, 0x9D14, 0x2A09],
+            [0x7B61, 0xF6C2, 0xFDA5, 0xEB6B, 0xC6F7, 0x9DCF, 0x2BBF],
+            [0x4563, 0x8AC6, 0x05AD, 0x0B5A, 0x16B4, 0x2D68, 0x5AD0],
+            [0x0375, 0x06EA, 0x0DD4, 0x1BA8, 0x3750, 0x6EA0, 0xDD40],
+            [0xD849, 0xA0B3, 0x5147, 0xA28E, 0x553D, 0xAA7A, 0x44D5],
+            [0x6F45, 0xDE8A, 0xAD35, 0x4A4B, 0x9496, 0x390D, 0x721A],
+            [0xEB23, 0xC667, 0x9CEF, 0x29FF, 0x53FE, 0xA7FC, 0x5FD9],
+            [0x47D3, 0x8FA6, 0x0F6D, 0x1EDA, 0x3DB4, 0x7B68, 0xF6D0],
+            [0xB861, 0x60E3, 0xC1C6, 0x93AD, 0x377B, 0x6EF6, 0xDDEC],
+            [0x45A0, 0x8B40, 0x06A1, 0x0D42, 0x1A84, 0x3508, 0x6A10],
+            [0xAA51, 0x4483, 0x8906, 0x022D, 0x045A, 0x08B4, 0x1168],
+            [0x76B4, 0xED68, 0xCAF1, 0x85C3, 0x1BA7, 0x374E, 0x6E9C],
+            [0x3730, 0x6E60, 0xDCC0, 0xA9A1, 0x4363, 0x86C6, 0x1DAD],
+            [0x3331, 0x6662, 0xCCC4, 0x89A9, 0x0373, 0x06E6, 0x0DCC],
+            [0x1021, 0x2042, 0x4084, 0x8108, 0x1231, 0x2462, 0x48C4]
+        ];
+
+        private static short RotateLeftBase15Bit(short verifier)
+        {
+            var intermediate1 = (short)(((verifier & 0x4000) == 0) ? 0 : 1);
+            var intermediate2 = (short)((verifier << 1) & 0x7FFF);
+            return (short)(intermediate1 | intermediate2);
+        }
+
+        private static byte[] ToAnsiPassword(string password)
+        {
+            var arrByteChars = new byte[password.Length];
+            for (var i = 0; i < password.Length; i++)
+            {
+                var intTemp = (int)password[i];
+                var lowByte = (byte)(intTemp & 0xFF);
+                var highByte = (byte)((intTemp >> 8) & 0xFF);
+                arrByteChars[i] = (lowByte != 0 ? lowByte : highByte);
+            }
+            return arrByteChars;
+        }
+
+        private static int CreateWordProtectionXorVerifier1(string password)
+        {
+            var arrByteChars = ToAnsiPassword(password);
+            short verifier = 0;
+            if (password.Length > 0)
+            {
+                for (var i = arrByteChars.Length - 1; i >= 0; i--)
+                {
+                    verifier = RotateLeftBase15Bit(verifier);
+                    verifier = (short)(verifier ^ arrByteChars[i]);
+                }
+                verifier = RotateLeftBase15Bit(verifier);
+                verifier = (short)(verifier ^ arrByteChars.Length);
+                verifier = (short)(verifier ^ 0xCE4B);
+            }
+            return verifier & 0xFFFF;
+        }
+
+        private static int CreateWordProtectionXorVerifier2(string password)
+        {
+            if (string.IsNullOrEmpty(password)) return 0;
+            const int maxPasswordLength = 15;
+            if (password.Length > maxPasswordLength)
+                password = password[..maxPasswordLength];
+
+            var arrByteChars = ToAnsiPassword(password);
+            var highOrderWord = WordProtectionInitialCodeArray[arrByteChars.Length - 1];
+            var line = maxPasswordLength - arrByteChars.Length;
+            foreach (var ch in arrByteChars)
+            {
+                var temp = ch;
+                foreach (var xor in WordProtectionEncryptionMatrix[line++])
+                {
+                    if ((temp & 1) == 1)
+                    {
+                        highOrderWord ^= xor;
+                    }
+                    temp >>= 1;
+                }
+            }
+            var verifier = CreateWordProtectionXorVerifier1(password);
+            var generatedKey = new byte[4];
+            generatedKey[0] = (byte)(verifier & 0xFF);
+            generatedKey[1] = (byte)((verifier >> 8) & 0xFF);
+            generatedKey[2] = (byte)(highOrderWord & 0xFF);
+            generatedKey[3] = (byte)((highOrderWord >> 8) & 0xFF);
+            return BitConverter.ToInt32(generatedKey, 0);
+        }
+
+        private static string ComputeWordProtectionLegacyReversedHex(string password)
+        {
+            var hashedPassword = CreateWordProtectionXorVerifier2(password);
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0:X2}{1:X2}{2:X2}{3:X2}",
+                hashedPassword & 0xFF,
+                (hashedPassword >> 8) & 0xFF,
+                (hashedPassword >> 16) & 0xFF,
+                (hashedPassword >> 24) & 0xFF);
+        }
+
+        private static byte[] HashWordDocumentBytes(byte[] input, string? algorithmSid)
+        {
+            return algorithmSid switch
+            {
+                "12" => SHA256.HashData(input),
+                "13" => SHA384.HashData(input),
+                "4" => SHA1.HashData(input),
+                _ => SHA512.HashData(input)
+            };
+        }
+
+
+        private static bool IsStandardWordProtectionPasswordValid(
+            string expectedPassword,
+            byte[] salt,
+            int spinCount,
+            string? algorithmSid,
+            byte[] expectedHash)
+        {
+            var reversedHex = ComputeWordProtectionLegacyReversedHex(expectedPassword);
+            var hexBytes = Encoding.Unicode.GetBytes(reversedHex);
+            var initialInput = new byte[salt.Length + hexBytes.Length];
+            Buffer.BlockCopy(salt, 0, initialInput, 0, salt.Length);
+            Buffer.BlockCopy(hexBytes, 0, initialInput, salt.Length, hexBytes.Length);
+
+            var hash = HashWordDocumentBytes(initialInput, algorithmSid);
+            for (var i = 0; i < spinCount; i++)
+            {
+                var iteration = BitConverter.GetBytes(i);
+                var iterInput = new byte[hash.Length + iteration.Length];
+                Buffer.BlockCopy(hash, 0, iterInput, 0, hash.Length);
+                Buffer.BlockCopy(iteration, 0, iterInput, hash.Length, iteration.Length);
+                hash = HashWordDocumentBytes(iterInput, algorithmSid);
+            }
+
+            return CryptographicOperations.FixedTimeEquals(hash, expectedHash);
+        }
+
+        private static bool IsSyntheticWordProtectionPasswordValid(
+            string expectedPassword,
+            byte[] salt,
+            int spinCount,
+            string? algorithmSid,
+            byte[] expectedHash)
+        {
+            var passwordBytes = Encoding.Unicode.GetBytes(expectedPassword);
+            var initialInput = new byte[salt.Length + passwordBytes.Length];
+            Buffer.BlockCopy(salt, 0, initialInput, 0, salt.Length);
+            Buffer.BlockCopy(passwordBytes, 0, initialInput, salt.Length, passwordBytes.Length);
+
+            var hash = HashWordDocumentBytes(initialInput, algorithmSid);
+            for (var i = 0; i < spinCount; i++)
+            {
+                var iteration = BitConverter.GetBytes(i);
+                var iterInput = new byte[iteration.Length + hash.Length];
+                Buffer.BlockCopy(iteration, 0, iterInput, 0, iteration.Length);
+                Buffer.BlockCopy(hash, 0, iterInput, iteration.Length, hash.Length);
+                hash = HashWordDocumentBytes(iterInput, algorithmSid);
+            }
+
+            return CryptographicOperations.FixedTimeEquals(hash, expectedHash);
+        }
+
+        private static bool IsDirectWordProtectionPasswordValid(
+            string expectedPassword,
+            byte[] salt,
+            int spinCount,
+            string? algorithmSid,
+            byte[] expectedHash)
+        {
+            var passwordBytes = Encoding.Unicode.GetBytes(expectedPassword);
+            var initialInput = new byte[salt.Length + passwordBytes.Length];
+            Buffer.BlockCopy(salt, 0, initialInput, 0, salt.Length);
+            Buffer.BlockCopy(passwordBytes, 0, initialInput, salt.Length, passwordBytes.Length);
+
+            var hash = HashWordDocumentBytes(initialInput, algorithmSid);
+            for (var i = 0; i < spinCount; i++)
+            {
+                var iteration = BitConverter.GetBytes(i);
+                var iterInput = new byte[hash.Length + iteration.Length];
+                Buffer.BlockCopy(hash, 0, iterInput, 0, hash.Length);
+                Buffer.BlockCopy(iteration, 0, iterInput, hash.Length, iteration.Length);
+                hash = HashWordDocumentBytes(iterInput, algorithmSid);
+            }
+
+            return CryptographicOperations.FixedTimeEquals(hash, expectedHash);
+        }
+
+        private static bool IsWordProtectionPasswordValidCore(XElement protection, string expectedPassword)
+        {
             var legacyHashText = GetWordProtectionAttribute(protection, "hash");
             var saltText = GetWordProtectionAttribute(protection, "saltValue", "salt");
             if (!string.IsNullOrWhiteSpace(legacyHashText)
@@ -8333,20 +8571,11 @@ namespace MOS.ExcelGrading.Core.Services
                 var spinCount = string.IsNullOrEmpty(spinText) ? 100000 : int.Parse(spinText, CultureInfo.InvariantCulture);
                 if (spinCount < 0) return false;
 
-                var passwordBytes = Encoding.Unicode.GetBytes(expectedPassword);
-                var hashInput = new byte[salt.Length + passwordBytes.Length];
-                Buffer.BlockCopy(salt, 0, hashInput, 0, salt.Length);
-                Buffer.BlockCopy(passwordBytes, 0, hashInput, salt.Length, passwordBytes.Length);
-                var hash = SHA512.HashData(hashInput);
-                for (var i = 0; i < spinCount; i++)
-                {
-                    var iteration = BitConverter.GetBytes(i);
-                    var iterationInput = new byte[hash.Length + iteration.Length];
-                    Buffer.BlockCopy(hash, 0, iterationInput, 0, hash.Length);
-                    Buffer.BlockCopy(iteration, 0, iterationInput, hash.Length, iteration.Length);
-                    hash = SHA512.HashData(iterationInput);
-                }
-                return CryptographicOperations.FixedTimeEquals(hash, expectedHash);
+                var algorithmSid = GetWordProtectionAttribute(protection, "cryptAlgorithmSid", "algorithmSid");
+
+                return IsStandardWordProtectionPasswordValid(expectedPassword, salt, spinCount, algorithmSid, expectedHash)
+                    || IsSyntheticWordProtectionPasswordValid(expectedPassword, salt, spinCount, algorithmSid, expectedHash)
+                    || IsDirectWordProtectionPasswordValid(expectedPassword, salt, spinCount, algorithmSid, expectedHash);
             }
             catch (FormatException) { return false; }
             catch (OverflowException) { return false; }

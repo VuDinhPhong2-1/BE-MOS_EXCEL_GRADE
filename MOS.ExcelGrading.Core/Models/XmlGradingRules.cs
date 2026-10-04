@@ -362,219 +362,274 @@ public static class ImageWrapTypes
 
         [BsonElement("config")]
         [JsonPropertyName("config")]
+        [BsonIgnoreIfNull]
         public PictureBulletConfig? Config { get; set; }
 
         // MỚI: dùng riêng cho type = insertedImage
         [BsonElement("imageInsertConfig")]
         [JsonPropertyName("imageInsertConfig")]
+        [BsonIgnoreIfNull]
         public ImageInsertConfig? ImageInsertConfig { get; set; }
 
         [BsonElement("convertTableToTextConfig")]
         [JsonPropertyName("convertTableToTextConfig")]
+        [BsonIgnoreIfNull]
         public ConvertTableToTextConfig? ConvertTableToTextConfig { get; set; }
 
         [BsonElement("hyperlinkConfig")]
         [JsonPropertyName("hyperlinkConfig")]
+        [BsonIgnoreIfNull]
         public HyperlinkConfig? HyperlinkConfig { get; set; }
 
         [BsonElement("sectionBreakBeforeTextConfig")]
         [JsonPropertyName("sectionBreakBeforeTextConfig")]
+        [BsonIgnoreIfNull]
         public SectionBreakBeforeTextConfig? SectionBreakBeforeTextConfig { get; set; }
 
         [BsonElement("wordColumnsConfig")]
         [JsonPropertyName("wordColumnsConfig")]
+        [BsonIgnoreIfNull]
         public WordColumnsConfig? WordColumnsConfig { get; set; }
 
 
         [BsonElement("wordDocumentPropertyConfig")]
         [JsonPropertyName("wordDocumentPropertyConfig")]
+        [BsonIgnoreIfNull]
         public WordDocumentPropertyConfig? WordDocumentPropertyConfig { get; set; }
         [BsonElement("wordInsertSymbolConfig")]
         [JsonPropertyName("wordInsertSymbolConfig")]
+        [BsonIgnoreIfNull]
         public WordInsertSymbolConfig? WordInsertSymbolConfig { get; set; }
         [BsonElement("wordFontFormatConfig")]
         [JsonPropertyName("wordFontFormatConfig")]
+        [BsonIgnoreIfNull]
         public WordFontFormatConfig? WordFontFormatConfig { get; set; }
         [BsonElement("wordTrackChangesConfig")]
         [JsonPropertyName("wordTrackChangesConfig")]
+        [BsonIgnoreIfNull]
         public WordTrackChangesConfig? WordTrackChangesConfig { get; set; }
         [BsonElement("wordInsertCommentConfig")]
         [JsonPropertyName("wordInsertCommentConfig")]
+        [BsonIgnoreIfNull]
         public WordInsertCommentConfig? WordInsertCommentConfig { get; set; }
         [BsonElement("wordMoveTextConfig")]
         [JsonPropertyName("wordMoveTextConfig")]
+        [BsonIgnoreIfNull]
         public WordMoveTextConfig? WordMoveTextConfig { get; set; }
 
         [BsonElement("wordMoveSmartArtConfig")]
         [JsonPropertyName("wordMoveSmartArtConfig")]
+        [BsonIgnoreIfNull]
         public WordMoveSmartArtConfig? WordMoveSmartArtConfig { get; set; }
 
         [BsonElement("pictureStyleConfig")]
         [JsonPropertyName("pictureStyleConfig")]
+        [BsonIgnoreIfNull]
         public PictureStyleConfig? PictureStyleConfig { get; set; }
 
         [BsonElement("textBoxContainsTextConfig")]
         [JsonPropertyName("textBoxContainsTextConfig")]
+        [BsonIgnoreIfNull]
         public TextBoxContainsTextConfig? TextBoxContainsTextConfig { get; set; }
 
         [BsonElement("pageMarginsConfig")]
         [JsonPropertyName("pageMarginsConfig")]
+        [BsonIgnoreIfNull]
         public PageMarginsConfig? PageMarginsConfig { get; set; }
 
         [BsonElement("documentStyleSetConfig")]
         [JsonPropertyName("documentStyleSetConfig")]
+        [BsonIgnoreIfNull]
         public DocumentStyleSetConfig? DocumentStyleSetConfig { get; set; }
 
         [BsonElement("pageBorderConfig")]
         [JsonPropertyName("pageBorderConfig")]
+        [BsonIgnoreIfNull]
         public PageBorderConfig? PageBorderConfig { get; set; }
 
         [BsonElement("wordTableSortConfig")]
         [JsonPropertyName("wordTableSortConfig")]
+        [BsonIgnoreIfNull]
         public WordTableSortConfig? WordTableSortConfig { get; set; }
 
         [BsonElement("wordParagraphListConfig")]
         [JsonPropertyName("wordParagraphListConfig")]
+        [BsonIgnoreIfNull]
         public WordParagraphListConfig? WordParagraphListConfig { get; set; }
 
         [BsonElement("wordBookmarkConfig")]
         [JsonPropertyName("wordBookmarkConfig")]
+        [BsonIgnoreIfNull]
         public WordBookmarkConfig? WordBookmarkConfig { get; set; }
 
         [BsonElement("wordCustomTocConfig")]
         [JsonPropertyName("wordCustomTocConfig")]
+        [BsonIgnoreIfNull]
         public WordCustomTocConfig? WordCustomTocConfig { get; set; }
 
         [BsonElement("wordTextToTableConfig")]
         [JsonPropertyName("wordTextToTableConfig")]
+        [BsonIgnoreIfNull]
         public WordTextToTableConfig? WordTextToTableConfig { get; set; }
 
         [BsonElement("wordBulletStyleConfig")]
         [JsonPropertyName("wordBulletStyleConfig")]
+        [BsonIgnoreIfNull]
         public WordBulletStyleConfig? WordBulletStyleConfig { get; set; }
 
         [BsonElement("wordResolveCommentConfig")]
         [JsonPropertyName("wordResolveCommentConfig")]
+        [BsonIgnoreIfNull]
         public WordResolveCommentConfig? WordResolveCommentConfig { get; set; }
 
         [BsonElement("wordCommentReplyConfig")]
         [JsonPropertyName("wordCommentReplyConfig")]
+        [BsonIgnoreIfNull]
         public WordCommentReplyConfig? WordCommentReplyConfig { get; set; }
 
         [BsonElement("wordDocumentInspectorConfig")]
         [JsonPropertyName("wordDocumentInspectorConfig")]
+        [BsonIgnoreIfNull]
         public WordDocumentInspectorConfig? WordDocumentInspectorConfig { get; set; }
 
         [BsonElement("wordParagraphStyleConfig")]
         [JsonPropertyName("wordParagraphStyleConfig")]
+        [BsonIgnoreIfNull]
         public WordParagraphStyleConfig? WordParagraphStyleConfig { get; set; }
 
         [BsonElement("wordTableAutoFitConfig")]
         [JsonPropertyName("wordTableAutoFitConfig")]
+        [BsonIgnoreIfNull]
         public WordTableAutoFitConfig? WordTableAutoFitConfig { get; set; }
 
         [BsonElement("wordViewSettingConfig")]
         [JsonPropertyName("wordViewSettingConfig")]
+        [BsonIgnoreIfNull]
         public WordViewSettingConfig? WordViewSettingConfig { get; set; }
 
         [BsonElement("wordEndnoteConfig")]
         [JsonPropertyName("wordEndnoteConfig")]
+        [BsonIgnoreIfNull]
         public WordEndnoteConfig? WordEndnoteConfig { get; set; }
 
         [BsonElement("wordSmartArtConfig")]
         [JsonPropertyName("wordSmartArtConfig")]
+        [BsonIgnoreIfNull]
         public WordSmartArtConfig? WordSmartArtConfig { get; set; }
 
         [BsonElement("wordSmartArtColorsConfig")]
         [JsonPropertyName("wordSmartArtColorsConfig")]
+        [BsonIgnoreIfNull]
         public WordSmartArtColorsConfig? WordSmartArtColorsConfig { get; set; }
 
         [BsonElement("excelTableNameConfig")]
         [JsonPropertyName("excelTableNameConfig")]
+        [BsonIgnoreIfNull]
         public ExcelTableNameConfig? ExcelTableNameConfig { get; set; }
 
         [BsonElement("excelWorksheetPageSetupConfig")]
         [JsonPropertyName("excelWorksheetPageSetupConfig")]
+        [BsonIgnoreIfNull]
         public ExcelWorksheetPageSetupConfig? ExcelWorksheetPageSetupConfig { get; set; }
 
         [BsonElement("excelClearCellFormattingConfig")]
         [JsonPropertyName("excelClearCellFormattingConfig")]
+        [BsonIgnoreIfNull]
         public ExcelClearCellFormattingConfig? ExcelClearCellFormattingConfig { get; set; }
 
         [BsonElement("excelDataModelImportConfig")]
         [JsonPropertyName("excelDataModelImportConfig")]
+        [BsonIgnoreIfNull]
         public ExcelDataModelImportConfig? ExcelDataModelImportConfig { get; set; }
 
         [BsonElement("excelCompatibilityReportConfig")]
         [JsonPropertyName("excelCompatibilityReportConfig")]
+        [BsonIgnoreIfNull]
         public ExcelCompatibilityReportConfig? ExcelCompatibilityReportConfig { get; set; }
 
         [BsonElement("excelMergedRangeConfig")]
         [JsonPropertyName("excelMergedRangeConfig")]
+        [BsonIgnoreIfNull]
         public ExcelMergedRangeConfig? ExcelMergedRangeConfig { get; set; }
 
         [BsonElement("excelCellHyperlinkConfig")]
         [JsonPropertyName("excelCellHyperlinkConfig")]
+        [BsonIgnoreIfNull]
         public ExcelCellHyperlinkConfig? ExcelCellHyperlinkConfig { get; set; }
 
         [BsonElement("excelIconSetConditionalFormattingConfig")]
         [JsonPropertyName("excelIconSetConditionalFormattingConfig")]
+        [BsonIgnoreIfNull]
         public ExcelIconSetConditionalFormattingConfig? ExcelIconSetConditionalFormattingConfig { get; set; }
 
         [BsonElement("excelChartDataRangeConfig")]
         [JsonPropertyName("excelChartDataRangeConfig")]
+        [BsonIgnoreIfNull]
         public ExcelChartDataRangeConfig? ExcelChartDataRangeConfig { get; set; }
 
         [BsonElement("excelChartStyleConfig")]
         [JsonPropertyName("excelChartStyleConfig")]
+        [BsonIgnoreIfNull]
         public ExcelChartStyleConfig? ExcelChartStyleConfig { get; set; }
 
         [BsonElement("excelTextReplacementConfig")]
         [JsonPropertyName("excelTextReplacementConfig")]
+        [BsonIgnoreIfNull]
         public ExcelTextReplacementConfig? ExcelTextReplacementConfig { get; set; }
 
         [BsonElement("excelPrintTitlesConfig")]
         [JsonPropertyName("excelPrintTitlesConfig")]
+        [BsonIgnoreIfNull]
         public ExcelPrintTitlesConfig? ExcelPrintTitlesConfig { get; set; }
 
         [BsonElement("excelNumberFormatConfig")]
         [JsonPropertyName("excelNumberFormatConfig")]
+        [BsonIgnoreIfNull]
         public ExcelNumberFormatConfig? ExcelNumberFormatConfig { get; set; }
 
         [BsonElement("excelChartLegendConfig")]
         [JsonPropertyName("excelChartLegendConfig")]
+        [BsonIgnoreIfNull]
         public ExcelChartLegendConfig? ExcelChartLegendConfig { get; set; }
 
         [BsonElement("excelDefinedNameConfig")]
         [JsonPropertyName("excelDefinedNameConfig")]
+        [BsonIgnoreIfNull]
         public ExcelDefinedNameConfig? ExcelDefinedNameConfig { get; set; }
 
         [BsonElement("excelFormulaReferencesConfig")]
         [JsonPropertyName("excelFormulaReferencesConfig")]
+        [BsonIgnoreIfNull]
         public ExcelFormulaReferencesConfig? ExcelFormulaReferencesConfig { get; set; }
 
         [BsonElement("excelNoConditionalFormattingConfig")]
         [JsonPropertyName("excelNoConditionalFormattingConfig")]
+        [BsonIgnoreIfNull]
         public ExcelNoConditionalFormattingConfig? ExcelNoConditionalFormattingConfig { get; set; }
 
         [BsonElement("excelTextRotationConfig")]
         [JsonPropertyName("excelTextRotationConfig")]
+        [BsonIgnoreIfNull]
         public ExcelTextRotationConfig? ExcelTextRotationConfig { get; set; }
 
         [BsonElement("excelMultiColumnSortConfig")]
         [JsonPropertyName("excelMultiColumnSortConfig")]
+        [BsonIgnoreIfNull]
         public ExcelMultiColumnSortConfig? ExcelMultiColumnSortConfig { get; set; }
 
         [BsonElement("excelFreezePanesConfig")]
         [JsonPropertyName("excelFreezePanesConfig")]
+        [BsonIgnoreIfNull]
         public ExcelFreezePanesConfig? ExcelFreezePanesConfig { get; set; }
 
         [BsonElement("excelDocumentPropertyConfig")]
         [JsonPropertyName("excelDocumentPropertyConfig")]
+        [BsonIgnoreIfNull]
         public ExcelDocumentPropertyConfig? ExcelDocumentPropertyConfig { get; set; }
 
         [BsonElement("excelPrintAreaConfig")]
         [JsonPropertyName("excelPrintAreaConfig")]
+        [BsonIgnoreIfNull]
         public ExcelPrintAreaConfig? ExcelPrintAreaConfig { get; set; }
 }
 

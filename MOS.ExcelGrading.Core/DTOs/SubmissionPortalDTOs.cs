@@ -91,6 +91,19 @@ namespace MOS.ExcelGrading.Core.DTOs
         public List<string> Alerts { get; set; } = new();
     }
 
+    public class PublicPortalStudentSubmissionDto
+    {
+        public string AssignmentId { get; set; } = string.Empty;
+        public double? ScoreValue { get; set; }
+        public double MaxScore { get; set; }
+        public string? Feedback { get; set; }
+        public List<string> AutoGradingErrors { get; set; } = new();
+        public List<AutoGradingTaskResultRequest> AutoGradingTaskResults { get; set; } = new();
+        public DateTime? SubmittedAt { get; set; }
+        public int SubmissionCount { get; set; }
+        public int? Rank { get; set; }
+    }
+
     public class SubmissionLeaderboardItem
     {
         public int Rank { get; set; }

@@ -30,6 +30,24 @@ namespace MOS.ExcelGrading.API.Controllers
             catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
         }
 
+        [HttpGet("{token}/classes/{classId}/students/{studentId}/submissions")]
+        public async Task<IActionResult> GetStudentSubmissions(string token, string classId, string studentId)
+        {
+            try
+            {
+                return Ok(await _service.GetStudentSubmissionsAsync(token, classId, studentId));
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting student submissions for portal");
+                return StatusCode(500, new { message = "Lỗi máy chủ nội bộ" });
+            }
+        }
+
         [HttpPost("{token}/grade-and-submit")]
         [RequestSizeLimit(524288000)]
         public async Task<IActionResult> GradeAndSubmit(string token, [FromForm] string classId, [FromForm] string studentId, [FromForm] string assignmentId, [FromForm] IFormFile file)

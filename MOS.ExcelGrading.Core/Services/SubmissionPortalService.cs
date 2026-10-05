@@ -142,6 +142,85 @@ namespace MOS.ExcelGrading.Core.Services
             return students.Select(s => new PublicPortalStudentDto { Id = s.Id ?? string.Empty, ClassId = classId, FullName = FullName(s) }).ToList();
         }
 
+        public async Task<List<PublicPortalStudentSubmissionDto>> GetStudentSubmissionsAsync(string token, string classId, string studentId)
+        {
+            var portal = await RequireOpenPortalAsync(token, validateTime: false);
+            if (!portal.ClassIds.Contains(classId)) throw new InvalidOperationException("Lớp không thuộc link nộp bài này.");
+
+            var student = await _students.Find(s => s.Id == studentId && s.ClassId == classId && s.IsActive).FirstOrDefaultAsync();
+            if (student == null) throw new InvalidOperationException("Học sinh không tồn tại hoặc không thuộc lớp này.");
+
+            var assignments = await _assignments.Find(a => portal.AssignmentIds.Contains(a.Id) && a.IsActive).ToListAsync();
+            var assignmentIds = assignments.Select(a => a.Id).ToList();
+
+            var scores = await _scores.Find(s => s.StudentId == studentId && s.ClassId == classId && assignmentIds.Contains(s.AssignmentId)).ToListAsync();
+            var logs = await _logs.Find(l => l.PortalId == portal.Id && l.StudentId == studentId).ToListAsync();
+
+            var result = new List<PublicPortalStudentSubmissionDto>();
+            foreach (var score in scores)
+            {
+                var assignment = assignments.FirstOrDefault(a => a.Id == score.AssignmentId);
+                var maxScore = assignment?.MaxScore ?? 125;
+                var taskResults = (score.AutoGradingTaskResults ?? new List<ScoreTaskResult>())
+                    .Select(t => new AutoGradingTaskResultRequest
+                    {
+                        TaskId = t.TaskId,
+                        TaskName = t.TaskName,
+                        Score = t.Score,
+                        MaxScore = t.MaxScore,
+                        IsPassed = t.IsPassed,
+                        Details = t.Details,
+                        Errors = t.Errors,
+                        FixActions = t.FixActions,
+                        DisplayIssues = (t.DisplayIssues ?? new List<ScoreTaskDisplayIssue>())
+                            .Select(d => new AutoGradingDisplayIssueRequest
+                            {
+                                Heading = d.Heading,
+                                Message = d.Message,
+                                FixAction = d.FixAction
+                            }).ToList()
+                    }).ToList();
+
+                var submissionCount = logs.Count(l => l.AssignmentId == score.AssignmentId);
+                var submittedAt = score.GradedAt ?? logs.Where(l => l.AssignmentId == score.AssignmentId).OrderByDescending(l => l.SubmittedAt).Select(l => (DateTime?)l.SubmittedAt).FirstOrDefault();
+
+                result.Add(new PublicPortalStudentSubmissionDto
+                {
+                    AssignmentId = score.AssignmentId,
+                    ScoreValue = score.ScoreValue,
+                    MaxScore = maxScore,
+                    Feedback = score.Feedback,
+                    AutoGradingErrors = score.AutoGradingErrors ?? new List<string>(),
+                    AutoGradingTaskResults = taskResults,
+                    SubmittedAt = submittedAt,
+                    SubmissionCount = submissionCount,
+                    Rank = null
+                });
+            }
+
+            var existingAssignmentIds = scores.Select(s => s.AssignmentId).ToHashSet();
+            var remainingLogs = logs.Where(l => !existingAssignmentIds.Contains(l.AssignmentId) && assignmentIds.Contains(l.AssignmentId)).GroupBy(l => l.AssignmentId);
+            foreach (var group in remainingLogs)
+            {
+                var lastLog = group.OrderByDescending(l => l.SubmittedAt).First();
+                var assignment = assignments.FirstOrDefault(a => a.Id == lastLog.AssignmentId);
+                result.Add(new PublicPortalStudentSubmissionDto
+                {
+                    AssignmentId = lastLog.AssignmentId,
+                    ScoreValue = lastLog.ScoreValue,
+                    MaxScore = lastLog.MaxScore > 0 ? lastLog.MaxScore : (assignment?.MaxScore ?? 125),
+                    Feedback = "Đã nộp bài",
+                    AutoGradingErrors = new List<string>(),
+                    AutoGradingTaskResults = new List<AutoGradingTaskResultRequest>(),
+                    SubmittedAt = lastLog.SubmittedAt,
+                    SubmissionCount = group.Count(),
+                    Rank = null
+                });
+            }
+
+            return result;
+        }
+
         public async Task<PublicPortalSubmitResult> GradePreviewAsync(string token, string classId, string studentId, string assignmentId, IFormFile file)
         {
             var portal = await RequireOpenPortalAsync(token, validateTime: true);

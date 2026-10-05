@@ -2425,8 +2425,13 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordDocumentProperty, StringComparison.OrdinalIgnoreCase))
                 {
-                    AddXmlPart(specialCondition.WordDocumentPropertyConfig?.SourceFile, "docProps/core.xml");
+                    AddXmlPart("docProps/core.xml", "docProps/core.xml");
                     AddXmlPart("docProps/custom.xml", "docProps/custom.xml");
+                    AddXmlPart("docProps/app.xml", "docProps/app.xml");
+                    if (!string.IsNullOrWhiteSpace(specialCondition.WordDocumentPropertyConfig?.SourceFile))
+                    {
+                        AddXmlPart(specialCondition.WordDocumentPropertyConfig.SourceFile, "docProps/core.xml");
+                    }
                     continue;
                 }
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.WordInsertSymbol, StringComparison.OrdinalIgnoreCase)
@@ -2730,8 +2735,13 @@ namespace MOS.ExcelGrading.Core.Services
 
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelDocumentProperty, StringComparison.OrdinalIgnoreCase))
                 {
-                    AddXmlPart(specialCondition.ExcelDocumentPropertyConfig?.SourceFile, "docProps/core.xml");
+                    AddXmlPart("docProps/core.xml", "docProps/core.xml");
                     AddXmlPart("docProps/custom.xml", "docProps/custom.xml");
+                    AddXmlPart("docProps/app.xml", "docProps/app.xml");
+                    if (!string.IsNullOrWhiteSpace(specialCondition.ExcelDocumentPropertyConfig?.SourceFile))
+                    {
+                        AddXmlPart(specialCondition.ExcelDocumentPropertyConfig.SourceFile, "docProps/core.xml");
+                    }
                     continue;
                 }
 
@@ -5237,7 +5247,7 @@ namespace MOS.ExcelGrading.Core.Services
 
             var normalizedFragmentFormula = NormalizeExcelFormulaFragment(formula);
             var missingFragments = config.RequiredFormulaFragments
-                .Where(fragment => !normalizedFragmentFormula.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+                .Where(fragment => !ExcelFormulaContainsFragment(normalizedFragmentFormula, fragment))
                 .ToList();
             if (missingFragments.Count > 0)
             {
@@ -5498,67 +5508,109 @@ namespace MOS.ExcelGrading.Core.Services
                 return FailSpecialCondition("Chưa cấu hình tên thuộc tính hoặc giá trị cần kiểm tra.");
             }
 
-            var files = !string.IsNullOrWhiteSpace(config.SourceFile)
-                ? new[] { config.SourceFile.Trim() }
-                : new[] { "docProps/core.xml", "docProps/custom.xml" };
+            var targetName = config.PropertyName.Trim();
+            var expectedValue = NormalizePlainText(config.ExpectedValue);
 
-            var propertyFound = false;
-            foreach (var file in files)
+            var targetAliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { targetName };
+            if (targetName.Equals("Status", StringComparison.OrdinalIgnoreCase)
+                || targetName.Equals("contentStatus", StringComparison.OrdinalIgnoreCase)
+                || targetName.Equals("Content Status", StringComparison.OrdinalIgnoreCase))
+            {
+                targetAliases.Add("Status");
+                targetAliases.Add("contentStatus");
+                targetAliases.Add("Content Status");
+            }
+            else if (targetName.Equals("Tags", StringComparison.OrdinalIgnoreCase)
+                || targetName.Equals("Keywords", StringComparison.OrdinalIgnoreCase))
+            {
+                targetAliases.Add("Keywords");
+                targetAliases.Add("Tags");
+            }
+            else if (targetName.Equals("Comments", StringComparison.OrdinalIgnoreCase)
+                || targetName.Equals("Description", StringComparison.OrdinalIgnoreCase))
+            {
+                targetAliases.Add("Comments");
+                targetAliases.Add("Description");
+            }
+
+            var candidateFiles = new List<string>();
+            if (!string.IsNullOrWhiteSpace(config.SourceFile))
+            {
+                candidateFiles.Add(config.SourceFile.Trim());
+            }
+            if (!candidateFiles.Contains("docProps/core.xml", StringComparer.OrdinalIgnoreCase))
+                candidateFiles.Add("docProps/core.xml");
+            if (!candidateFiles.Contains("docProps/custom.xml", StringComparer.OrdinalIgnoreCase))
+                candidateFiles.Add("docProps/custom.xml");
+            if (!candidateFiles.Contains("docProps/app.xml", StringComparer.OrdinalIgnoreCase))
+                candidateFiles.Add("docProps/app.xml");
+
+            string? lastFoundValue = null;
+            var anyPropertyFound = false;
+
+            foreach (var file in candidateFiles)
             {
                 if (!package.TryGetXmlDocument(file, out var doc, out _))
                 {
                     continue;
                 }
 
-                var targetName = config.PropertyName.Trim();
-                // 1. Kiểm tra core properties (cp:contentStatus hoặc element local name khớp propertyName)
-                var coreElement = doc.Descendants().FirstOrDefault(e =>
-                    string.Equals(e.Name.LocalName, targetName, StringComparison.OrdinalIgnoreCase)
-                    || (targetName.Equals("Status", StringComparison.OrdinalIgnoreCase)
-                        && e.Name.LocalName.Equals("contentStatus", StringComparison.OrdinalIgnoreCase)));
+                // 1. Kiểm tra phần tử XML trực tiếp (core.xml / app.xml: <cp:contentStatus>, <dc:subject>, <Company>, ...)
+                var matchingElements = doc.Descendants().Where(e =>
+                    targetAliases.Contains(e.Name.LocalName)).ToList();
 
-                if (coreElement != null)
+                foreach (var el in matchingElements)
                 {
-                    propertyFound = true;
-                    var actualValue = NormalizePlainText(coreElement.Value);
-                    if (string.Equals(actualValue, config.ExpectedValue.Trim(), StringComparison.OrdinalIgnoreCase))
+                    var actualVal = NormalizePlainText(el.Value);
+                    if (string.IsNullOrWhiteSpace(actualVal))
+                    {
+                        continue;
+                    }
+
+                    anyPropertyFound = true;
+                    lastFoundValue = actualVal;
+
+                    if (string.Equals(actualVal, expectedValue, StringComparison.OrdinalIgnoreCase))
                     {
                         return PassSpecialCondition($"Thuộc tính '{targetName}' đã có giá trị đúng.");
                     }
-                    return FailSpecialCondition($"Thuộc tính '{targetName}' có giá trị '{actualValue}', yêu cầu '{config.ExpectedValue}'.");
                 }
 
-                // 2. Kiểm tra custom properties (property name="...")
-                XNamespace custom = "http://schemas.openxmlformats.org/officeDocument/2006/custom-properties";
-                var customElement = doc.Descendants(custom + "property")
-                    .FirstOrDefault(item => string.Equals(item.Attribute("name")?.Value, targetName, StringComparison.OrdinalIgnoreCase))
-                    ?? doc.Descendants().FirstOrDefault(item =>
-                        item.Name.LocalName.Equals("property", StringComparison.OrdinalIgnoreCase)
-                        && string.Equals(item.Attribute("name")?.Value, targetName, StringComparison.OrdinalIgnoreCase));
+                // 2. Kiểm tra custom properties (<property name="Status"><vt:lpwstr>Draft</vt:lpwstr></property>)
+                var customElements = doc.Descendants().Where(item =>
+                    item.Name.LocalName.Equals("property", StringComparison.OrdinalIgnoreCase)
+                    && item.Attribute("name") != null
+                    && targetAliases.Contains(item.Attribute("name")!.Value.Trim())).ToList();
 
-                if (customElement != null)
+                foreach (var customEl in customElements)
                 {
-                    propertyFound = true;
-                    var actualValue = NormalizePlainText(string.Concat(customElement.Elements().Select(element => element.Value)));
-                    if (string.IsNullOrWhiteSpace(actualValue))
+                    var actualVal = NormalizePlainText(string.Concat(customEl.Elements().Select(e => e.Value)));
+                    if (string.IsNullOrWhiteSpace(actualVal))
                     {
-                        actualValue = NormalizePlainText(customElement.Value);
+                        actualVal = NormalizePlainText(customEl.Value);
                     }
 
-                    if (string.Equals(actualValue, config.ExpectedValue.Trim(), StringComparison.OrdinalIgnoreCase))
+                    if (string.IsNullOrWhiteSpace(actualVal))
+                    {
+                        continue;
+                    }
+
+                    anyPropertyFound = true;
+                    lastFoundValue = actualVal;
+
+                    if (string.Equals(actualVal, expectedValue, StringComparison.OrdinalIgnoreCase))
                     {
                         return PassSpecialCondition($"Thuộc tính '{targetName}' đã có giá trị đúng.");
                     }
-                    return FailSpecialCondition($"Thuộc tính '{targetName}' có giá trị '{actualValue}', yêu cầu '{config.ExpectedValue}'.");
                 }
             }
 
-            if (!propertyFound)
+            if (!anyPropertyFound)
             {
-                return FailSpecialCondition($"Chưa thêm thuộc tính '{config.PropertyName}' vào workbook.");
+                return FailSpecialCondition($"Chưa thêm thuộc tính '{targetName}' vào workbook.");
             }
 
-            return FailSpecialCondition($"Thuộc tính '{config.PropertyName}' chưa có giá trị '{config.ExpectedValue}'.");
+            return FailSpecialCondition($"Thuộc tính '{targetName}' có giá trị '{lastFoundValue}', yêu cầu '{expectedValue}'.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelPrintArea(
@@ -5661,6 +5713,7 @@ namespace MOS.ExcelGrading.Core.Services
                 normalized = normalized[1..];
             }
 
+            normalized = Regex.Replace(normalized, @"_XLFN\.|_XLWS\.", string.Empty, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
             normalized = normalized.Replace("$", string.Empty);
             normalized = Regex.Replace(normalized, @"\s+", string.Empty, RegexOptions.CultureInvariant);
             return normalized.ToUpperInvariant();
@@ -5680,7 +5733,7 @@ namespace MOS.ExcelGrading.Core.Services
             var normalizedName = functionName.Trim().TrimEnd('(').ToUpperInvariant();
             return Regex.IsMatch(
                 normalizedFormula,
-                $@"(?<![A-Z0-9_.]){Regex.Escape(normalizedName)}\(",
+                $@"(?<![A-Z0-9_])(?:_XLFN\.|_XLWS\.)?{Regex.Escape(normalizedName)}\(",
                 RegexOptions.CultureInvariant);
         }
 
@@ -5698,6 +5751,47 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return normalized.ToUpperInvariant();
+        }
+
+        private static bool ExcelFormulaContainsFragment(string normalizedFormula, string fragment)
+        {
+            if (string.IsNullOrWhiteSpace(fragment))
+            {
+                return true;
+            }
+
+            if (normalizedFormula.Contains(fragment, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            try
+            {
+                var trimmedFragment = fragment.Trim();
+                // Flexible whitespace matching: allow 1 or more spaces wherever fragment has whitespace.
+                // E.g. "\" - \"" matches "\"  -  \"", and "\"  -  \"" matches "\" - \""
+                var escaped = Regex.Escape(trimmedFragment);
+                var pattern = Regex.Replace(escaped, @"(\\ )+", @"\s+");
+                pattern = Regex.Replace(pattern, @"\s+", @"\s+");
+                if (Regex.IsMatch(normalizedFormula, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                {
+                    return true;
+                }
+
+                // Also allow flexible spacing around operators (&, ,, etc.)
+                var operatorPattern = Regex.Replace(escaped, @"\\([&,])", @"\s*$1\s*");
+                operatorPattern = Regex.Replace(operatorPattern, @"(\\ )+", @"\s+");
+                if (Regex.IsMatch(normalizedFormula, operatorPattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant))
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // Fallback to strict contains
+            }
+
+            return false;
         }
 
         private static bool ExcelFormulaContainsCellReference(string normalizedFormula)
@@ -8286,20 +8380,102 @@ namespace MOS.ExcelGrading.Core.Services
 
         private static SpecialConditionEvalOutcome EvaluateWordDocumentProperty(WordDocumentPropertyConfig? config, OfficePackage package)
         {
-            if (config == null || string.IsNullOrWhiteSpace(config.PropertyName) || string.IsNullOrWhiteSpace(config.ExpectedValue)) return FailSpecialCondition("wordDocumentProperty yêu cầu propertyName và expectedValue.");
-            var files = string.Equals(config.SourceFile, "docProps/custom.xml", StringComparison.OrdinalIgnoreCase) ? new[] { "docProps/custom.xml" } : new[] { config.SourceFile ?? "docProps/core.xml", "docProps/custom.xml" };
-            foreach (var file in files)
+            if (config == null || string.IsNullOrWhiteSpace(config.PropertyName) || string.IsNullOrWhiteSpace(config.ExpectedValue))
+                return FailSpecialCondition("wordDocumentProperty yêu cầu propertyName và expectedValue.");
+
+            var targetName = config.PropertyName.Trim();
+            var expectedValue = NormalizePlainText(config.ExpectedValue);
+
+            var targetAliases = new HashSet<string>(StringComparer.OrdinalIgnoreCase) { targetName };
+            if (targetName.Equals("Status", StringComparison.OrdinalIgnoreCase)
+                || targetName.Equals("contentStatus", StringComparison.OrdinalIgnoreCase)
+                || targetName.Equals("Content Status", StringComparison.OrdinalIgnoreCase))
             {
-                if (!package.TryGetXmlDocument(file, out var doc, out _)) continue;
-                var name = config.PropertyName.Trim();
-                var element = doc.Descendants().FirstOrDefault(e => string.Equals(e.Name.LocalName, name, StringComparison.OrdinalIgnoreCase)
-                    || (name.Equals("Status", StringComparison.OrdinalIgnoreCase) && e.Name.LocalName.Equals("contentStatus", StringComparison.OrdinalIgnoreCase)));
-                var value = element?.Value.Trim();
-                if (value != null) return string.Equals(value, config.ExpectedValue.Trim(), StringComparison.Ordinal)
-                    ? PassSpecialCondition($"Thuộc tính tài liệu '{name}' đã là '{config.ExpectedValue}'.")
-                    : FailSpecialCondition($"Thuộc tính '{name}' có giá trị '{value}', yêu cầu '{config.ExpectedValue}'.");
+                targetAliases.Add("Status");
+                targetAliases.Add("contentStatus");
+                targetAliases.Add("Content Status");
             }
-            return FailSpecialCondition($"Không tìm thấy thuộc tính tài liệu '{config.PropertyName}'.");
+            else if (targetName.Equals("Tags", StringComparison.OrdinalIgnoreCase)
+                || targetName.Equals("Keywords", StringComparison.OrdinalIgnoreCase))
+            {
+                targetAliases.Add("Keywords");
+                targetAliases.Add("Tags");
+            }
+            else if (targetName.Equals("Comments", StringComparison.OrdinalIgnoreCase)
+                || targetName.Equals("Description", StringComparison.OrdinalIgnoreCase))
+            {
+                targetAliases.Add("Comments");
+                targetAliases.Add("Description");
+            }
+
+            var candidateFiles = new List<string>();
+            if (!string.IsNullOrWhiteSpace(config.SourceFile))
+            {
+                candidateFiles.Add(config.SourceFile.Trim());
+            }
+            if (!candidateFiles.Contains("docProps/core.xml", StringComparer.OrdinalIgnoreCase))
+                candidateFiles.Add("docProps/core.xml");
+            if (!candidateFiles.Contains("docProps/custom.xml", StringComparer.OrdinalIgnoreCase))
+                candidateFiles.Add("docProps/custom.xml");
+            if (!candidateFiles.Contains("docProps/app.xml", StringComparer.OrdinalIgnoreCase))
+                candidateFiles.Add("docProps/app.xml");
+
+            string? lastFoundValue = null;
+            var anyPropertyFound = false;
+
+            foreach (var file in candidateFiles)
+            {
+                if (!package.TryGetXmlDocument(file, out var doc, out _))
+                    continue;
+
+                var matchingElements = doc.Descendants().Where(e =>
+                    targetAliases.Contains(e.Name.LocalName)).ToList();
+
+                foreach (var el in matchingElements)
+                {
+                    var actualVal = NormalizePlainText(el.Value);
+                    if (string.IsNullOrWhiteSpace(actualVal))
+                        continue;
+
+                    anyPropertyFound = true;
+                    lastFoundValue = actualVal;
+
+                    if (string.Equals(actualVal, expectedValue, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return PassSpecialCondition($"Thuộc tính tài liệu '{targetName}' đã là '{expectedValue}'.");
+                    }
+                }
+
+                var customElements = doc.Descendants().Where(item =>
+                    item.Name.LocalName.Equals("property", StringComparison.OrdinalIgnoreCase)
+                    && item.Attribute("name") != null
+                    && targetAliases.Contains(item.Attribute("name")!.Value.Trim())).ToList();
+
+                foreach (var customEl in customElements)
+                {
+                    var actualVal = NormalizePlainText(string.Concat(customEl.Elements().Select(e => e.Value)));
+                    if (string.IsNullOrWhiteSpace(actualVal))
+                        actualVal = NormalizePlainText(customEl.Value);
+
+                    if (string.IsNullOrWhiteSpace(actualVal))
+                        continue;
+
+                    anyPropertyFound = true;
+                    lastFoundValue = actualVal;
+
+                    if (string.Equals(actualVal, expectedValue, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return PassSpecialCondition($"Thuộc tính tài liệu '{targetName}' đã là '{expectedValue}'.");
+                    }
+                }
+            }
+
+            if (!anyPropertyFound)
+            {
+                return FailSpecialCondition($"Không tìm thấy thuộc tính tài liệu '{targetName}'.");
+            }
+
+            return FailSpecialCondition($"Thuộc tính '{targetName}' có giá trị '{lastFoundValue}', yêu cầu '{expectedValue}'.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateWordInsertSymbol(WordInsertSymbolConfig? config, OfficePackage package)

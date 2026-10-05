@@ -96,16 +96,16 @@
     },
     {
       "taskId": "P05-T5",
-      "taskName": "Tại ô B4 trên trang tính Catalog, nhập công thức để nối chuỗi Description và Style được phân tách bằng dấu gạch ngang ' - '.",
+      "taskName": "Tại ô B4 trên trang tính Catalog, nhập công thức để nối chuỗi Description và Style được phân tách bằng dấu gạch ngang '  -  '.",
       "maxScore": 28.4,
       "conditions": [],
       "specialCondition": {
         "type": "excelFormulaReferences",
         "score": 28.4,
         "feedback": {
-          "successDetail": "Đã nhập đúng công thức nối Description và Style phân tách bằng ' - ' tại ô B4 trên trang tính 'Catalog'.",
-          "errorMessage": "Công thức tại ô B4 trên trang tính 'Catalog' chưa đúng, chưa tham chiếu đủ cột Description, Style hoặc thiếu chuỗi phân tách ' - '.",
-          "fixAction": "Tại ô B4 trên trang tính 'Catalog', nhập công thức =[@Description] & \" - \" & [@Style] hoặc =CONCAT([@Description], \" - \", [@Style]) hoặc =CONCATENATE([@Description], \" - \", [@Style])."
+          "successDetail": "Đã nhập đúng công thức nối Description và Style phân tách bằng '  -  ' tại ô B4 trên trang tính 'Catalog'.",
+          "errorMessage": "Công thức tại ô B4 trên trang tính 'Catalog' chưa đúng, chưa tham chiếu đủ cột Description, Style hoặc thiếu chuỗi phân tách '  -  '.",
+          "fixAction": "Tại ô B4 trên trang tính 'Catalog', nhập công thức =[@Description] & \"  -  \" & [@Style] hoặc =CONCAT([@Description], \"  -  \", [@Style]) hoặc =CONCATENATE([@Description], \"  -  \", [@Style])."
         },
         "excelFormulaReferencesConfig": {
           "worksheetName": "Catalog",
@@ -116,7 +116,7 @@
           ],
           "requiredFunctions": [],
           "requiredFormulaFragments": [
-            "\" - \""
+            "\"  -  \""
           ],
           "expectedFormula": "",
           "expectedValue": "",

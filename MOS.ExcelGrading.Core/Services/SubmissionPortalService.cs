@@ -67,8 +67,7 @@ namespace MOS.ExcelGrading.Core.Services
 
         public async Task<List<SubmissionPortalResponse>> GetAllAsync(string userId, bool isAdmin)
         {
-            var filter = isAdmin ? Builders<SubmissionPortal>.Filter.Empty : Builders<SubmissionPortal>.Filter.Eq(p => p.CreatedBy, userId);
-            var portals = await _portals.Find(filter).SortByDescending(p => p.CreatedAt).ToListAsync();
+            var portals = await _portals.Find(Builders<SubmissionPortal>.Filter.Empty).SortByDescending(p => p.CreatedAt).ToListAsync();
             var result = new List<SubmissionPortalResponse>();
             foreach (var portal in portals) result.Add(await MapPortalAsync(portal));
             return result;
@@ -414,19 +413,35 @@ namespace MOS.ExcelGrading.Core.Services
             var filter = Builders<SubmissionAlert>.Filter.Eq(a => a.PortalId, portalId);
             if (!includeDismissed) filter &= Builders<SubmissionAlert>.Filter.Eq(a => a.IsDismissed, false);
             var alerts = await _alerts.Find(filter).SortByDescending(a => a.CreatedAt).ToListAsync();
-            return await MapAlertsAsync(alerts);
+            var groupedAlerts = GroupAlerts(alerts);
+            return await MapAlertsAsync(groupedAlerts);
         }
 
-        public async Task<int> GetUnreadAlertCountAsync(string portalId) =>
-            (int)await _alerts.CountDocumentsAsync(a => a.PortalId == portalId && !a.IsRead && !a.IsDismissed);
+        public async Task<int> GetUnreadAlertCountAsync(string portalId)
+        {
+            var rawAlerts = await _alerts.Find(a => a.PortalId == portalId && !a.IsRead && !a.IsDismissed).ToListAsync();
+            var grouped = GroupAlerts(rawAlerts);
+            return grouped.Count;
+        }
 
         public async Task<bool> UpdateAlertAsync(string portalId, string alertId, bool? isRead, bool? isDismissed)
         {
+            var target = await _alerts.Find(a => a.Id == alertId && a.PortalId == portalId).FirstOrDefaultAsync();
+            if (target == null) return false;
+
+            var sortedStudents = target.InvolvedStudentIds.OrderBy(id => id).ToList();
+            var allAlerts = await _alerts.Find(a => a.PortalId == portalId && a.AlertType == target.AlertType).ToListAsync();
+            var matchingIds = allAlerts
+                .Where(a => a.InvolvedStudentIds.OrderBy(id => id).SequenceEqual(sortedStudents))
+                .Select(a => a.Id)
+                .ToList();
+
             var updates = new List<UpdateDefinition<SubmissionAlert>>();
             if (isRead.HasValue) updates.Add(Builders<SubmissionAlert>.Update.Set(a => a.IsRead, isRead.Value));
             if (isDismissed.HasValue) updates.Add(Builders<SubmissionAlert>.Update.Set(a => a.IsDismissed, isDismissed.Value));
             if (updates.Count == 0) return true;
-            var result = await _alerts.UpdateOneAsync(a => a.Id == alertId && a.PortalId == portalId, Builders<SubmissionAlert>.Update.Combine(updates));
+
+            var result = await _alerts.UpdateManyAsync(a => matchingIds.Contains(a.Id), Builders<SubmissionAlert>.Update.Combine(updates));
             return result.ModifiedCount > 0;
         }
 
@@ -500,7 +515,36 @@ namespace MOS.ExcelGrading.Core.Services
 
         private async Task CreateAlertAsync(string portalId, string type, string severity, string message, List<string> studentIds, List<string> logIds)
         {
-            await _alerts.InsertOneAsync(new SubmissionAlert { PortalId = portalId, AlertType = type, Severity = severity, Message = message, InvolvedStudentIds = studentIds, InvolvedSubmissionLogIds = logIds, CreatedAt = DateTime.UtcNow });
+            var sortedStudents = studentIds.OrderBy(id => id).ToList();
+            var existing = await _alerts.Find(a => a.PortalId == portalId && a.AlertType == type && !a.IsDismissed)
+                .SortByDescending(a => a.CreatedAt)
+                .FirstOrDefaultAsync();
+
+            if (existing != null && existing.InvolvedStudentIds.OrderBy(id => id).SequenceEqual(sortedStudents))
+            {
+                var combinedLogs = existing.InvolvedSubmissionLogIds.Concat(logIds).Distinct().ToList();
+                var update = Builders<SubmissionAlert>.Update
+                    .Inc(a => a.Occurrences, 1)
+                    .Set(a => a.LatestAt, DateTime.UtcNow)
+                    .Set(a => a.Message, message)
+                    .Set(a => a.InvolvedSubmissionLogIds, combinedLogs)
+                    .Set(a => a.IsRead, false);
+                await _alerts.UpdateOneAsync(a => a.Id == existing.Id, update);
+                return;
+            }
+
+            await _alerts.InsertOneAsync(new SubmissionAlert
+            {
+                PortalId = portalId,
+                AlertType = type,
+                Severity = severity,
+                Message = message,
+                InvolvedStudentIds = studentIds,
+                InvolvedSubmissionLogIds = logIds,
+                CreatedAt = DateTime.UtcNow,
+                LatestAt = DateTime.UtcNow,
+                Occurrences = 1
+            });
         }
 
         private static string? NormalizeDeviceId(string? deviceId)
@@ -603,24 +647,33 @@ namespace MOS.ExcelGrading.Core.Services
             if (endsAtUtc.HasValue && startsAtUtc.HasValue && endsAtUtc.Value <= startsAtUtc.Value) throw new ArgumentException("Hạn nộp phải sau giờ mở nộp.");
         }
 
-        private async Task<SubmissionPortalResponse> MapPortalAsync(SubmissionPortal portal) => new()
+        private async Task<SubmissionPortalResponse> MapPortalAsync(SubmissionPortal portal)
         {
-            Id = portal.Id,
-            Title = portal.Title,
-            Description = portal.Description,
-            PublicToken = portal.PublicToken,
-            ClassIds = portal.ClassIds,
-            AssignmentIds = portal.AssignmentIds,
-            StartsAt = portal.StartsAt,
-            EndsAt = portal.EndsAt,
-            MaxSubmissionsPerStudent = portal.MaxSubmissionsPerStudent,
-            ScoringPolicy = portal.ScoringPolicy,
-            ShowLeaderboard = portal.ShowLeaderboard,
-            ShowDetailedFeedback = portal.ShowDetailedFeedback,
-            IsActive = portal.IsActive,
-            CreatedAt = portal.CreatedAt,
-            UnreadAlertCount = await GetUnreadAlertCountAsync(portal.Id)
-        };
+            var classes = portal.ClassIds.Count == 0
+                ? new List<Class>()
+                : await _classes.Find(c => c.Id != null && portal.ClassIds.Contains(c.Id)).ToListAsync();
+
+            return new()
+            {
+                Id = portal.Id,
+                Title = portal.Title,
+                Description = portal.Description,
+                PublicToken = portal.PublicToken,
+                ClassIds = portal.ClassIds,
+                Classes = classes.Select(c => new PublicPortalClassDto { Id = c.Id ?? string.Empty, Name = c.Name }).ToList(),
+                AssignmentIds = portal.AssignmentIds,
+                StartsAt = portal.StartsAt,
+                EndsAt = portal.EndsAt,
+                MaxSubmissionsPerStudent = portal.MaxSubmissionsPerStudent,
+                ScoringPolicy = portal.ScoringPolicy,
+                ShowLeaderboard = portal.ShowLeaderboard,
+                ShowDetailedFeedback = portal.ShowDetailedFeedback,
+                IsActive = portal.IsActive,
+                CreatedBy = portal.CreatedBy,
+                CreatedAt = portal.CreatedAt,
+                UnreadAlertCount = await GetUnreadAlertCountAsync(portal.Id)
+            };
+        }
 
         private static PublicPortalAssignmentDto MapPublicAssignment(Assignment a) => new()
         {
@@ -699,7 +752,77 @@ namespace MOS.ExcelGrading.Core.Services
             }).ToList(),
             IsRead = alert.IsRead,
             IsDismissed = alert.IsDismissed,
-            CreatedAt = alert.CreatedAt
+            CreatedAt = alert.CreatedAt,
+            Occurrences = alert.Occurrences,
+            LatestAt = alert.LatestAt ?? alert.CreatedAt
+        };
+
+        private static List<SubmissionAlert> GroupAlerts(List<SubmissionAlert> rawAlerts)
+        {
+            var groups = new List<SubmissionAlert>();
+            var groupDict = new Dictionary<string, SubmissionAlert>();
+
+            foreach (var alert in rawAlerts)
+            {
+                var sortedStudents = alert.InvolvedStudentIds.OrderBy(id => id).ToList();
+                var key = $"{alert.AlertType}:{string.Join(",", sortedStudents)}";
+
+                if (!groupDict.TryGetValue(key, out var existing))
+                {
+                    var clone = new SubmissionAlert
+                    {
+                        Id = alert.Id,
+                        PortalId = alert.PortalId,
+                        AlertType = alert.AlertType,
+                        Severity = alert.Severity,
+                        Message = alert.Message,
+                        InvolvedStudentIds = alert.InvolvedStudentIds,
+                        InvolvedSubmissionLogIds = new List<string>(alert.InvolvedSubmissionLogIds),
+                        Metadata = alert.Metadata,
+                        IsRead = alert.IsRead,
+                        IsDismissed = alert.IsDismissed,
+                        CreatedAt = alert.CreatedAt,
+                        LatestAt = alert.LatestAt ?? alert.CreatedAt,
+                        Occurrences = Math.Max(1, alert.Occurrences)
+                    };
+                    groupDict[key] = clone;
+                    groups.Add(clone);
+                }
+                else
+                {
+                    existing.Occurrences += Math.Max(1, alert.Occurrences);
+                    var alertLatest = alert.LatestAt ?? alert.CreatedAt;
+                    var existingLatest = existing.LatestAt ?? existing.CreatedAt;
+                    if (alertLatest > existingLatest)
+                    {
+                        existing.LatestAt = alertLatest;
+                        existing.Message = alert.Message;
+                    }
+                    if (SeverityRank(alert.Severity) > SeverityRank(existing.Severity))
+                    {
+                        existing.Severity = alert.Severity;
+                    }
+                    foreach (var logId in alert.InvolvedSubmissionLogIds)
+                    {
+                        if (!existing.InvolvedSubmissionLogIds.Contains(logId))
+                        {
+                            existing.InvolvedSubmissionLogIds.Add(logId);
+                        }
+                    }
+                    if (!alert.IsRead) existing.IsRead = false;
+                    if (!alert.IsDismissed) existing.IsDismissed = false;
+                }
+            }
+
+            return groups;
+        }
+
+        private static int SeverityRank(string? severity) => severity?.ToLowerInvariant() switch
+        {
+            "high" or "critical" => 3,
+            "medium" => 2,
+            "low" => 1,
+            _ => 0
         };
 
         private static string FullName(Student? s) => s == null ? "" : $"{s.MiddleName} {s.FirstName}".Trim();

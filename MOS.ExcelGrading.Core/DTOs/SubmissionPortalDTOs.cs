@@ -36,6 +36,8 @@ namespace MOS.ExcelGrading.Core.DTOs
         public bool IsActive { get; set; }
         public DateTime CreatedAt { get; set; }
         public int UnreadAlertCount { get; set; }
+        public string? CreatedBy { get; set; }
+        public List<PublicPortalClassDto> Classes { get; set; } = new();
     }
 
     public class PublicPortalInfoResponse
@@ -150,6 +152,8 @@ namespace MOS.ExcelGrading.Core.DTOs
         public bool IsRead { get; set; }
         public bool IsDismissed { get; set; }
         public DateTime CreatedAt { get; set; }
+        public int Occurrences { get; set; } = 1;
+        public DateTime? LatestAt { get; set; }
     }
 
     public class SubmissionAlertStudentResponse

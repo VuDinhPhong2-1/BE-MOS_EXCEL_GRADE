@@ -166,7 +166,10 @@ namespace MOS.ExcelGrading.Core.Services
                 _logger.LogInformation($"📤 GetClassesByOwnerIdAsync called: ownerId={ownerId}, includeInactive={includeInactive}");
 
                 var filterBuilder = Builders<Class>.Filter;
-                var filter = filterBuilder.Eq(c => c.OwnerId, ownerId);
+                var filter = filterBuilder.Or(
+                    filterBuilder.Eq(c => c.OwnerId, ownerId),
+                    filterBuilder.AnyEq(c => c.ManagerTeacherIds, ownerId)
+                );
 
                 if (!includeInactive)
                 {

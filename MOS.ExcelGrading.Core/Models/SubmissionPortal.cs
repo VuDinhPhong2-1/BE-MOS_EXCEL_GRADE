@@ -167,6 +167,12 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("isDismissed")]
         public bool IsDismissed { get; set; }
 
+        [BsonElement("occurrences")]
+        public int Occurrences { get; set; } = 1;
+
+        [BsonElement("latestAt")]
+        public DateTime? LatestAt { get; set; }
+
         [BsonElement("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     }

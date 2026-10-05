@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net9.0-windows7.0</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <Nullable>enable</Nullable>
   </PropertyGroup>
@@ -15,7 +15,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\MOS.ExcelGrading.API\MOS.ExcelGrading.API.csproj" />
-    <ProjectReference Include="..\..\..\MOS.ExcelGrading.LocalAgent\MOS.ExcelGrading.LocalAgent.csproj" />
-    </ItemGroup>
+    <ProjectReference Include="..\..\..\MOS.ExcelGrading.LocalAgent\MOS.ExcelGrading.LocalAgent.csproj" Condition="Exists('..\..\..\MOS.ExcelGrading.LocalAgent\MOS.ExcelGrading.LocalAgent.csproj')" />
+  </ItemGroup>
 
+  <ItemGroup Condition="!Exists('..\..\..\MOS.ExcelGrading.LocalAgent\MOS.ExcelGrading.LocalAgent.csproj')">
+    <Compile Remove="LocalAgentRealFlowTests.cs" />
+    <Compile Remove="LocalAgentServiceTests.cs" />
+  </ItemGroup>
 </Project>

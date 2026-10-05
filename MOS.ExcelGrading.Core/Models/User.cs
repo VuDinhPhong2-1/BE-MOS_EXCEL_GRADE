@@ -1,4 +1,4 @@
-﻿// Core/Models/User.cs
+// Core/Models/User.cs
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
 using System.ComponentModel.DataAnnotations;
@@ -49,6 +49,19 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonIgnoreIfNull]
         public string? GoogleId { get; set; }
         public string AuthProvider { get; set; } = "Local";
+        public bool HasPassword { get; set; } = true;
+
+        public bool CheckHasPassword()
+        {
+            if (!HasPassword) return false;
+            if (string.IsNullOrEmpty(PasswordHash)) return false;
+            return true;
+        }
+
+        public bool CheckHasGoogleLinked()
+        {
+            return !string.IsNullOrEmpty(GoogleId);
+        }
 
         // ========== METADATA ==========
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

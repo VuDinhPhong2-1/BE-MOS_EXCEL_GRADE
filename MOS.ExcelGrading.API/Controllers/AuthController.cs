@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
@@ -218,7 +218,9 @@ namespace MOS.ExcelGrading.API.Controllers
                     teacherApprovalRequestedAt = user.TeacherApprovalRequestedAt,
                     teacherApprovalReviewedAt = user.TeacherApprovalReviewedAt,
                     teacherApprovalReviewedBy = user.TeacherApprovalReviewedBy,
-                    teacherApprovalNote = user.TeacherApprovalNote
+                    teacherApprovalNote = user.TeacherApprovalNote,
+                    hasPassword = user.CheckHasPassword(),
+                    hasGoogleLinked = user.CheckHasGoogleLinked()
                 });
             }
             catch (Exception ex)
@@ -532,6 +534,80 @@ namespace MOS.ExcelGrading.API.Controllers
             {
                 _logger.LogError(ex, "Lỗi khi cập nhật hồ sơ người dùng");
                 return StatusCode(500, new { message = "Đã xảy ra lỗi khi cập nhật thông tin tài khoản" });
+            }
+        }
+
+        /// <summary>
+        /// Đổi mật khẩu tài khoản hiện tại
+        /// </summary>
+        [HttpPost("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userId))
+                    return Unauthorized(new { message = "Mã xác thực không hợp lệ" });
+
+                var success = await _userService.ChangePasswordAsync(userId, request.CurrentPassword, request.NewPassword);
+                if (!success)
+                {
+                    return BadRequest(new { message = "Mật khẩu hiện tại không chính xác" });
+                }
+
+                return Ok(new { message = "Đổi mật khẩu thành công" });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi đổi mật khẩu");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi đổi mật khẩu" });
+            }
+        }
+
+        /// <summary>
+        /// Thiết lập mật khẩu lần đầu cho tài khoản (dành cho tài khoản Google chưa có mật khẩu)
+        /// </summary>
+        [HttpPost("set-password")]
+        [Authorize]
+        public async Task<IActionResult> SetPassword([FromBody] SetPasswordRequest request)
+        {
+            try
+            {
+                if (!ModelState.IsValid)
+                    return BadRequest(ModelState);
+
+                var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (string.IsNullOrWhiteSpace(userId))
+                    return Unauthorized(new { message = "Mã xác thực không hợp lệ" });
+
+                var success = await _userService.SetPasswordAsync(userId, request.NewPassword);
+                if (!success)
+                {
+                    return BadRequest(new { message = "Không thể thiết lập mật khẩu" });
+                }
+
+                return Ok(new { message = "Thiết lập mật khẩu thành công. Bây giờ bạn có thể đăng nhập bằng tài khoản hoặc email và mật khẩu." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (ArgumentException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Lỗi khi thiết lập mật khẩu");
+                return StatusCode(500, new { message = "Đã xảy ra lỗi khi thiết lập mật khẩu" });
             }
         }
 

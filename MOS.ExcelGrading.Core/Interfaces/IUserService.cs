@@ -1,4 +1,4 @@
-﻿using MOS.ExcelGrading.Core.DTOs;
+using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Models;
 
 namespace MOS.ExcelGrading.Core.Interfaces
@@ -16,6 +16,8 @@ namespace MOS.ExcelGrading.Core.Interfaces
         Task<User?> DecideTeacherRequestAsync(string userId, string decision, string? note, string reviewedBy);
         Task<User?> UpdateTeacherPermissionsAsync(string teacherId, IReadOnlyCollection<string> permissions);
         Task<User?> UpdateProfileAsync(string userId, UpdateProfileRequest request);
+        Task<bool> ChangePasswordAsync(string userId, string currentPassword, string newPassword);
+        Task<bool> SetPasswordAsync(string userId, string newPassword);
         Task<bool> RevokeRefreshTokenAsync(string userId);
     }
 }

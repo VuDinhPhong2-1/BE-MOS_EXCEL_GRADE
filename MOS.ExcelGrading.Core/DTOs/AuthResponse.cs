@@ -1,4 +1,4 @@
-﻿namespace MOS.ExcelGrading.Core.DTOs
+namespace MOS.ExcelGrading.Core.DTOs
 {
     public class AuthResponse
     {
@@ -16,5 +16,7 @@
         public DateTime? TeacherApprovalReviewedAt { get; set; }
         public string? TeacherApprovalReviewedBy { get; set; }
         public string? TeacherApprovalNote { get; set; }
+        public bool HasPassword { get; set; }
+        public bool HasGoogleLinked { get; set; }
     }
 }

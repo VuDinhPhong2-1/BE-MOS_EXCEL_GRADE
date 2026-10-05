@@ -1,4 +1,4 @@
-﻿// MOS.ExcelGrading.Core/Services/ScoreService.cs
+// MOS.ExcelGrading.Core/Services/ScoreService.cs
 using Microsoft.Extensions.Logging;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization;
@@ -6,6 +6,7 @@ using MongoDB.Driver;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
+using System.Globalization;
 using System.Text.RegularExpressions;
 
 namespace MOS.ExcelGrading.Core.Services
@@ -1520,7 +1521,7 @@ namespace MOS.ExcelGrading.Core.Services
                 BsonType.Int32 => value.AsInt32,
                 BsonType.Int64 => value.AsInt64,
                 BsonType.Decimal128 => (double)value.AsDecimal128,
-                BsonType.String when double.TryParse(value.AsString, out var parsed) => parsed,
+                BsonType.String when double.TryParse(value.AsString, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed) => parsed,
                 _ => null
             };
         }

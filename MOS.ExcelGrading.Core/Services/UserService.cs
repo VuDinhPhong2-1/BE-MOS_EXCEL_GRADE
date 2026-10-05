@@ -1,4 +1,4 @@
-﻿// Core/Services/UserService.cs
+// Core/Services/UserService.cs
 using Google.Apis.Auth;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -11,6 +11,7 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
 
 namespace MOS.ExcelGrading.Core.Services
 {
@@ -87,13 +88,50 @@ namespace MOS.ExcelGrading.Core.Services
 
         public async Task<AuthResponse?> LoginAsync(string username, string password)
         {
-            var user = await _users.Find(u => u.Username == username).FirstOrDefaultAsync();
-
-            if (user == null || !BCrypt.Net.BCrypt.Verify(password, user.PasswordHash))
+            if (string.IsNullOrWhiteSpace(username) || string.IsNullOrWhiteSpace(password))
                 return null;
 
-            if (!user.IsActive)
+            var trimmedIdentifier = username.Trim();
+            Console.WriteLine($"[AUTH LOGIN] Attempting login with identifier: '{trimmedIdentifier}'");
+
+            var filter = Builders<User>.Filter.And(
+                Builders<User>.Filter.Or(
+                    Builders<User>.Filter.Regex(u => u.Username, new BsonRegularExpression($"^{Regex.Escape(trimmedIdentifier)}$", "i")),
+                    Builders<User>.Filter.Regex(u => u.Email, new BsonRegularExpression($"^{Regex.Escape(trimmedIdentifier)}$", "i"))
+                ),
+                Builders<User>.Filter.Eq(u => u.IsActive, true)
+            );
+
+            var user = await _users.Find(filter).FirstOrDefaultAsync();
+            if (user == null)
+            {
+                Console.WriteLine($"[AUTH LOGIN] User not found matching '{trimmedIdentifier}'");
                 return null;
+            }
+
+            Console.WriteLine($"[AUTH LOGIN] Found user: Id={user.Id}, Username='{user.Username}', Email='{user.Email}', AuthProvider='{user.AuthProvider}', HasPassword={user.HasPassword}");
+
+            if (string.IsNullOrEmpty(user.PasswordHash))
+            {
+                Console.WriteLine("[AUTH LOGIN] User has empty PasswordHash");
+                return null;
+            }
+
+            var passwordValid = BCrypt.Net.BCrypt.Verify(password, user.PasswordHash);
+            Console.WriteLine($"[AUTH LOGIN] BCrypt password verification: {passwordValid}");
+
+            if (!passwordValid)
+                return null;
+
+            if (!user.HasPassword || user.AuthProvider == "Google")
+            {
+                var newProvider = !string.IsNullOrEmpty(user.GoogleId) ? "Both" : "Local";
+                await _users.UpdateOneAsync(
+                    u => u.Id == user.Id,
+                    Builders<User>.Update.Set(u => u.HasPassword, true).Set(u => u.AuthProvider, newProvider));
+                user.HasPassword = true;
+                user.AuthProvider = newProvider;
+            }
 
             return await CreateAuthResponseAsync(user);
         }
@@ -139,6 +177,7 @@ namespace MOS.ExcelGrading.Core.Services
                     Avatar = payload.Picture,
                     GoogleId = payload.Subject,
                     AuthProvider = "Google",
+                    HasPassword = false,
                     IsActive = true,
                     IsEmailVerified = true,
                     CreatedAt = now
@@ -151,15 +190,18 @@ namespace MOS.ExcelGrading.Core.Services
             if (!user.IsActive)
                 return null;
 
+            var hasLocalPassword = user.CheckHasPassword();
+            var updatedAuthProvider = hasLocalPassword ? "Both" : (user.AuthProvider ?? "Google");
+
             var profileUpdate = Builders<User>.Update
                 .Set(u => u.GoogleId, payload.Subject)
-                .Set(u => u.AuthProvider, "Google")
+                .Set(u => u.AuthProvider, updatedAuthProvider)
                 .Set(u => u.IsEmailVerified, true)
                 .Set(u => u.Avatar, string.IsNullOrWhiteSpace(payload.Picture) ? user.Avatar : payload.Picture)
                 .Set(u => u.FullName, string.IsNullOrWhiteSpace(payload.Name) ? user.FullName : payload.Name);
 
             user.GoogleId = payload.Subject;
-            user.AuthProvider = "Google";
+            user.AuthProvider = updatedAuthProvider;
             user.IsEmailVerified = true;
             user.Avatar = string.IsNullOrWhiteSpace(payload.Picture) ? user.Avatar : payload.Picture;
             user.FullName = string.IsNullOrWhiteSpace(payload.Name) ? user.FullName : payload.Name;
@@ -204,7 +246,9 @@ namespace MOS.ExcelGrading.Core.Services
                 TeacherApprovalRequestedAt = user.TeacherApprovalRequestedAt,
                 TeacherApprovalReviewedAt = user.TeacherApprovalReviewedAt,
                 TeacherApprovalReviewedBy = user.TeacherApprovalReviewedBy,
-                TeacherApprovalNote = user.TeacherApprovalNote
+                TeacherApprovalNote = user.TeacherApprovalNote,
+                HasPassword = user.CheckHasPassword(),
+                HasGoogleLinked = user.CheckHasGoogleLinked()
             };
         }
 
@@ -368,6 +412,74 @@ namespace MOS.ExcelGrading.Core.Services
                 });
         }
 
+        public async Task<bool> ChangePasswordAsync(string userId, string currentPassword, string newPassword)
+        {
+            var user = await _users.Find(u => u.Id == userId && u.IsActive).FirstOrDefaultAsync();
+            if (user == null)
+            {
+                return false;
+            }
+
+            // Accounts without an established local password must use SetPassword
+            if (!user.CheckHasPassword())
+            {
+                throw new InvalidOperationException("Tài khoản chưa thiết lập mật khẩu đăng nhập. Vui lòng thiết lập mật khẩu trước.");
+            }
+
+            if (!BCrypt.Net.BCrypt.Verify(currentPassword, user.PasswordHash))
+            {
+                return false;
+            }
+
+            if (currentPassword == newPassword)
+            {
+                throw new InvalidOperationException("Mật khẩu mới không được trùng với mật khẩu hiện tại");
+            }
+
+            var newPasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            var update = Builders<User>.Update
+                .Set(u => u.PasswordHash, newPasswordHash);
+
+            var result = await _users.UpdateOneAsync(
+                filter: u => u.Id == userId && u.IsActive,
+                update: update);
+
+            return result.ModifiedCount > 0;
+        }
+
+        public async Task<bool> SetPasswordAsync(string userId, string newPassword)
+        {
+            if (string.IsNullOrWhiteSpace(newPassword) || newPassword.Length < 6)
+            {
+                throw new ArgumentException("Mật khẩu mới phải có ít nhất 6 ký tự", nameof(newPassword));
+            }
+
+            var user = await _users.Find(u => u.Id == userId && u.IsActive).FirstOrDefaultAsync();
+            if (user == null)
+            {
+                return false;
+            }
+
+            if (user.CheckHasPassword())
+            {
+                throw new InvalidOperationException("Tài khoản đã có mật khẩu. Vui lòng sử dụng chức năng đổi mật khẩu.");
+            }
+
+            var passwordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+            var newAuthProvider = !string.IsNullOrEmpty(user.GoogleId) ? "Both" : "Local";
+
+            var update = Builders<User>.Update
+                .Set(u => u.PasswordHash, passwordHash)
+                .Set(u => u.HasPassword, true)
+                .Set(u => u.AuthProvider, newAuthProvider);
+
+            var result = await _users.UpdateOneAsync(
+                filter: u => u.Id == userId && u.IsActive,
+                update: update);
+
+            return result.ModifiedCount > 0;
+        }
+
         private async Task<string> GenerateUniqueUsernameAsync(string email)
         {
             var baseUsername = email.Split('@')[0];
@@ -427,7 +539,9 @@ namespace MOS.ExcelGrading.Core.Services
                 TeacherApprovalRequestedAt = user.TeacherApprovalRequestedAt,
                 TeacherApprovalReviewedAt = user.TeacherApprovalReviewedAt,
                 TeacherApprovalReviewedBy = user.TeacherApprovalReviewedBy,
-                TeacherApprovalNote = user.TeacherApprovalNote
+                TeacherApprovalNote = user.TeacherApprovalNote,
+                HasPassword = user.CheckHasPassword(),
+                HasGoogleLinked = user.CheckHasGoogleLinked()
             };
         }
 

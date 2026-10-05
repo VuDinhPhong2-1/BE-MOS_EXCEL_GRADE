@@ -14,7 +14,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
         Task<List<PublicPortalStudentDto>> GetPublicStudentsAsync(string token, string classId);
         Task<List<PublicPortalStudentSubmissionDto>> GetStudentSubmissionsAsync(string token, string classId, string studentId);
         Task<PublicPortalSubmitResult> GradePreviewAsync(string token, string classId, string studentId, string assignmentId, IFormFile file);
-        Task<PublicPortalSubmitResult> GradeAndSubmitAsync(string token, string classId, string studentId, string assignmentId, IFormFile file, string? ipAddress, string? deviceId, string? userAgent);
+        Task<PublicPortalSubmitResult> GradeAndSubmitAsync(string token, string classId, string studentId, string assignmentId, IFormFile file, string? ipAddress, string? sessionId, string? userAgent);
         Task<List<SubmissionLeaderboardItem>> GetLeaderboardAsync(string token, string? classId = null, string? assignmentId = null);
         Task<List<SubmissionAlertResponse>> GetAlertsAsync(string portalId, bool includeDismissed = false);
         Task<int> GetUnreadAlertCountAsync(string portalId);

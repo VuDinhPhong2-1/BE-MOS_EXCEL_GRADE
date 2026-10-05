@@ -133,6 +133,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public double? ScoreValue { get; set; }
         public double MaxScore { get; set; }
         public string? IpAddress { get; set; }
+        public string? SessionId { get; set; }
         public string? FileHash { get; set; }
         public string? FileName { get; set; }
         public long? FileSizeBytes { get; set; }
@@ -166,6 +167,7 @@ namespace MOS.ExcelGrading.Core.DTOs
         public string? AssignmentName { get; set; }
         public string? FileName { get; set; }
         public string? IpAddress { get; set; }
+        public string? SessionId { get; set; }
         public double? ScoreValue { get; set; }
         public double? MaxScore { get; set; }
         public DateTime? SubmittedAt { get; set; }

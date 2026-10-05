@@ -108,6 +108,9 @@ namespace MOS.ExcelGrading.Core.Models
         [BsonElement("ipAddress")]
         public string? IpAddress { get; set; }
 
+        [BsonElement("sessionId")]
+        public string? SessionId { get; set; }
+
         [BsonElement("deviceId")]
         public string? DeviceId { get; set; }
 

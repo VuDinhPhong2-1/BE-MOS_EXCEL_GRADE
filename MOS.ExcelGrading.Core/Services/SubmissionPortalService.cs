@@ -237,7 +237,7 @@ namespace MOS.ExcelGrading.Core.Services
             };
         }
 
-        public async Task<PublicPortalSubmitResult> GradeAndSubmitAsync(string token, string classId, string studentId, string assignmentId, IFormFile file, string? ipAddress, string? deviceId, string? userAgent)
+        public async Task<PublicPortalSubmitResult> GradeAndSubmitAsync(string token, string classId, string studentId, string assignmentId, IFormFile file, string? ipAddress, string? sessionId, string? userAgent)
         {
             var portal = await RequireOpenPortalAsync(token, validateTime: true);
             var grading = await GradeSubmissionFileAsync(portal, classId, studentId, assignmentId, file);
@@ -267,6 +267,7 @@ namespace MOS.ExcelGrading.Core.Services
                 }, portal.CreatedBy ?? ObjectId.Empty.ToString());
             }
 
+            var normalizedSession = NormalizeSessionId(sessionId);
             var log = new SubmissionLog
             {
                 PortalId = portal.Id,
@@ -276,7 +277,8 @@ namespace MOS.ExcelGrading.Core.Services
                 ScoreValue = grading.ScoreValue,
                 MaxScore = grading.MaxScore,
                 IpAddress = ipAddress,
-                DeviceId = NormalizeDeviceId(deviceId),
+                SessionId = normalizedSession,
+                DeviceId = normalizedSession,
                 UserAgent = userAgent,
                 FileHash = hash,
                 FileName = file.FileName,
@@ -463,6 +465,7 @@ namespace MOS.ExcelGrading.Core.Services
                 ScoreValue = l.ScoreValue,
                 MaxScore = l.MaxScore,
                 IpAddress = l.IpAddress,
+                SessionId = l.SessionId ?? l.DeviceId,
                 FileHash = l.FileHash,
                 FileName = l.FileName,
                 FileSizeBytes = l.FileSizeBytes,
@@ -475,14 +478,27 @@ namespace MOS.ExcelGrading.Core.Services
         {
             var tags = new List<string>();
             var now = current.SubmittedAt;
-            if (!string.IsNullOrWhiteSpace(current.DeviceId))
+            var effectiveSessionId = current.SessionId ?? current.DeviceId;
+            if (!string.IsNullOrWhiteSpace(effectiveSessionId))
             {
-                var sameDeviceSubmissions = await _logs.Find(l => l.PortalId == portal.Id && l.DeviceId == current.DeviceId && l.StudentId != current.StudentId).ToListAsync();
-                var studentIds = sameDeviceSubmissions.Select(l => l.StudentId).Append(current.StudentId).Distinct().ToList();
+                var sameSessionSubmissions = await _logs.Find(l =>
+                    l.PortalId == portal.Id &&
+                    (l.SessionId == effectiveSessionId || l.DeviceId == effectiveSessionId) &&
+                    l.StudentId != current.StudentId
+                ).ToListAsync();
+
+                var studentIds = sameSessionSubmissions.Select(l => l.StudentId).Append(current.StudentId).Distinct().ToList();
                 if (studentIds.Count >= 2)
                 {
-                    tags.Add("SameDeviceMultipleStudents");
-                    await CreateAlertAsync(portal.Id, "SameDeviceMultipleStudents", "High", $"Một máy đã nộp bài cho {studentIds.Count} học sinh khác nhau trong link nộp bài này.", studentIds, sameDeviceSubmissions.Select(l => l.Id).Append(current.Id).Distinct().ToList());
+                    tags.Add("SameSessionMultipleStudents");
+                    await CreateAlertAsync(
+                        portal.Id,
+                        "SameSessionMultipleStudents",
+                        "High",
+                        $"Phát hiện nộp hộ bài: Cùng một phiên làm bài (Session) đã nộp cho {studentIds.Count} học sinh khác nhau trong link này.",
+                        studentIds,
+                        sameSessionSubmissions.Select(l => l.Id).Append(current.Id).Distinct().ToList()
+                    );
                 }
             }
 
@@ -516,9 +532,13 @@ namespace MOS.ExcelGrading.Core.Services
         private async Task CreateAlertAsync(string portalId, string type, string severity, string message, List<string> studentIds, List<string> logIds)
         {
             var sortedStudents = studentIds.OrderBy(id => id).ToList();
-            var existing = await _alerts.Find(a => a.PortalId == portalId && a.AlertType == type && !a.IsDismissed)
-                .SortByDescending(a => a.CreatedAt)
-                .FirstOrDefaultAsync();
+            var existing = await _alerts.Find(a =>
+                a.PortalId == portalId &&
+                (a.AlertType == type || (type == "SameSessionMultipleStudents" && a.AlertType == "SameDeviceMultipleStudents")) &&
+                !a.IsDismissed
+            )
+            .SortByDescending(a => a.CreatedAt)
+            .FirstOrDefaultAsync();
 
             if (existing != null && existing.InvolvedStudentIds.OrderBy(id => id).SequenceEqual(sortedStudents))
             {
@@ -526,6 +546,8 @@ namespace MOS.ExcelGrading.Core.Services
                 var update = Builders<SubmissionAlert>.Update
                     .Inc(a => a.Occurrences, 1)
                     .Set(a => a.LatestAt, DateTime.UtcNow)
+                    .Set(a => a.AlertType, type)
+                    .Set(a => a.Severity, severity)
                     .Set(a => a.Message, message)
                     .Set(a => a.InvolvedSubmissionLogIds, combinedLogs)
                     .Set(a => a.IsRead, false);
@@ -547,12 +569,14 @@ namespace MOS.ExcelGrading.Core.Services
             });
         }
 
-        private static string? NormalizeDeviceId(string? deviceId)
+        private static string? NormalizeSessionId(string? sessionId)
         {
-            if (string.IsNullOrWhiteSpace(deviceId)) return null;
-            var normalized = deviceId.Trim();
+            if (string.IsNullOrWhiteSpace(sessionId)) return null;
+            var normalized = sessionId.Trim();
             return normalized.Length <= 100 ? normalized : null;
         }
+
+        private static string? NormalizeDeviceId(string? deviceId) => NormalizeSessionId(deviceId);
 
         private async Task<bool> ShouldPersistScoreAsync(SubmissionPortal portal, string studentId, string assignmentId, double scoreValue)
         {
@@ -745,6 +769,7 @@ namespace MOS.ExcelGrading.Core.Services
                     AssignmentName = assignment?.Name,
                     FileName = latestLog?.FileName,
                     IpAddress = latestLog?.IpAddress,
+                    SessionId = latestLog?.SessionId ?? latestLog?.DeviceId,
                     ScoreValue = latestLog?.ScoreValue,
                     MaxScore = latestLog?.MaxScore,
                     SubmittedAt = latestLog?.SubmittedAt
@@ -765,7 +790,10 @@ namespace MOS.ExcelGrading.Core.Services
             foreach (var alert in rawAlerts)
             {
                 var sortedStudents = alert.InvolvedStudentIds.OrderBy(id => id).ToList();
-                var key = $"{alert.AlertType}:{string.Join(",", sortedStudents)}";
+                var alertTypeKey = alert.AlertType is "SameSessionMultipleStudents" or "SameDeviceMultipleStudents"
+                    ? "SameSessionMultipleStudents"
+                    : alert.AlertType;
+                var key = $"{alertTypeKey}:{string.Join(",", sortedStudents)}";
 
                 if (!groupDict.TryGetValue(key, out var existing))
                 {

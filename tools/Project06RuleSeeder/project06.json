@@ -40,122 +40,67 @@
       "taskId": "P06-T2",
       "taskName": "Trên trang tính Qtr 1, trong bảng Table1, tại cột Net, nhập công thức tính hiệu số giữa Total và Commission bằng cấu trúc tham chiếu cột.",
       "maxScore": 167.0,
-      "conditions": [
-        {
-          "conditionId": "C06-T2-1",
-          "score": 167.0,
-          "sourceFile": "xl/tables/table1.xml",
-          "compareMode": "xmlContainsNormalized",
-          "matchPolicy": "any",
-          "expectedVariants": [
-            {
-              "expectedValues": [
-                "[@Total]-[@Commission]"
-              ]
-            },
-            {
-              "expectedValues": [
-                "[@Total] - [@Commission]"
-              ]
-            },
-            {
-              "expectedValues": [
-                "=[@Total]-[@Commission]"
-              ]
-            },
-            {
-              "expectedValues": [
-                "=[@Total] - [@Commission]"
-              ]
-            }
-          ],
-          "ignoreAttributes": [],
-          "feedback": {
-            "successDetail": "Đã nhập đúng công thức tính toán cho cột Net (=[@Total]-[@Commission]) trong bảng Table1 trên trang tính 'Qtr 1'.",
-            "errorMessage": "Công thức tại cột 'Net' trên bảng Table1 chưa chính xác hoặc chưa dùng đúng tham chiếu cột cấu trúc '=[@Total]-[@Commission]'.",
-            "fixAction": "Tại ô đầu tiên của cột Net trong bảng Table1 trên trang tính 'Qtr 1', nhập công thức '=[@Total]-[@Commission]' rồi nhấn Enter."
-          },
-          "stopTaskIfFailed": false
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelTableColumnFormula",
+        "score": 167.0,
+        "feedback": {
+          "successDetail": "Đã nhập đúng công thức tính toán cho cột Net (=[@Total]-[@Commission]) trong bảng Table1 trên trang tính 'Qtr 1'.",
+          "errorMessage": "Công thức tại cột 'Net' trên bảng Table1 chưa chính xác hoặc chưa dùng đúng tham chiếu cột cấu trúc '=[@Total]-[@Commission]'.",
+          "fixAction": "Tại ô đầu tiên của cột Net trong bảng Table1 trên trang tính 'Qtr 1', nhập công thức '=[@Total]-[@Commission]' rồi nhấn Enter."
+        },
+        "excelTableColumnFormulaConfig": {
+          "worksheetName": "Qtr 1",
+          "tableName": "Table1",
+          "columnName": "Net",
+          "expectedFormula": "=[@Total]-[@Commission]",
+          "requiredReferences": [
+            "Total",
+            "Commission"
+          ]
         }
-      ]
+      }
     },
     {
       "taskId": "P06-T3",
       "taskName": "Trên trang tính Qtr 2, tạo một biểu đồ 3-D Clustered Bar (Bar3DChart) hiển thị dữ liệu quý 2.",
       "maxScore": 167.0,
-      "conditions": [
-        {
-          "conditionId": "C06-T3-1",
-          "score": 167.0,
-          "sourceFile": "xl/charts/chart1.xml",
-          "compareMode": "xmlContainsNormalized",
-          "matchPolicy": "any",
-          "expectedVariants": [
-            {
-              "expectedValues": [
-                "<c:bar3DChart"
-              ]
-            },
-            {
-              "expectedValues": [
-                "<bar3DChart"
-              ]
-            }
-          ],
-          "ignoreAttributes": [],
-          "feedback": {
-            "successDetail": "Đã tạo thành công biểu đồ 3-D Clustered Bar (Bar3DChart) trên trang tính 'Qtr 2'.",
-            "errorMessage": "Chưa tìm thấy biểu đồ 3-D Clustered Bar trên trang tính 'Qtr 2' hoặc biểu đồ chưa đúng định dạng 3D Bar.",
-            "fixAction": "Chọn vùng dữ liệu trên trang tính 'Qtr 2' -> vào thẻ Insert -> nhóm Charts -> chọn Insert Column or Bar Chart -> chọn 3-D Bar -> chọn 3-D Clustered Bar."
-          },
-          "stopTaskIfFailed": false
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelChartType",
+        "score": 167.0,
+        "feedback": {
+          "successDetail": "Đã tạo thành công biểu đồ 3-D Clustered Bar (Bar3DChart) trên trang tính 'Qtr 2'.",
+          "errorMessage": "Chưa tìm thấy biểu đồ 3-D Clustered Bar trên trang tính 'Qtr 2' hoặc biểu đồ chưa đúng định dạng 3D Bar.",
+          "fixAction": "Chọn vùng dữ liệu trên trang tính 'Qtr 2' -> vào thẻ Insert -> nhóm Charts -> chọn Insert Column or Bar Chart -> chọn 3-D Bar -> chọn 3-D Clustered Bar."
+        },
+        "excelChartTypeConfig": {
+          "worksheetName": "Qtr 2",
+          "expectedChartType": "3-D Clustered Bar",
+          "barDir": "bar",
+          "grouping": "clustered"
         }
-      ]
+      }
     },
     {
       "taskId": "P06-T4",
       "taskName": "Trên trang tính Qtr 2, áp dụng Style 7 và đổi màu sang Monochromatic Palette 1 cho biểu đồ.",
       "maxScore": 167.0,
-      "conditions": [
-        {
-          "conditionId": "C06-T4-1",
-          "score": 67.0,
-          "sourceFile": "xl/charts/colors1.xml",
-          "compareMode": "xmlContainsNormalized",
-          "matchPolicy": "any",
-          "expectedVariants": [
-            {
-              "expectedValues": [
-                "id=\"1\""
-              ]
-            },
-            {
-              "expectedValues": [
-                "colorStyle id=\"1\""
-              ]
-            }
-          ],
-          "ignoreAttributes": [],
-          "feedback": {
-            "successDetail": "Đã đổi màu biểu đồ sang Monochromatic Palette 1 trên trang tính 'Qtr 2'.",
-            "errorMessage": "Biểu đồ chưa áp dụng đúng bảng màu Monochromatic Palette 1.",
-            "fixAction": "Chọn biểu đồ trên trang tính 'Qtr 2' -> vào thẻ Chart Design -> chọn Change Colors -> tại mục Monochromatic chọn Palette 1."
-          },
-          "stopTaskIfFailed": false
-        }
-      ],
+      "conditions": [],
       "specialCondition": {
         "type": "excelChartStyle",
-        "score": 100.0,
+        "score": 167.0,
         "feedback": {
-          "successDetail": "Đã áp dụng thành công Chart Style 7 cho biểu đồ trên trang tính 'Qtr 2'.",
-          "errorMessage": "Biểu đồ trên trang tính 'Qtr 2' chưa áp dụng đúng Style 7.",
-          "fixAction": "Chọn biểu đồ trên trang tính 'Qtr 2' -> vào thẻ Chart Design -> tại nhóm Chart Styles chọn Style 7."
+          "successDetail": "Đã áp dụng thành công Chart Style 7 và đổi màu biểu đồ sang Monochromatic Palette 1 trên trang tính 'Qtr 2'.",
+          "errorMessage": "Biểu đồ trên trang tính 'Qtr 2' chưa áp dụng đúng Style 7 hoặc chưa đổi màu sang Monochromatic Palette 1.",
+          "fixAction": "Chọn biểu đồ trên trang tính 'Qtr 2' -> vào thẻ Chart Design -> tại nhóm Chart Styles chọn Style 7 -> chọn Change Colors -> tại mục Monochromatic chọn Palette 1."
         },
         "excelChartStyleConfig": {
           "chartSourceFile": "xl/charts/chart1.xml",
           "styleSourceFile": "xl/charts/style1.xml",
-          "styleId": 7
+          "styleId": 7,
+          "colorStyleSourceFile": "xl/charts/colors1.xml",
+          "colorStyleId": 10
         }
       }
     },
@@ -163,77 +108,51 @@
       "taskId": "P06-T5",
       "taskName": "Trên trang tính Bonus, trong bảng BonusTable, tại cột Employee ID, nhập công thức lấy 4 ký tự cuối cùng của cột ID.",
       "maxScore": 166.0,
-      "conditions": [
-        {
-          "conditionId": "C06-T5-1",
-          "score": 166.0,
-          "sourceFile": "xl/tables/table2.xml",
-          "compareMode": "xmlContainsNormalized",
-          "matchPolicy": "any",
-          "expectedVariants": [
-            {
-              "expectedValues": [
-                "RIGHT([@ID], 4)"
-              ]
-            },
-            {
-              "expectedValues": [
-                "RIGHT([@ID],4)"
-              ]
-            },
-            {
-              "expectedValues": [
-                "=RIGHT([@ID], 4)"
-              ]
-            },
-            {
-              "expectedValues": [
-                "=RIGHT([@ID],4)"
-              ]
-            }
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelTableColumnFormula",
+        "score": 166.0,
+        "feedback": {
+          "successDetail": "Đã nhập đúng công thức =RIGHT([@ID], 4) cho cột Employee ID trên bảng 'BonusTable' thuộc trang tính 'Bonus'.",
+          "errorMessage": "Công thức tại cột Employee ID trên bảng 'BonusTable' trang tính 'Bonus' chưa đúng, chưa lấy đúng 4 ký tự cuối bằng hàm RIGHT([@ID], 4).",
+          "fixAction": "Tại ô đầu tiên của cột Employee ID trên bảng 'BonusTable' thuộc trang tính 'Bonus', nhập công thức '=RIGHT([@ID], 4)' rồi nhấn Enter."
+        },
+        "excelTableColumnFormulaConfig": {
+          "worksheetName": "Bonus",
+          "tableName": "BonusTable",
+          "columnName": "Employee ID",
+          "expectedFormula": "=RIGHT([@ID], 4)",
+          "requiredReferences": [
+            "ID"
           ],
-          "ignoreAttributes": [],
-          "feedback": {
-            "successDetail": "Đã nhập đúng công thức =RIGHT([@ID], 4) cho cột Employee ID trên bảng 'BonusTable' thuộc trang tính 'Bonus'.",
-            "errorMessage": "Công thức tại cột Employee ID trên bảng 'BonusTable' trang tính 'Bonus' chưa đúng, chưa lấy đúng 4 ký tự cuối bằng hàm RIGHT([@ID], 4).",
-            "fixAction": "Tại ô đầu tiên của cột Employee ID trên bảng 'BonusTable' thuộc trang tính 'Bonus', nhập công thức '=RIGHT([@ID], 4)' rồi nhấn Enter."
-          },
-          "stopTaskIfFailed": false
+          "requiredFunctions": [
+            "RIGHT"
+          ]
         }
-      ]
+      }
     },
     {
       "taskId": "P06-T6",
       "taskName": "Đổi màu tab của trang tính Qtr 1 thành Blue (#0070C0).",
       "maxScore": 166.0,
-      "conditions": [
-        {
-          "conditionId": "C06-T6-1",
-          "score": 166.0,
-          "sourceFile": "xl/worksheets/sheet1.xml",
-          "compareMode": "xmlContainsNormalized",
-          "matchPolicy": "any",
-          "expectedVariants": [
-            {
-              "expectedValues": [
-                "tabColor rgb=\"FF0070C0\""
-              ]
-            },
-            {
-              "expectedValues": [
-                "tabColor rgb=\"0070C0\""
-              ]
-            }
-          ],
-          "ignoreAttributes": [],
-          "feedback": {
-            "successDetail": "Đã đổi màu tab trang tính 'Qtr 1' thành màu Blue (#0070C0).",
-            "errorMessage": "Màu tab trang tính 'Qtr 1' chưa đúng màu Blue (#0070C0).",
-            "fixAction": "Nhấp chuột phải vào thẻ tên trang tính 'Qtr 1' -> chọn Tab Color -> chọn màu Blue (#0070C0)."
-          },
-          "stopTaskIfFailed": false
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelWorksheetTabColor",
+        "score": 166.0,
+        "feedback": {
+          "successDetail": "Đã đổi màu tab trang tính 'Qtr 1' thành màu Blue (#0070C0).",
+          "errorMessage": "Màu tab trang tính 'Qtr 1' chưa đúng màu Blue (#0070C0).",
+          "fixAction": "Nhấp chuột phải vào thẻ tên trang tính 'Qtr 1' -> chọn Tab Color -> chọn màu Blue (#0070C0)."
+        },
+        "excelWorksheetTabColorConfig": {
+          "worksheetName": "Qtr 1",
+          "expectedColor": "#0070C0",
+          "allowedColors": [
+            "0070C0",
+            "FF0070C0"
+          ]
         }
-      ]
+      }
     }
   ]
 }

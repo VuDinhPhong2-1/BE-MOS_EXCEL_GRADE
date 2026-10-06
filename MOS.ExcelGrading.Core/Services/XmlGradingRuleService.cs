@@ -1585,6 +1585,11 @@ namespace MOS.ExcelGrading.Core.Services
                         {
                             config.StyleId = null;
                         }
+                        config.ColorStyleSourceFile = string.IsNullOrWhiteSpace(config.ColorStyleSourceFile) ? null : NormalizeSourceFile(config.ColorStyleSourceFile);
+                        if (config.ColorStyleId <= 0)
+                        {
+                            config.ColorStyleId = null;
+                        }
                     }
 
                     if (task.SpecialCondition.ExcelTextReplacementConfig != null)
@@ -1758,6 +1763,54 @@ namespace MOS.ExcelGrading.Core.Services
                         config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
                         config.ExpectedRange = string.IsNullOrWhiteSpace(config.ExpectedRange) ? null : NormalizeExcelFormulaReference(config.ExpectedRange);
                         config.RequireExactRange ??= true;
+                    }
+
+                    if (task.SpecialCondition.ExcelTableColumnFormulaConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelTableColumnFormulaConfig;
+                        config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
+                        config.TableName = string.IsNullOrWhiteSpace(config.TableName) ? null : config.TableName.Trim();
+                        config.SourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? null : NormalizeSourceFile(config.SourceFile);
+                        config.ColumnName = string.IsNullOrWhiteSpace(config.ColumnName) ? null : config.ColumnName.Trim();
+                        config.ExpectedFormula = string.IsNullOrWhiteSpace(config.ExpectedFormula) ? null : NormalizeExcelFormulaText(config.ExpectedFormula);
+                        config.RequiredReferences = config.RequiredReferences?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(value => value.Trim())
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList() ?? new List<string>();
+                        config.RequiredFunctions = config.RequiredFunctions?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(value => value.Trim().TrimEnd('(').ToUpperInvariant())
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList() ?? new List<string>();
+                        config.RequiredFormulaFragments = config.RequiredFormulaFragments?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(value => value.Trim())
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList() ?? new List<string>();
+                    }
+
+                    if (task.SpecialCondition.ExcelChartTypeConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelChartTypeConfig;
+                        config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
+                        config.ChartSourceFile = string.IsNullOrWhiteSpace(config.ChartSourceFile) ? null : NormalizeSourceFile(config.ChartSourceFile);
+                        config.ExpectedChartType = string.IsNullOrWhiteSpace(config.ExpectedChartType) ? null : config.ExpectedChartType.Trim();
+                        config.Grouping = string.IsNullOrWhiteSpace(config.Grouping) ? null : config.Grouping.Trim();
+                        config.BarDir = string.IsNullOrWhiteSpace(config.BarDir) ? null : config.BarDir.Trim();
+                    }
+
+                    if (task.SpecialCondition.ExcelWorksheetTabColorConfig != null)
+                    {
+                        var config = task.SpecialCondition.ExcelWorksheetTabColorConfig;
+                        config.WorksheetName = string.IsNullOrWhiteSpace(config.WorksheetName) ? null : config.WorksheetName.Trim();
+                        config.SourceFile = string.IsNullOrWhiteSpace(config.SourceFile) ? null : NormalizeSourceFile(config.SourceFile);
+                        config.ExpectedColor = string.IsNullOrWhiteSpace(config.ExpectedColor) ? null : config.ExpectedColor.Trim();
+                        config.AllowedColors = config.AllowedColors?
+                            .Where(value => !string.IsNullOrWhiteSpace(value))
+                            .Select(value => value.Trim())
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList() ?? new List<string>();
                     }
                 }
             }
@@ -1981,7 +2034,10 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelMultiColumnSort, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelFreezePanes, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelDocumentProperty, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelPrintArea, StringComparison.OrdinalIgnoreCase),
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelPrintArea, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableColumnFormula, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelChartType, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelWorksheetTabColor, StringComparison.OrdinalIgnoreCase),
                 "ppt" => false,
                 "powerpoint" => false,
                 _ => false
@@ -2657,6 +2713,15 @@ namespace MOS.ExcelGrading.Core.Services
                     {
                         AddXmlPartIfProvided(specialCondition.ExcelChartStyleConfig.StyleSourceFile);
                     }
+
+                    if (!string.IsNullOrWhiteSpace(specialCondition.ExcelChartStyleConfig?.ColorStyleSourceFile))
+                    {
+                        AddXmlPartIfProvided(specialCondition.ExcelChartStyleConfig.ColorStyleSourceFile);
+                    }
+                    else
+                    {
+                        AddXmlPrefix("xl/charts");
+                    }
                     continue;
                 }
 
@@ -2748,6 +2813,35 @@ namespace MOS.ExcelGrading.Core.Services
                 if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelPrintArea, StringComparison.OrdinalIgnoreCase))
                 {
                     AddExcelWorkbookParts();
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableColumnFormula, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorkbookParts();
+                    AddExcelWorksheetParts(specialCondition.ExcelTableColumnFormulaConfig?.SourceFile);
+                    AddXmlPrefix("xl/tables");
+                    AddXmlPart("xl/sharedStrings.xml", "xl/sharedStrings.xml");
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelChartType, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorkbookParts();
+                    AddExcelWorksheetParts(null);
+                    AddXmlPrefix("xl/drawings");
+                    AddXmlPrefix("xl/charts");
+                    if (!string.IsNullOrWhiteSpace(specialCondition.ExcelChartTypeConfig?.ChartSourceFile))
+                    {
+                        AddXmlPartIfProvided(specialCondition.ExcelChartTypeConfig.ChartSourceFile);
+                    }
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelWorksheetTabColor, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorkbookParts();
+                    AddExcelWorksheetParts(specialCondition.ExcelWorksheetTabColorConfig?.SourceFile);
                     continue;
                 }
             }
@@ -3187,6 +3281,21 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelPrintArea, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateExcelPrintArea(specialCondition.ExcelPrintAreaConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableColumnFormula, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelTableColumnFormula(specialCondition.ExcelTableColumnFormulaConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelChartType, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelChartType(specialCondition.ExcelChartTypeConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelWorksheetTabColor, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelWorksheetTabColor(specialCondition.ExcelWorksheetTabColorConfig, package);
             }
 
             return new SpecialConditionEvalOutcome
@@ -3697,54 +3806,120 @@ namespace MOS.ExcelGrading.Core.Services
 
             if (config == null)
             {
-                return Fail("Chua cau hinh Excel Chart Style (excelChartStyleConfig trong).");
+                return Fail("Chưa cấu hình Excel Chart Style (excelChartStyleConfig trống).");
             }
 
-            if (!config.StyleId.HasValue || config.StyleId.Value <= 0)
-            {
-                return Fail("excelChartStyleConfig.styleId phai lon hon 0.");
-            }
+            var stylePassed = false;
+            string? matchedStyleMsg = null;
 
-            var styleParts = ResolveExcelChartStyleParts(package, config.ChartSourceFile, config.StyleSourceFile);
-            foreach (var stylePath in styleParts)
+            if (config.StyleId.HasValue && config.StyleId.Value > 0)
             {
-                if (!package.TryGetXmlDocument(stylePath, out var styleDocument, out _))
+                var styleParts = ResolveExcelChartStyleParts(package, config.ChartSourceFile, config.StyleSourceFile);
+                foreach (var stylePath in styleParts)
                 {
-                    continue;
-                }
-
-                if (int.TryParse(styleDocument.Root?.Attribute("id")?.Value, out var styleId)
-                    && styleId == config.StyleId.Value)
-                {
-                    return new SpecialConditionEvalOutcome
+                    if (!package.TryGetXmlDocument(stylePath, out var styleDocument, out _))
                     {
-                        IsPassed = true,
-                        Message = $"Chart style {stylePath} co id {config.StyleId.Value}."
-                    };
-                }
-            }
+                        continue;
+                    }
 
-            var chartParts = ResolveExcelChartParts(package, config.ChartSourceFile);
-            foreach (var chartPath in chartParts)
-            {
-                if (!package.TryGetXmlDocument(chartPath, out var chartDocument, out _))
-                {
-                    continue;
-                }
-
-                XNamespace c = "http://schemas.openxmlformats.org/drawingml/2006/chart";
-                if (chartDocument.Descendants(c + "style").Any(item =>
-                    int.TryParse(item.Attribute("val")?.Value, out var styleId) && styleId == config.StyleId.Value))
-                {
-                    return new SpecialConditionEvalOutcome
+                    if (int.TryParse(styleDocument.Root?.Attribute("id")?.Value, out var styleId)
+                        && styleId == config.StyleId.Value)
                     {
-                        IsPassed = true,
-                        Message = $"Chart {chartPath} co style val {config.StyleId.Value}."
-                    };
+                        stylePassed = true;
+                        matchedStyleMsg = $"Chart style {stylePath} có id {config.StyleId.Value}.";
+                        break;
+                    }
+                }
+
+                if (!stylePassed)
+                {
+                    var chartParts = ResolveExcelChartParts(package, config.ChartSourceFile);
+                    foreach (var chartPath in chartParts)
+                    {
+                        if (!package.TryGetXmlDocument(chartPath, out var chartDocument, out _))
+                        {
+                            continue;
+                        }
+
+                        XNamespace c = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+                        if (chartDocument.Descendants(c + "style").Any(item =>
+                            int.TryParse(item.Attribute("val")?.Value, out var styleId) && styleId == config.StyleId.Value))
+                        {
+                            stylePassed = true;
+                            matchedStyleMsg = $"Chart {chartPath} có style val {config.StyleId.Value}.";
+                            break;
+                        }
+                    }
+                }
+
+                if (!stylePassed)
+                {
+                    return Fail($"Không tìm thấy chart style id {config.StyleId.Value}.");
                 }
             }
 
-            return Fail($"Khong tim thay chart style id {config.StyleId.Value}.");
+            if (config.ColorStyleId.HasValue || config.RequireColorStyle == true || !string.IsNullOrWhiteSpace(config.ColorStyleSourceFile))
+            {
+                var colorParts = ResolveExcelChartColorParts(package, config.ChartSourceFile, config.ColorStyleSourceFile);
+                if (colorParts.Count == 0)
+                {
+                    return Fail("Không tìm thấy file định kiểu màu sắc biểu đồ (xl/charts/colors*.xml).");
+                }
+
+                var matchedColor = false;
+                foreach (var colorPath in colorParts)
+                {
+                    if (!package.TryGetXmlDocument(colorPath, out var colorDocument, out _) || colorDocument.Root == null)
+                    {
+                        continue;
+                    }
+
+                    if (config.ColorStyleId.HasValue)
+                    {
+                        if (int.TryParse(colorDocument.Root.Attribute("id")?.Value, out var colorId) && colorId == config.ColorStyleId.Value)
+                        {
+                            matchedColor = true;
+                            break;
+                        }
+                        if (colorDocument.Root.Descendants().Any(e => int.TryParse(e.Attribute("id")?.Value, out var id) && id == config.ColorStyleId.Value))
+                        {
+                            matchedColor = true;
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        matchedColor = true;
+                        break;
+                    }
+                }
+
+                if (!matchedColor)
+                {
+                    return Fail(config.ColorStyleId.HasValue
+                        ? $"Không tìm thấy bảng màu biểu đồ với id {config.ColorStyleId.Value}."
+                        : "Biểu đồ chưa áp dụng đúng định dạng màu sắc theo yêu cầu.");
+                }
+
+                return new SpecialConditionEvalOutcome
+                {
+                    IsPassed = true,
+                    Message = matchedStyleMsg != null
+                        ? $"{matchedStyleMsg} Bảng màu biểu đồ khớp yêu cầu."
+                        : "Biểu đồ đã áp dụng đúng màu sắc yêu cầu."
+                };
+            }
+
+            if (stylePassed)
+            {
+                return new SpecialConditionEvalOutcome
+                {
+                    IsPassed = true,
+                    Message = matchedStyleMsg ?? $"Chart style id {config.StyleId!.Value} hợp lệ."
+                };
+            }
+
+            return Fail("Chưa cấu hình styleId hoặc colorStyleId.");
         }
 
         private static SpecialConditionEvalOutcome EvaluateExcelTextReplacement(
@@ -4580,6 +4755,90 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return styleParts.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static List<string> ResolveExcelChartColorParts(
+            OfficePackage package,
+            string? chartSourceFile,
+            string? colorStyleSourceFile)
+        {
+            if (!string.IsNullOrWhiteSpace(colorStyleSourceFile))
+            {
+                var normalizedSource = NormalizeSourceFile(colorStyleSourceFile);
+                return package.XmlParts.ContainsKey(normalizedSource)
+                    ? new List<string> { normalizedSource }
+                    : new List<string>();
+            }
+
+            var colorParts = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var chartParts = ResolveExcelChartParts(package, chartSourceFile);
+
+            foreach (var chartPath in chartParts)
+            {
+                var relsPath = GetRelationshipPartPath(chartPath);
+                if (!package.TryGetRelationships(relsPath, out var relationships, out _))
+                {
+                    continue;
+                }
+
+                var baseFolder = GetPackageFolder(chartPath);
+                foreach (var target in relationships.Values)
+                {
+                    var normalizedTarget = NormalizeRelationshipTarget(baseFolder, target);
+                    if (normalizedTarget.StartsWith("xl/charts/colors", StringComparison.OrdinalIgnoreCase)
+                        && normalizedTarget.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+                        && package.XmlParts.ContainsKey(normalizedTarget))
+                    {
+                        colorParts.Add(normalizedTarget);
+                    }
+                }
+            }
+
+            foreach (var path in package.XmlParts.Keys.Where(path =>
+                path.StartsWith("xl/charts/colors", StringComparison.OrdinalIgnoreCase)
+                && path.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)))
+            {
+                colorParts.Add(path);
+            }
+
+            return colorParts.OrderBy(path => path, StringComparer.OrdinalIgnoreCase).ToList();
+        }
+
+        private static List<string> GetChartPartsForWorksheet(OfficePackage package, string worksheetPath)
+        {
+            var chartPaths = new List<string>();
+            var relsPath = GetRelationshipPartPath(worksheetPath);
+            if (!package.TryGetRelationships(relsPath, out var sheetRels, out _))
+            {
+                return chartPaths;
+            }
+
+            var baseFolder = GetPackageFolder(worksheetPath);
+            foreach (var relTarget in sheetRels.Values)
+            {
+                var normalizedTarget = NormalizeRelationshipTarget(baseFolder, relTarget);
+                if (normalizedTarget.StartsWith("xl/drawings/drawing", StringComparison.OrdinalIgnoreCase)
+                    && normalizedTarget.EndsWith(".xml", StringComparison.OrdinalIgnoreCase))
+                {
+                    var drawingRelsPath = GetRelationshipPartPath(normalizedTarget);
+                    if (package.TryGetRelationships(drawingRelsPath, out var drawingRels, out _))
+                    {
+                        var drawingFolder = GetPackageFolder(normalizedTarget);
+                        foreach (var chartRelTarget in drawingRels.Values)
+                        {
+                            var normalizedChartTarget = NormalizeRelationshipTarget(drawingFolder, chartRelTarget);
+                            if (normalizedChartTarget.StartsWith("xl/charts/chart", StringComparison.OrdinalIgnoreCase)
+                                && normalizedChartTarget.EndsWith(".xml", StringComparison.OrdinalIgnoreCase)
+                                && package.XmlParts.ContainsKey(normalizedChartTarget))
+                            {
+                                chartPaths.Add(normalizedChartTarget);
+                            }
+                        }
+                    }
+                }
+            }
+
+            return chartPaths.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         private static bool RangeListContains(string? sqref, string expectedRange)
@@ -5660,6 +5919,416 @@ namespace MOS.ExcelGrading.Core.Services
             }
 
             return PassSpecialCondition($"Worksheet '{config.WorksheetName}' đã đặt đúng Print Area.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelTableColumnFormula(
+            ExcelTableColumnFormulaConfig? config,
+            OfficePackage package)
+        {
+            if (config == null)
+            {
+                return FailSpecialCondition("Chưa cấu hình Excel Table Column Formula (excelTableColumnFormulaConfig trống).");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.ColumnName))
+            {
+                return FailSpecialCondition("excelTableColumnFormulaConfig.columnName không được để trống.");
+            }
+
+            var targetColumnName = config.ColumnName.Trim();
+            var tableParts = ResolveExcelTableParts(package, config.WorksheetName, config.SourceFile);
+            if (tableParts.Count == 0)
+            {
+                return FailSpecialCondition(string.IsNullOrWhiteSpace(config.WorksheetName)
+                    ? "Không tìm thấy bảng Excel nào trong file học sinh."
+                    : $"Không tìm thấy bảng Excel nào trên trang tính '{config.WorksheetName}'.");
+            }
+
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            XElement? matchedTable = null;
+            XElement? matchedColumn = null;
+
+            foreach (var tablePath in tableParts)
+            {
+                if (!package.TryGetXmlDocument(tablePath, out var tableDocument, out _) || tableDocument.Root == null)
+                {
+                    continue;
+                }
+
+                var root = tableDocument.Root;
+                if (!string.IsNullOrWhiteSpace(config.TableName))
+                {
+                    var tableName = root.Attribute("name")?.Value ?? root.Attribute("displayName")?.Value;
+                    if (!string.Equals(tableName, config.TableName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                }
+
+                var col = root.Descendants(x + "tableColumn")
+                    .FirstOrDefault(c => string.Equals(c.Attribute("name")?.Value, targetColumnName, StringComparison.OrdinalIgnoreCase));
+
+                if (col != null)
+                {
+                    matchedTable = root;
+                    matchedColumn = col;
+                    break;
+                }
+            }
+
+            if (matchedColumn == null)
+            {
+                var tableDesc = string.IsNullOrWhiteSpace(config.TableName) ? "bảng Excel" : $"bảng '{config.TableName}'";
+                return FailSpecialCondition($"Không tìm thấy cột '{targetColumnName}' trong {tableDesc}.");
+            }
+
+            var actualFormula = matchedColumn.Element(x + "calculatedColumnFormula")?.Value
+                ?? matchedColumn.Attribute("dataFormula")?.Value;
+
+            if (string.IsNullOrWhiteSpace(actualFormula))
+            {
+                actualFormula = ResolveFallbackFormulaFromWorksheet(package, config.WorksheetName, matchedTable, matchedColumn, targetColumnName, config.ExpectedFormula);
+            }
+
+            if (string.IsNullOrWhiteSpace(actualFormula))
+            {
+                return FailSpecialCondition($"Cột '{targetColumnName}' chưa có công thức tính toán.");
+            }
+
+            return ValidateTableFormulaValue(config, targetColumnName, matchedTable, actualFormula);
+        }
+
+        private static string? ResolveFallbackFormulaFromWorksheet(
+            OfficePackage package,
+            string? worksheetName,
+            XElement? matchedTable,
+            XElement matchedColumn,
+            string targetColumnName,
+            string? expectedFormula)
+        {
+            if (!TryResolveExcelWorksheet(package, worksheetName, null, out var wsPath, out _)
+                || !package.TryGetXmlDocument(wsPath, out var wsDoc, out _)
+                || wsDoc.Root == null)
+            {
+                return null;
+            }
+
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var allCols = matchedTable?.Descendants(x + "tableColumn").ToList() ?? new List<XElement>();
+            var colIndex = allCols.IndexOf(matchedColumn);
+            var tableRef = matchedTable?.Attribute("ref")?.Value;
+            if (colIndex >= 0 && !string.IsNullOrWhiteSpace(tableRef))
+            {
+                var parts = tableRef.Split(':');
+                if (parts.Length == 2)
+                {
+                    var startColMatch = Regex.Match(parts[0], "^[A-Z]+", RegexOptions.IgnoreCase);
+                    var startRowMatch = Regex.Match(parts[0], "[0-9]+$");
+                    if (startColMatch.Success && startRowMatch.Success)
+                    {
+                        var startColIdx = GetExcelColumnNumber(startColMatch.Value);
+                        var targetColIdx = startColIdx + colIndex;
+                        var targetColName = GetExcelColumnName(targetColIdx);
+                        var headerRow = int.Parse(startRowMatch.Value);
+                        var targetCell = $"{targetColName}{headerRow + 1}";
+
+                        var cellElement = wsDoc.Descendants(x + "c")
+                            .FirstOrDefault(c => string.Equals(c.Attribute("r")?.Value, targetCell, StringComparison.OrdinalIgnoreCase));
+                        var cellFormula = cellElement?.Element(x + "f")?.Value;
+                        if (!string.IsNullOrWhiteSpace(cellFormula))
+                        {
+                            return cellFormula;
+                        }
+                    }
+                }
+            }
+
+            var formulas = wsDoc.Descendants(x + "c")
+                .Elements(x + "f")
+                .Select(f => f.Value)
+                .Where(f => !string.IsNullOrWhiteSpace(f))
+                .ToList();
+
+            foreach (var f in formulas)
+            {
+                if (f.Contains(targetColumnName, StringComparison.OrdinalIgnoreCase)
+                    || (!string.IsNullOrWhiteSpace(expectedFormula) && f.Contains(expectedFormula.Trim('=', ' '), StringComparison.OrdinalIgnoreCase)))
+                {
+                    return f;
+                }
+            }
+
+            return null;
+        }
+
+        private static SpecialConditionEvalOutcome ValidateTableFormulaValue(
+            ExcelTableColumnFormulaConfig config,
+            string targetColumnName,
+            XElement? matchedTable,
+            string actualFormula)
+        {
+            var normalizedActual = NormalizeExcelFormulaText(actualFormula);
+
+            if (!string.IsNullOrWhiteSpace(config.ExpectedFormula))
+            {
+                var normalizedExpected = NormalizeExcelFormulaText(config.ExpectedFormula);
+                var matched = string.Equals(normalizedActual, normalizedExpected, StringComparison.OrdinalIgnoreCase);
+
+                if (!matched)
+                {
+                    var cleanActual = Regex.Replace(normalizedActual, @"\[@[^\]]+\]", m => m.Value.Replace("[@", "["))
+                        .Replace("[#THISROW],", string.Empty)
+                        .Replace("[#DATA],", string.Empty);
+                    var cleanExpected = Regex.Replace(normalizedExpected, @"\[@[^\]]+\]", m => m.Value.Replace("[@", "["))
+                        .Replace("[#THISROW],", string.Empty)
+                        .Replace("[#DATA],", string.Empty);
+                    matched = string.Equals(cleanActual, cleanExpected, StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (!matched)
+                {
+                    var stripActual = Regex.Replace(normalizedActual, @"[\[\]@]", string.Empty);
+                    var stripExpected = Regex.Replace(normalizedExpected, @"[\[\]@]", string.Empty);
+                    matched = string.Equals(stripActual, stripExpected, StringComparison.OrdinalIgnoreCase);
+                }
+
+                if (!matched)
+                {
+                    return FailSpecialCondition($"Công thức tại cột '{targetColumnName}' ({actualFormula}) chưa đúng với công thức yêu cầu ({config.ExpectedFormula}).");
+                }
+            }
+
+            if (config.RequiredReferences?.Count > 0)
+            {
+                foreach (var reference in config.RequiredReferences)
+                {
+                    if (string.IsNullOrWhiteSpace(reference)) continue;
+                    var cleanRef = reference.Trim().Trim('[', ']', '@');
+                    var stripActual = Regex.Replace(normalizedActual, @"[\[\]@]", string.Empty);
+                    if (!ExcelFormulaContainsName(stripActual, cleanRef) && !normalizedActual.Contains(cleanRef.ToUpperInvariant(), StringComparison.OrdinalIgnoreCase))
+                    {
+                        return FailSpecialCondition($"Công thức tại cột '{targetColumnName}' thiếu tham chiếu đến cột '{reference}'.");
+                    }
+                }
+            }
+
+            if (config.RequiredFunctions?.Count > 0)
+            {
+                foreach (var func in config.RequiredFunctions)
+                {
+                    if (string.IsNullOrWhiteSpace(func)) continue;
+                    if (!ExcelFormulaContainsFunction(normalizedActual, func))
+                    {
+                        return FailSpecialCondition($"Công thức tại cột '{targetColumnName}' phải sử dụng hàm {func.ToUpperInvariant()}.");
+                    }
+                }
+            }
+
+            if (config.RequiredFormulaFragments?.Count > 0)
+            {
+                foreach (var fragment in config.RequiredFormulaFragments)
+                {
+                    if (string.IsNullOrWhiteSpace(fragment)) continue;
+                    if (!ExcelFormulaContainsFragment(normalizedActual, fragment))
+                    {
+                        return FailSpecialCondition($"Công thức tại cột '{targetColumnName}' thiếu thành phần: '{fragment}'.");
+                    }
+                }
+            }
+
+            var tableNameDisplay = config.TableName ?? matchedTable?.Attribute("name")?.Value ?? "bảng";
+            return PassSpecialCondition($"Cột '{targetColumnName}' trong bảng '{tableNameDisplay}' đã được thiết lập đúng công thức.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelChartType(
+            ExcelChartTypeConfig? config,
+            OfficePackage package)
+        {
+            if (config == null)
+            {
+                return FailSpecialCondition("Chưa cấu hình loại biểu đồ Excel (excelChartTypeConfig trống).");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.ExpectedChartType))
+            {
+                return FailSpecialCondition("excelChartTypeConfig.expectedChartType không được để trống.");
+            }
+
+            var rawExpected = config.ExpectedChartType.Trim();
+            var targetTag = rawExpected;
+            string? targetGrouping = config.Grouping?.Trim().ToLowerInvariant();
+            string? targetBarDir = config.BarDir?.Trim().ToLowerInvariant();
+
+            if (rawExpected.Contains("3-D Clustered Bar", StringComparison.OrdinalIgnoreCase) || rawExpected.Contains("bar3DChart", StringComparison.OrdinalIgnoreCase))
+            {
+                targetTag = "bar3DChart";
+                targetBarDir ??= "bar";
+                targetGrouping ??= "clustered";
+            }
+            else if (rawExpected.Contains("3-D Clustered Column", StringComparison.OrdinalIgnoreCase))
+            {
+                targetTag = "bar3DChart";
+                targetBarDir ??= "col";
+                targetGrouping ??= "clustered";
+            }
+            else if (rawExpected.Contains("Clustered Bar", StringComparison.OrdinalIgnoreCase))
+            {
+                targetTag = "barChart";
+                targetBarDir ??= "bar";
+                targetGrouping ??= "clustered";
+            }
+            else if (rawExpected.Contains("Clustered Column", StringComparison.OrdinalIgnoreCase))
+            {
+                targetTag = "barChart";
+                targetBarDir ??= "col";
+                targetGrouping ??= "clustered";
+            }
+
+            var chartParts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(config.ChartSourceFile))
+            {
+                var norm = NormalizeSourceFile(config.ChartSourceFile);
+                if (package.XmlParts.ContainsKey(norm))
+                {
+                    chartParts.Add(norm);
+                }
+            }
+            else if (!string.IsNullOrWhiteSpace(config.WorksheetName)
+                && TryResolveExcelWorksheet(package, config.WorksheetName, null, out var wsPath, out _))
+            {
+                chartParts = GetChartPartsForWorksheet(package, wsPath);
+            }
+
+            if (chartParts.Count == 0)
+            {
+                chartParts = ResolveExcelChartParts(package, config.ChartSourceFile);
+            }
+
+            if (chartParts.Count == 0)
+            {
+                return FailSpecialCondition(string.IsNullOrWhiteSpace(config.WorksheetName)
+                    ? "Không tìm thấy biểu đồ trong file học sinh."
+                    : $"Không tìm thấy biểu đồ nào trên trang tính '{config.WorksheetName}'.");
+            }
+
+            XNamespace c = "http://schemas.openxmlformats.org/drawingml/2006/chart";
+            foreach (var chartPath in chartParts)
+            {
+                if (!package.TryGetXmlDocument(chartPath, out var chartDoc, out _) || chartDoc.Root == null)
+                {
+                    continue;
+                }
+
+                var plotArea = chartDoc.Descendants(c + "plotArea").FirstOrDefault();
+                if (plotArea == null)
+                {
+                    continue;
+                }
+
+                var chartElem = plotArea.Elements().FirstOrDefault(e => string.Equals(e.Name.LocalName, targetTag, StringComparison.OrdinalIgnoreCase));
+                if (chartElem == null)
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(targetBarDir))
+                {
+                    var barDirVal = chartElem.Element(c + "barDir")?.Attribute("val")?.Value;
+                    if (!string.Equals(barDirVal, targetBarDir, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                }
+
+                if (!string.IsNullOrWhiteSpace(targetGrouping))
+                {
+                    var groupingVal = chartElem.Element(c + "grouping")?.Attribute("val")?.Value;
+                    if (!string.Equals(groupingVal, targetGrouping, StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
+                }
+
+                return PassSpecialCondition($"Biểu đồ {chartPath} đã được tạo đúng loại {rawExpected}.");
+            }
+
+            var wsMsg = string.IsNullOrWhiteSpace(config.WorksheetName) ? string.Empty : $" trên trang tính '{config.WorksheetName}'";
+            return FailSpecialCondition($"Chưa tìm thấy biểu đồ loại {rawExpected}{wsMsg}.");
+        }
+
+        private static SpecialConditionEvalOutcome EvaluateExcelWorksheetTabColor(
+            ExcelWorksheetTabColorConfig? config,
+            OfficePackage package)
+        {
+            if (config == null)
+            {
+                return FailSpecialCondition("Chưa cấu hình màu tab trang tính (excelWorksheetTabColorConfig trống).");
+            }
+
+            if (!TryResolveExcelWorksheet(package, config.WorksheetName, config.SourceFile, out var worksheetPath, out var worksheetError))
+            {
+                return FailSpecialCondition(worksheetError);
+            }
+
+            if (!package.TryGetXmlDocument(worksheetPath, out var wsDoc, out _) || wsDoc.Root == null)
+            {
+                return FailSpecialCondition($"Không tìm thấy {worksheetPath} trong file học sinh.");
+            }
+
+            XNamespace x = "http://schemas.openxmlformats.org/spreadsheetml/2006/main";
+            var tabColorElem = wsDoc.Descendants(x + "tabColor").FirstOrDefault();
+            if (tabColorElem == null)
+            {
+                var sheetName = config.WorksheetName ?? Path.GetFileNameWithoutExtension(worksheetPath);
+                return FailSpecialCondition($"Trang tính '{sheetName}' chưa được thiết lập màu tab (tab color).");
+            }
+
+            var actualRgb = tabColorElem.Attribute("rgb")?.Value;
+            if (string.IsNullOrWhiteSpace(actualRgb))
+            {
+                var themeVal = tabColorElem.Attribute("theme")?.Value;
+                var indexedVal = tabColorElem.Attribute("indexed")?.Value;
+                actualRgb = themeVal ?? indexedVal;
+            }
+
+            static string NormalizeHex(string? hex)
+            {
+                if (string.IsNullOrWhiteSpace(hex)) return string.Empty;
+                var clean = hex.Trim().TrimStart('#').ToUpperInvariant();
+                if (clean.Length == 8 && clean.StartsWith("FF", StringComparison.OrdinalIgnoreCase))
+                {
+                    clean = clean[2..];
+                }
+                return clean;
+            }
+
+            var normActual = NormalizeHex(actualRgb);
+            var allowedHexes = new List<string>();
+            if (!string.IsNullOrWhiteSpace(config.ExpectedColor))
+            {
+                allowedHexes.Add(NormalizeHex(config.ExpectedColor));
+            }
+            if (config.AllowedColors?.Count > 0)
+            {
+                foreach (var c in config.AllowedColors)
+                {
+                    allowedHexes.Add(NormalizeHex(c));
+                }
+            }
+
+            if (allowedHexes.Count == 0)
+            {
+                return FailSpecialCondition("Chưa cấu hình mã màu kỳ vọng cho tab color.");
+            }
+
+            if (allowedHexes.Any(hex => string.Equals(normActual, hex, StringComparison.OrdinalIgnoreCase)))
+            {
+                var sheetName = config.WorksheetName ?? "trang tính";
+                return PassSpecialCondition($"Trang tính '{sheetName}' đã có màu tab đúng yêu cầu.");
+            }
+
+            var expectedDisplay = config.ExpectedColor ?? string.Join(", ", config.AllowedColors ?? Enumerable.Empty<string>());
+            return FailSpecialCondition($"Màu tab của trang tính '{config.WorksheetName}' là '{actualRgb}', không khớp với màu yêu cầu ({expectedDisplay}).");
         }
 
         private static SpecialConditionEvalOutcome PassSpecialCondition(string message)
@@ -10870,6 +11539,21 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 ValidateExcelPrintAreaSpecialCondition(specialCondition, taskPrefix, result);
             }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableColumnFormula, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelTableColumnFormulaSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelChartType, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelChartTypeSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelWorksheetTabColor, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelWorksheetTabColorSpecialCondition(specialCondition, taskPrefix, result);
+            }
         }
 
         private static void ValidateExcelMergedRangeSpecialCondition(
@@ -10997,9 +11681,24 @@ namespace MOS.ExcelGrading.Core.Services
                 result.Errors.Add($"{taskPrefix}.specialCondition.excelChartStyleConfig.styleSourceFile khong hop le.");
             }
 
-            if (!config.StyleId.HasValue || config.StyleId.Value <= 0)
+            if (!string.IsNullOrWhiteSpace(config.ColorStyleSourceFile) && !IsSafeSourceFile(config.ColorStyleSourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelChartStyleConfig.colorStyleSourceFile khong hop le.");
+            }
+
+            if (config.StyleId.HasValue && config.StyleId.Value <= 0)
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.excelChartStyleConfig.styleId phai lon hon 0.");
+            }
+
+            if (config.ColorStyleId.HasValue && config.ColorStyleId.Value <= 0)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelChartStyleConfig.colorStyleId phai lon hon 0.");
+            }
+
+            if (!config.StyleId.HasValue && !config.ColorStyleId.HasValue && config.RequireColorStyle != true)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelChartStyleConfig phai co styleId hoac colorStyleId.");
             }
         }
 
@@ -11361,6 +12060,88 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.IsNullOrWhiteSpace(NormalizeExcelFormulaReference(config.ExpectedRange)))
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.excelPrintAreaConfig.expectedRange khong hop le. Vi du: A1:F17.");
+            }
+        }
+
+        private static void ValidateExcelTableColumnFormulaSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelTableColumnFormulaConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTableColumnFormulaConfig khong duoc null.");
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.SourceFile) && !IsSafeSourceFile(config.SourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTableColumnFormulaConfig.sourceFile khong hop le.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.ColumnName))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTableColumnFormulaConfig.columnName khong duoc rong.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.ExpectedFormula)
+                && (config.RequiredReferences == null || config.RequiredReferences.Count == 0)
+                && (config.RequiredFunctions == null || config.RequiredFunctions.Count == 0)
+                && (config.RequiredFormulaFragments == null || config.RequiredFormulaFragments.Count == 0))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelTableColumnFormulaConfig phai co it nhat mot tieu chi kiem tra (expectedFormula, requiredReferences, requiredFunctions hoac requiredFormulaFragments).");
+            }
+        }
+
+        private static void ValidateExcelChartTypeSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelChartTypeConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelChartTypeConfig khong duoc null.");
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.ChartSourceFile) && !IsSafeSourceFile(config.ChartSourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelChartTypeConfig.chartSourceFile khong hop le.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.ExpectedChartType))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelChartTypeConfig.expectedChartType khong duoc rong.");
+            }
+        }
+
+        private static void ValidateExcelWorksheetTabColorSpecialCondition(
+            SpecialCondition specialCondition,
+            string taskPrefix,
+            XmlRuleValidationResult result)
+        {
+            var config = specialCondition.ExcelWorksheetTabColorConfig;
+            if (config == null)
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelWorksheetTabColorConfig khong duoc null.");
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(config.WorksheetName) && string.IsNullOrWhiteSpace(config.SourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelWorksheetTabColorConfig phai chi dinh worksheetName hoac sourceFile.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(config.SourceFile) && !IsSafeSourceFile(config.SourceFile))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelWorksheetTabColorConfig.sourceFile khong hop le.");
+            }
+
+            if (string.IsNullOrWhiteSpace(config.ExpectedColor) && (config.AllowedColors == null || config.AllowedColors.Count == 0))
+            {
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelWorksheetTabColorConfig phai chi dinh expectedColor hoac allowedColors.");
             }
         }
 

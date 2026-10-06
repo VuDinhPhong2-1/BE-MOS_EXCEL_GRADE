@@ -101,6 +101,9 @@ namespace MOS.ExcelGrading.Core.Models
     public const string ExcelFreezePanes = "excelFreezePanes";
     public const string ExcelDocumentProperty = "excelDocumentProperty";
     public const string ExcelPrintArea = "excelPrintArea";
+    public const string ExcelTableColumnFormula = "excelTableColumnFormula";
+    public const string ExcelChartType = "excelChartType";
+    public const string ExcelWorksheetTabColor = "excelWorksheetTabColor";
 
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
@@ -156,7 +159,10 @@ namespace MOS.ExcelGrading.Core.Models
             ExcelMultiColumnSort,
             ExcelFreezePanes,
             ExcelDocumentProperty,
-            ExcelPrintArea
+            ExcelPrintArea,
+            ExcelTableColumnFormula,
+            ExcelChartType,
+            ExcelWorksheetTabColor
         };
 }
 
@@ -631,6 +637,21 @@ public static class ImageWrapTypes
         [JsonPropertyName("excelPrintAreaConfig")]
         [BsonIgnoreIfNull]
         public ExcelPrintAreaConfig? ExcelPrintAreaConfig { get; set; }
+
+        [BsonElement("excelTableColumnFormulaConfig")]
+        [JsonPropertyName("excelTableColumnFormulaConfig")]
+        [BsonIgnoreIfNull]
+        public ExcelTableColumnFormulaConfig? ExcelTableColumnFormulaConfig { get; set; }
+
+        [BsonElement("excelChartTypeConfig")]
+        [JsonPropertyName("excelChartTypeConfig")]
+        [BsonIgnoreIfNull]
+        public ExcelChartTypeConfig? ExcelChartTypeConfig { get; set; }
+
+        [BsonElement("excelWorksheetTabColorConfig")]
+        [JsonPropertyName("excelWorksheetTabColorConfig")]
+        [BsonIgnoreIfNull]
+        public ExcelWorksheetTabColorConfig? ExcelWorksheetTabColorConfig { get; set; }
 }
 
     [BsonIgnoreExtraElements]
@@ -1043,6 +1064,98 @@ public static class ImageWrapTypes
         [BsonElement("styleId")]
         [JsonPropertyName("styleId")]
         public int? StyleId { get; set; }
+
+        [BsonElement("colorStyleSourceFile")]
+        [JsonPropertyName("colorStyleSourceFile")]
+        public string? ColorStyleSourceFile { get; set; }
+
+        [BsonElement("colorStyleId")]
+        [JsonPropertyName("colorStyleId")]
+        public int? ColorStyleId { get; set; }
+
+        [BsonElement("requireColorStyle")]
+        [JsonPropertyName("requireColorStyle")]
+        public bool? RequireColorStyle { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelTableColumnFormulaConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("tableName")]
+        [JsonPropertyName("tableName")]
+        public string? TableName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("columnName")]
+        [JsonPropertyName("columnName")]
+        public string? ColumnName { get; set; }
+
+        [BsonElement("expectedFormula")]
+        [JsonPropertyName("expectedFormula")]
+        public string? ExpectedFormula { get; set; }
+
+        [BsonElement("requiredReferences")]
+        [JsonPropertyName("requiredReferences")]
+        public List<string> RequiredReferences { get; set; } = new();
+
+        [BsonElement("requiredFunctions")]
+        [JsonPropertyName("requiredFunctions")]
+        public List<string> RequiredFunctions { get; set; } = new();
+
+        [BsonElement("requiredFormulaFragments")]
+        [JsonPropertyName("requiredFormulaFragments")]
+        public List<string> RequiredFormulaFragments { get; set; } = new();
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelChartTypeConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("chartSourceFile")]
+        [JsonPropertyName("chartSourceFile")]
+        public string? ChartSourceFile { get; set; }
+
+        [BsonElement("expectedChartType")]
+        [JsonPropertyName("expectedChartType")]
+        public string? ExpectedChartType { get; set; }
+
+        [BsonElement("grouping")]
+        [JsonPropertyName("grouping")]
+        public string? Grouping { get; set; }
+
+        [BsonElement("barDir")]
+        [JsonPropertyName("barDir")]
+        public string? BarDir { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelWorksheetTabColorConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("expectedColor")]
+        [JsonPropertyName("expectedColor")]
+        public string? ExpectedColor { get; set; }
+
+        [BsonElement("allowedColors")]
+        [JsonPropertyName("allowedColors")]
+        public List<string> AllowedColors { get; set; } = new();
     }
 
     [BsonIgnoreExtraElements]

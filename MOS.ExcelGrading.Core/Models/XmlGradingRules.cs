@@ -104,6 +104,10 @@ namespace MOS.ExcelGrading.Core.Models
     public const string ExcelTableColumnFormula = "excelTableColumnFormula";
     public const string ExcelChartType = "excelChartType";
     public const string ExcelWorksheetTabColor = "excelWorksheetTabColor";
+    public const string ExcelTableTotalRow = "excelTableTotalRow";
+    public const string ExcelTableCreate = "excelTableCreate";
+    public const string ExcelChartQuickLayout = "excelChartQuickLayout";
+
 
     // PowerPoint (.pptx)
     public const string PptPictureCropShape = "pptPictureCropShape";
@@ -194,6 +198,9 @@ namespace MOS.ExcelGrading.Core.Models
             ExcelTableColumnFormula,
             ExcelChartType,
             ExcelWorksheetTabColor,
+            ExcelTableTotalRow,
+            ExcelTableCreate,
+            ExcelChartQuickLayout,
             PptPictureCropShape,
             PptShapeSize,
             PptShapeGroup,
@@ -712,6 +719,21 @@ public static class ImageWrapTypes
         [JsonPropertyName("excelWorksheetTabColorConfig")]
         [BsonIgnoreIfNull]
         public ExcelWorksheetTabColorConfig? ExcelWorksheetTabColorConfig { get; set; }
+        [BsonElement("excelTableTotalRowConfig")]
+        [JsonPropertyName("excelTableTotalRowConfig")]
+        [BsonIgnoreIfNull]
+        public ExcelTableTotalRowConfig? ExcelTableTotalRowConfig { get; set; }
+
+        [BsonElement("excelTableCreateConfig")]
+        [JsonPropertyName("excelTableCreateConfig")]
+        [BsonIgnoreIfNull]
+        public ExcelTableCreateConfig? ExcelTableCreateConfig { get; set; }
+
+        [BsonElement("excelChartQuickLayoutConfig")]
+        [JsonPropertyName("excelChartQuickLayoutConfig")]
+        [BsonIgnoreIfNull]
+        public ExcelChartQuickLayoutConfig? ExcelChartQuickLayoutConfig { get; set; }
+
 }
 
     [BsonIgnoreExtraElements]
@@ -1196,6 +1218,25 @@ public static class ImageWrapTypes
         [BsonElement("barDir")]
         [JsonPropertyName("barDir")]
         public string? BarDir { get; set; }
+
+        [BsonElement("requiredFormulaFragments")]
+        [JsonPropertyName("requiredFormulaFragments")]
+        public List<string> RequiredFormulaFragments { get; set; } = new();
+
+        [BsonElement("placedBelowRow")]
+        [JsonPropertyName("placedBelowRow")]
+        [BsonIgnoreIfNull]
+        public int? PlacedBelowRow { get; set; }
+
+        [BsonElement("minRow")]
+        [JsonPropertyName("minRow")]
+        [BsonIgnoreIfNull]
+        public int? MinRow { get; set; }
+
+        [BsonElement("maxRow")]
+        [JsonPropertyName("maxRow")]
+        [BsonIgnoreIfNull]
+        public int? MaxRow { get; set; }
     }
 
     [BsonIgnoreExtraElements]
@@ -1217,6 +1258,87 @@ public static class ImageWrapTypes
         [JsonPropertyName("allowedColors")]
         public List<string> AllowedColors { get; set; } = new();
     }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelTableTotalRowConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("tableName")]
+        [JsonPropertyName("tableName")]
+        public string? TableName { get; set; }
+
+        [BsonElement("tableSourceFile")]
+        [JsonPropertyName("tableSourceFile")]
+        public string? TableSourceFile { get; set; }
+
+        [BsonElement("requireTotalRow")]
+        [JsonPropertyName("requireTotalRow")]
+        public bool RequireTotalRow { get; set; } = true;
+
+        [BsonElement("columnName")]
+        [JsonPropertyName("columnName")]
+        public string? ColumnName { get; set; }
+
+        [BsonElement("totalsRowFunction")]
+        [JsonPropertyName("totalsRowFunction")]
+        public string? TotalsRowFunction { get; set; }
+
+        [BsonElement("totalsRowLabel")]
+        [JsonPropertyName("totalsRowLabel")]
+        public string? TotalsRowLabel { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelTableCreateConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("tableSourceFile")]
+        [JsonPropertyName("tableSourceFile")]
+        public string? TableSourceFile { get; set; }
+
+        [BsonElement("expectedRange")]
+        [JsonPropertyName("expectedRange")]
+        public string? ExpectedRange { get; set; }
+
+        [BsonElement("hasHeaderRow")]
+        [JsonPropertyName("hasHeaderRow")]
+        public bool HasHeaderRow { get; set; } = true;
+
+        [BsonElement("expectedTableStyle")]
+        [JsonPropertyName("expectedTableStyle")]
+        public string? ExpectedTableStyle { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelChartQuickLayoutConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("chartSourceFile")]
+        [JsonPropertyName("chartSourceFile")]
+        public string? ChartSourceFile { get; set; }
+
+        [BsonElement("layoutNumber")]
+        [JsonPropertyName("layoutNumber")]
+        public int LayoutNumber { get; set; } = 2;
+
+        [BsonElement("requireDataLabels")]
+        [JsonPropertyName("requireDataLabels")]
+        public bool RequireDataLabels { get; set; } = true;
+
+        [BsonElement("dataLabelPosition")]
+        [JsonPropertyName("dataLabelPosition")]
+        public string? DataLabelPosition { get; set; }
+    }
+
 
     [BsonIgnoreExtraElements]
     public class ExcelTableNameConfig

@@ -27,4 +27,17 @@ _buildcheck_vi/
 artifacts/
 buildcheck_api/
 MOS.ExcelGrading.API/.data-protection-keys/
+# Local runner scripts
 run-local.sh
+run-local.cmd
+run-local.ps1
+
+# Secrets and credential files
+*.json.secret
+*service-account*.json
+mos-grader-*.json
+*-credentials.json
+credentials.json
+*.pem
+*.key
+*.pfx

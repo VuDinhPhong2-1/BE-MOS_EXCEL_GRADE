@@ -1,0 +1,570 @@
+{
+  "subject": "ppt",
+  "version": "GM2-2019",
+  "isActive": true,
+  "projects": [
+    {
+      "projectCode": "P01",
+      "projectName": "Project 01 – Motor Home Vacations",
+      "maxScore": 142.85,
+      "tasks": [
+        {
+          "taskId": "P01-T1",
+          "taskName": "Cắt xén hình ảnh thành Oval và thay đổi kích thước Height 3.5\", Width 4.5\"",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptPictureCropShape",
+            "score": 28.57,
+            "pptPictureCropShapeConfig": {
+              "slide": { "slideIndex": 4 },
+              "expectedShapePreset": "ellipse"
+            },
+            "pptShapeSizeConfig": {
+              "slide": { "slideIndex": 4 },
+              "expectedHeightInches": 3.5,
+              "expectedWidthInches": 4.5,
+              "toleranceInches": 0.15
+            }
+          }
+        },
+        {
+          "taskId": "P01-T2",
+          "taskName": "Căn giữa các hình bằng nhau (=) trên slide 5 và nhóm lại",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptShapeGroup",
+            "score": 28.57,
+            "pptShapeGroupConfig": {
+              "slide": { "slideIndex": 5 },
+              "requireGrouped": true,
+              "minChildCount": 2,
+              "checkAlignCenter": true
+            }
+          }
+        },
+        {
+          "taskId": "P01-T3",
+          "taskName": "Chèn cước chú (legend) phía trên biểu đồ ở slide 6",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptChartLegend",
+            "score": 28.57,
+            "pptChartLegendConfig": {
+              "slide": { "slideIndex": 6 },
+              "expectedPosition": "t"
+            }
+          }
+        },
+        {
+          "taskId": "P01-T4",
+          "taskName": "Chuyển đổi văn bản trên slide 7 thành Target List graphic",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSmartArt",
+            "score": 28.57,
+            "pptSmartArtConfig": {
+              "slide": { "slideIndex": 7 },
+              "expectedLayoutName": "Target List"
+            }
+          }
+        },
+        {
+          "taskId": "P01-T5",
+          "taskName": "Xóa bình luận của Thor Christensen (Should we show price ranges?)",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptComment",
+            "score": 28.57,
+            "pptCommentConfig": {
+              "slide": { "slideIndex": 6 },
+              "author": "Thor Christensen",
+              "targetCommentText": "Should we show price ranges?",
+              "expectAbsent": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "projectCode": "P02",
+      "projectName": "Project 02 – Online Sales",
+      "maxScore": 142.85,
+      "tasks": [
+        {
+          "taskId": "P02-T1",
+          "taskName": "Nhập Marketing.rtf tạo 2 slide mới (Interesting Statistics và Best Ways to Start)",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSlideTitles",
+            "score": 28.57,
+            "pptSlideTitlesConfig": {
+              "startSlideIndex": 2,
+              "expectedTitlesInOrder": [
+                "Interesting Statistics",
+                "Best Ways to Start"
+              ]
+            }
+          }
+        },
+        {
+          "taskId": "P02-T2",
+          "taskName": "Trên Summary slide chèn Screen Recording của video",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptVideo",
+            "score": 28.57,
+            "pptVideoConfig": {
+              "slide": { "slideTitle": "Summary" },
+              "requireVideoOnly": true
+            }
+          }
+        },
+        {
+          "taskId": "P02-T3",
+          "taskName": "Xóa hàng Word of Mouth khỏi bảng trên slide Generating Income",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptTable",
+            "score": 28.57,
+            "pptTableConfig": {
+              "slide": { "slideTitle": "Generating Income" },
+              "disallowedRowTexts": ["Word of Mouth"]
+            }
+          }
+        },
+        {
+          "taskId": "P02-T4",
+          "taskName": "Cắt video trên slide Investing in Internet Technologies dừng đúng ở giây thứ 14",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptVideo",
+            "score": 28.57,
+            "pptVideoConfig": {
+              "slide": { "slideTitle": "Investing in Internet Technologies" },
+              "expectedTrimEndSeconds": 14.0
+            }
+          }
+        },
+        {
+          "taskId": "P02-T5",
+          "taskName": "Điều chỉnh kích thước chiều cao cửa sổ video thành 4.7\" (11.9 cm)",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptShapeSize",
+            "score": 28.57,
+            "pptShapeSizeConfig": {
+              "slide": { "slideTitle": "Investing in Internet Technologies" },
+              "expectedHeightInches": 4.7,
+              "toleranceInches": 0.15
+            }
+          }
+        }
+      ]
+    },
+    {
+      "projectCode": "P03",
+      "projectName": "Project 03 – Backcountry Tours",
+      "maxScore": 142.85,
+      "tasks": [
+        {
+          "taskId": "P03-T1",
+          "taskName": "Đổi tên Untitled Section thành Intro",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSection",
+            "score": 28.57,
+            "pptSectionConfig": {
+              "expectedSectionName": "Intro",
+              "disallowedSectionNames": ["Untitled Section"]
+            }
+          }
+        },
+        {
+          "taskId": "P03-T2",
+          "taskName": "Áp dụng kiểu Bevel Rectangle cho hình ảnh trên slide Backpacking Trips",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptPictureStyle",
+            "score": 28.57,
+            "pptPictureStyleConfig": {
+              "slide": { "slideTitle": "Backpacking Trips" },
+              "expectedStyleName": "Bevel Rectangle"
+            }
+          }
+        },
+        {
+          "taskId": "P03-T3",
+          "taskName": "Căn giữa dọc Align Middle và Bring to Front cho hình ở giữa slide Our Rock Crawling adventures...",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptShapeArrange",
+            "score": 28.57,
+            "pptShapeArrangeConfig": {
+              "slide": { "slideTitle": "Our Rock Crawling adventures..." },
+              "checkAlignMiddle": true,
+              "checkBringToFront": true
+            }
+          }
+        },
+        {
+          "taskId": "P03-T4",
+          "taskName": "Chèn slide Summary Zoom liên kết các slide ngoại trừ slide tiêu đề",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSummaryZoom",
+            "score": 28.57,
+            "pptSummaryZoomConfig": {
+              "requireZoomItems": true,
+              "excludeFirstSlide": true
+            }
+          }
+        },
+        {
+          "taskId": "P03-T5",
+          "taskName": "Xuất file PDF Backcountry.pdf (đính kèm)",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptExportedFile",
+            "score": 28.57,
+            "pptExportedFileConfig": {
+              "expectedFileName": "Backcountry.pdf",
+              "caseSensitive": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "projectCode": "P04",
+      "projectName": "Project 04 – Property Auction",
+      "maxScore": 142.85,
+      "tasks": [
+        {
+          "taskId": "P04-T1",
+          "taskName": "Thêm hình ảnh Badge.png vào góc dưới bên phải của Slide Master",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptMasterPicture",
+            "score": 28.57,
+            "pptMasterPictureConfig": {
+              "expectedImageName": "Badge.png",
+              "expectedPlacement": "bottom-right"
+            }
+          }
+        },
+        {
+          "taskId": "P04-T2",
+          "taskName": "Áp dụng hiệu ứng chuyển tiếp Smoothly cho tất cả các slide",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSlideTransition",
+            "score": 28.57,
+            "pptSlideTransitionConfig": {
+              "expectedTransition": "Smoothly",
+              "applyToAll": true
+            }
+          }
+        },
+        {
+          "taskId": "P04-T3",
+          "taskName": "Tạo hiệu ứng Fly In cho danh sách ở slide cuối cùng",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptAnimation",
+            "score": 28.57,
+            "pptAnimationConfig": {
+              "slide": { "slideIndex": -1 },
+              "expectedEffect": "Fly In"
+            }
+          }
+        },
+        {
+          "taskId": "P04-T4",
+          "taskName": "Thay đổi thời lượng chuyển tiếp Duration thành 0.75s cho tất cả các slide",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSlideTransition",
+            "score": 28.57,
+            "pptSlideTransitionConfig": {
+              "expectedDurationSeconds": 0.75,
+              "applyToAll": true
+            }
+          }
+        },
+        {
+          "taskId": "P04-T5",
+          "taskName": "Hạn chế chỉnh sửa bằng cách đánh dấu Mark as Final",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptMarkAsFinal",
+            "score": 28.57,
+            "pptMarkAsFinalConfig": {
+              "expectedMarkAsFinal": true
+            }
+          }
+        }
+      ]
+    },
+    {
+      "projectCode": "P05",
+      "projectName": "Project 05 – Leadership Camp",
+      "maxScore": 142.85,
+      "tasks": [
+        {
+          "taskId": "P05-T1",
+          "taskName": "Cấu hình in các slide 1, 3, 4 dạng full-page slides",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptPrintSettings",
+            "score": 28.57,
+            "pptPrintSettingsConfig": {
+              "expectedPrintWhat": "slides"
+            }
+          }
+        },
+        {
+          "taskId": "P05-T2",
+          "taskName": "Chuẩn bị bài trình chiếu để in ở chế độ Grayscale",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptPrintSettings",
+            "score": 28.57,
+            "pptPrintSettingsConfig": {
+              "expectedColorMode": "gray"
+            }
+          }
+        },
+        {
+          "taskId": "P05-T3",
+          "taskName": "Định dạng văn bản trên slide 4 thành 2 cột với khoảng cách 0.5\" (1.27 cm)",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptTextColumns",
+            "score": 28.57,
+            "pptTextColumnsConfig": {
+              "slide": { "slideIndex": 4 },
+              "expectedColumnCount": 2,
+              "expectedSpacingInches": 0.5
+            }
+          }
+        },
+        {
+          "taskId": "P05-T4",
+          "taskName": "Trên slide 5, thêm nút Enroll Students vào đồ họa SmartArt",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSmartArt",
+            "score": 28.57,
+            "pptSmartArtConfig": {
+              "slide": { "slideIndex": 5 },
+              "expectedNodeTexts": [
+                "Invite Students from Course",
+                "Enroll Students",
+                "Get Accepted to Camp"
+              ],
+              "requireOrderedNodes": true
+            }
+          }
+        },
+        {
+          "taskId": "P05-T5",
+          "taskName": "Ở slide cuối cùng, đổi đường dẫn hoạt ảnh cho MOS Certificate thành Square",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptAnimation",
+            "score": 28.57,
+            "pptAnimationConfig": {
+              "slide": { "slideIndex": -1 },
+              "expectedEffect": "Motion Path",
+              "motionPathType": "Square"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "projectCode": "P06",
+      "projectName": "Project 06 – Eco-Friendly Stocks",
+      "maxScore": 142.85,
+      "tasks": [
+        {
+          "taskId": "P06-T1",
+          "taskName": "Xóa Header và Footer khỏi Notes Master",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptNotesMasterPlaceholders",
+            "score": 28.57,
+            "pptNotesMasterPlaceholdersConfig": {
+              "requireHeaderDisabled": true,
+              "requireFooterDisabled": true
+            }
+          }
+        },
+        {
+          "taskId": "P06-T2",
+          "taskName": "Thay đổi tỷ lệ hiển thị thành Widescreen (16:9)",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSlideSize",
+            "score": 28.57,
+            "pptSlideSizeConfig": {
+              "expectedRatio": "16:9"
+            }
+          }
+        },
+        {
+          "taskId": "P06-T3",
+          "taskName": "Cấu hình cài đặt in để in Notes Pages",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptPrintSettings",
+            "score": 28.57,
+            "pptPrintSettingsConfig": {
+              "expectedPrintWhat": "notes"
+            }
+          }
+        },
+        {
+          "taskId": "P06-T4",
+          "taskName": "Trên slide 5, thêm biểu đồ Pareto Histogram",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptChartType",
+            "score": 28.57,
+            "pptChartTypeConfig": {
+              "slide": { "slideIndex": 5 },
+              "expectedChartType": "Pareto"
+            }
+          }
+        },
+        {
+          "taskId": "P06-T5",
+          "taskName": "Tạo đồ họa Upward Arrow Process SmartArt trên slide cuối cùng",
+          "maxScore": 28.57,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSmartArt",
+            "score": 28.57,
+            "pptSmartArtConfig": {
+              "slide": { "slideIndex": -1 },
+              "expectedLayoutName": "Upward Arrow"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "projectCode": "P07",
+      "projectName": "Project 07 – Computer Health",
+      "maxScore": 142.90,
+      "tasks": [
+        {
+          "taskId": "P07-T1",
+          "taskName": "Thêm Alt Text có nội dung Sick Computer vào hình ảnh trên slide 2",
+          "maxScore": 28.58,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptAltText",
+            "score": 28.58,
+            "pptAltTextConfig": {
+              "slide": { "slideIndex": 2 },
+              "expectedAltText": "Sick Computer"
+            }
+          }
+        },
+        {
+          "taskId": "P07-T2",
+          "taskName": "Ở slide cuối cùng, gắn siêu liên kết URL http://www.computerstore.gmetrix.com",
+          "maxScore": 28.58,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptHyperlink",
+            "score": 28.58,
+            "pptHyperlinkConfig": {
+              "slide": { "slideIndex": -1 },
+              "targetText": "computerstore.gmetrix.com",
+              "expectedUrl": "http://www.computerstore.gmetrix.com"
+            }
+          }
+        },
+        {
+          "taskId": "P07-T3",
+          "taskName": "Ở slide cuối cùng, chèn Text Box góc dưới phải rộng 2.5\" (Questions? Feel free to contact us.)",
+          "maxScore": 28.58,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptTextBox",
+            "score": 28.58,
+            "pptTextBoxConfig": {
+              "slide": { "slideIndex": -1 },
+              "expectedText": "Questions? Feel free to contact us.",
+              "expectedWidthInches": 2.5,
+              "expectedPlacement": "bottom-right"
+            }
+          }
+        },
+        {
+          "taskId": "P07-T4",
+          "taskName": "Đổi bố cục slide 3 thành Two Content và áp dụng Intense Effect - Blue-Gray, Accent 1",
+          "maxScore": 28.58,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSlideLayout",
+            "score": 28.58,
+            "pptSlideLayoutConfig": {
+              "slide": { "slideIndex": 3 },
+              "expectedLayoutName": "Two Content"
+            },
+            "pptShapeStyleConfig": {
+              "slide": { "slideIndex": 3 },
+              "expectedStyleName": "Intense Effect - Blue-Gray, Accent 1"
+            }
+          }
+        },
+        {
+          "taskId": "P07-T5",
+          "taskName": "Áp dụng nền Blue, Solid Fill cho slide 2",
+          "maxScore": 28.58,
+          "conditions": [],
+          "specialCondition": {
+            "type": "pptSlideBackground",
+            "score": 28.58,
+            "pptSlideBackgroundConfig": {
+              "slide": { "slideIndex": 2 },
+              "expectedColorHex": "0070C0"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

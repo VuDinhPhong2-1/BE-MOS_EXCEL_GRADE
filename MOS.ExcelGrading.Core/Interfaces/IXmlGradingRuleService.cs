@@ -24,6 +24,7 @@ namespace MOS.ExcelGrading.Core.Interfaces
         Task<XmlRuleValidationResult> ValidateRuleSetAsync(GradingRuleSet ruleSet);
         Task<XmlRuleProjectMigrationResult> BackfillProjectCollectionAsync();
         Task<GradingRuleSet> SeedProject22Task1RuleSetAsync();
-        Task<GradingResult> GradeAsync(Stream studentFile, string subject, string projectCode);
+        Task<GradingRuleSet> SeedPptGm2RuleSetAsync();
+        Task<GradingResult> GradeAsync(Stream studentFile, string subject, string projectCode, IReadOnlyList<string>? attachedFileNames = null);
     }
 }

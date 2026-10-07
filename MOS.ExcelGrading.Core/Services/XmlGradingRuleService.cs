@@ -10,11 +10,12 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Xml;
 using System.Xml.Linq;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using MOS.ExcelGrading.Core.Utilities;
 namespace MOS.ExcelGrading.Core.Services
 {
-    public class XmlGradingRuleService : IXmlGradingRuleService
+    public partial class XmlGradingRuleService : IXmlGradingRuleService
     {
         private const decimal StandardProjectMaxScore = 125m;
         private const int PerceptualHashThreshold = 10;
@@ -821,7 +822,75 @@ namespace MOS.ExcelGrading.Core.Services
             return await CreateRuleSetAsync(ruleSet);
         }
 
-        public async Task<GradingResult> GradeAsync(Stream studentFile, string subject, string projectCode)
+        public async Task<GradingRuleSet> SeedPptGm2RuleSetAsync()
+        {
+            var ruleSet = LoadPptGm2RuleSet();
+            var validation = ValidateRuleSet(ruleSet);
+            if (!validation.IsValid)
+            {
+                throw new InvalidOperationException($"Seed PPT XML grading ruleset is invalid: {string.Join("; ", validation.Errors)}");
+            }
+
+            var filter = Builders<GradingRuleSet>.Filter.And(
+                Builders<GradingRuleSet>.Filter.Eq(existing => existing.Subject, ruleSet.Subject),
+                Builders<GradingRuleSet>.Filter.Eq(existing => existing.Version, ruleSet.Version));
+
+            var existingRuleSet = await _ruleSets.Find(filter).FirstOrDefaultAsync();
+            if (existingRuleSet != null)
+            {
+                return await UpdateRuleSetAsync(existingRuleSet.Id, ruleSet)
+                    ?? throw new InvalidOperationException("Không thể cập nhật XML grading ruleset seed PPT.");
+            }
+
+            return await CreateRuleSetAsync(ruleSet);
+        }
+
+        private static GradingRuleSet LoadPptGm2RuleSet()
+        {
+            // 1. Try reading from embedded resource
+            var assembly = typeof(XmlGradingRuleService).Assembly;
+            var resourceName = "MOS.ExcelGrading.Core.Resources.PPT-GM2-rules.json";
+            using (var stream = assembly.GetManifestResourceStream(resourceName))
+            {
+                if (stream != null)
+                {
+                    using var reader = new StreamReader(stream, Encoding.UTF8);
+                    var json = reader.ReadToEnd();
+                    var loaded = JsonSerializer.Deserialize<GradingRuleSet>(json, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+                    if (loaded != null) return loaded;
+                }
+            }
+
+            // 2. Fallback: Search common disk paths
+            var candidatePaths = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, "Resources", "PPT-GM2-rules.json"),
+                Path.Combine(AppContext.BaseDirectory, "PPT-GM2-rules.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "Resources", "PPT-GM2-rules.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), "..", ".rules", "PPT-GM2-rules.json"),
+                Path.Combine(Directory.GetCurrentDirectory(), ".rules", "PPT-GM2-rules.json")
+            };
+
+            foreach (var path in candidatePaths)
+            {
+                if (File.Exists(path))
+                {
+                    var json = File.ReadAllText(path, Encoding.UTF8);
+                    var loaded = JsonSerializer.Deserialize<GradingRuleSet>(json, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+                    if (loaded != null) return loaded;
+                }
+            }
+
+            throw new FileNotFoundException("Không tìm thấy file tài nguyên PPT-GM2-rules.json để seed.");
+        }
+
+        public async Task<GradingResult> GradeAsync(Stream studentFile, string subject, string projectCode, IReadOnlyList<string>? attachedFileNames = null)
         {
             var totalStopwatch = Stopwatch.StartNew();
             var phaseStopwatch = Stopwatch.StartNew();
@@ -838,6 +907,7 @@ namespace MOS.ExcelGrading.Core.Services
             phaseStopwatch.Restart();
             var requiredParts = CollectRequiredOfficeParts(projectRule);
             var package = ReadOfficePackage(studentFile, requiredParts);
+            package.AttachedFileNames = attachedFileNames ?? Array.Empty<string>();
             var packageMs = phaseStopwatch.ElapsedMilliseconds;
 
             var result = new GradingResult
@@ -2038,8 +2108,8 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableColumnFormula, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelChartType, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelWorksheetTabColor, StringComparison.OrdinalIgnoreCase),
-                "ppt" => false,
-                "powerpoint" => false,
+                "ppt" => IsPptSpecialConditionSupported(specialConditionType),
+                "powerpoint" => IsPptSpecialConditionSupported(specialConditionType),
                 _ => false
             };
         }
@@ -2062,6 +2132,9 @@ namespace MOS.ExcelGrading.Core.Services
 
             public Dictionary<string, byte[]> BinaryParts { get; } =
                 new(StringComparer.OrdinalIgnoreCase);
+
+            public IReadOnlyList<string> AttachedFileNames { get; set; } =
+                Array.Empty<string>();
 
             private readonly Dictionary<string, XDocument> _xmlDocuments =
                 new(StringComparer.OrdinalIgnoreCase);
@@ -2844,6 +2917,12 @@ namespace MOS.ExcelGrading.Core.Services
                     AddExcelWorksheetParts(specialCondition.ExcelWorksheetTabColorConfig?.SourceFile);
                     continue;
                 }
+
+                if (IsPptSpecialConditionSupported(specialCondition.Type))
+                {
+                    CollectPptRequiredOfficeParts(requiredParts);
+                    continue;
+                }
             }
 
             return requiredParts;
@@ -3297,6 +3376,66 @@ namespace MOS.ExcelGrading.Core.Services
             {
                 return EvaluateExcelWorksheetTabColor(specialCondition.ExcelWorksheetTabColorConfig, package);
             }
+
+            // ===== POWERPOINT SPECIAL CONDITIONS =====
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptPictureCropShape, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptPictureCropShape(specialCondition.PptPictureCropShapeConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptShapeSize, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptShapeSize(specialCondition.PptShapeSizeConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptShapeGroup, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptShapeGroup(specialCondition.PptShapeGroupConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptChartLegend, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptChartLegend(specialCondition.PptChartLegendConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptSmartArt, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptSmartArt(specialCondition.PptSmartArtConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptComment, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptComment(specialCondition.PptCommentConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptSlideTitles, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptSlideTitles(specialCondition.PptSlideTitlesConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptVideo, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptVideo(specialCondition.PptVideoConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptTable, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptTable(specialCondition.PptTableConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptSection, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptSection(specialCondition.PptSectionConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptPictureStyle, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptPictureStyle(specialCondition.PptPictureStyleConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptShapeArrange, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptShapeArrange(specialCondition.PptShapeArrangeConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptSummaryZoom, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptSummaryZoom(specialCondition.PptSummaryZoomConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptExportedFile, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptExportedFile(specialCondition.PptExportedFileConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptMasterPicture, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptMasterPicture(specialCondition.PptMasterPictureConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptSlideTransition, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptSlideTransition(specialCondition.PptSlideTransitionConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptAnimation, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptAnimation(specialCondition.PptAnimationConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptMarkAsFinal, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptMarkAsFinal(specialCondition.PptMarkAsFinalConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptPrintSettings, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptPrintSettings(specialCondition.PptPrintSettingsConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptTextColumns, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptTextColumns(specialCondition.PptTextColumnsConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptNotesMasterPlaceholders, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptNotesMasterPlaceholders(specialCondition.PptNotesMasterPlaceholdersConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptSlideSize, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptSlideSize(specialCondition.PptSlideSizeConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptChartType, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptChartType(specialCondition.PptChartTypeConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptAltText, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptAltText(specialCondition.PptAltTextConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptHyperlink, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptHyperlink(specialCondition.PptHyperlinkConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptTextBox, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptTextBox(specialCondition.PptTextBoxConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptSlideLayout, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptSlideLayout(specialCondition.PptSlideLayoutConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptShapeStyle, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptShapeStyle(specialCondition.PptShapeStyleConfig, package);
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.PptSlideBackground, StringComparison.OrdinalIgnoreCase))
+                return EvaluatePptSlideBackground(specialCondition.PptSlideBackgroundConfig, package);
 
             return new SpecialConditionEvalOutcome
             {
@@ -11296,6 +11435,11 @@ namespace MOS.ExcelGrading.Core.Services
             if (specialCondition.Score <= 0)
             {
                 result.Errors.Add($"{taskPrefix}.specialCondition.score phải lớn hơn 0.");
+            }
+
+            if (TryValidatePptSpecialCondition(specialCondition, taskPrefix, result))
+            {
+                return;
             }
 
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.PictureBullet, StringComparison.OrdinalIgnoreCase))

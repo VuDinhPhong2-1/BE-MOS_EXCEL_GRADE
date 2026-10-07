@@ -105,6 +105,37 @@ namespace MOS.ExcelGrading.Core.Models
     public const string ExcelChartType = "excelChartType";
     public const string ExcelWorksheetTabColor = "excelWorksheetTabColor";
 
+    // PowerPoint (.pptx)
+    public const string PptPictureCropShape = "pptPictureCropShape";
+    public const string PptShapeSize = "pptShapeSize";
+    public const string PptShapeGroup = "pptShapeGroup";
+    public const string PptChartLegend = "pptChartLegend";
+    public const string PptSmartArt = "pptSmartArt";
+    public const string PptComment = "pptComment";
+    public const string PptSlideTitles = "pptSlideTitles";
+    public const string PptVideo = "pptVideo";
+    public const string PptTable = "pptTable";
+    public const string PptSection = "pptSection";
+    public const string PptPictureStyle = "pptPictureStyle";
+    public const string PptShapeArrange = "pptShapeArrange";
+    public const string PptSummaryZoom = "pptSummaryZoom";
+    public const string PptExportedFile = "pptExportedFile";
+    public const string PptMasterPicture = "pptMasterPicture";
+    public const string PptSlideTransition = "pptSlideTransition";
+    public const string PptAnimation = "pptAnimation";
+    public const string PptMarkAsFinal = "pptMarkAsFinal";
+    public const string PptPrintSettings = "pptPrintSettings";
+    public const string PptTextColumns = "pptTextColumns";
+    public const string PptNotesMasterPlaceholders = "pptNotesMasterPlaceholders";
+    public const string PptSlideSize = "pptSlideSize";
+    public const string PptChartType = "pptChartType";
+    public const string PptAltText = "pptAltText";
+    public const string PptHyperlink = "pptHyperlink";
+    public const string PptTextBox = "pptTextBox";
+    public const string PptSlideLayout = "pptSlideLayout";
+    public const string PptShapeStyle = "pptShapeStyle";
+    public const string PptSlideBackground = "pptSlideBackground";
+
     public static readonly HashSet<string> Supported =
         new(StringComparer.OrdinalIgnoreCase)
         {
@@ -162,7 +193,36 @@ namespace MOS.ExcelGrading.Core.Models
             ExcelPrintArea,
             ExcelTableColumnFormula,
             ExcelChartType,
-            ExcelWorksheetTabColor
+            ExcelWorksheetTabColor,
+            PptPictureCropShape,
+            PptShapeSize,
+            PptShapeGroup,
+            PptChartLegend,
+            PptSmartArt,
+            PptComment,
+            PptSlideTitles,
+            PptVideo,
+            PptTable,
+            PptSection,
+            PptPictureStyle,
+            PptShapeArrange,
+            PptSummaryZoom,
+            PptExportedFile,
+            PptMasterPicture,
+            PptSlideTransition,
+            PptAnimation,
+            PptMarkAsFinal,
+            PptPrintSettings,
+            PptTextColumns,
+            PptNotesMasterPlaceholders,
+            PptSlideSize,
+            PptChartType,
+            PptAltText,
+            PptHyperlink,
+            PptTextBox,
+            PptSlideLayout,
+            PptShapeStyle,
+            PptSlideBackground
         };
 }
 
@@ -352,7 +412,7 @@ public static class ImageWrapTypes
     /// { type: SpecialConditionType; config?: PictureBulletConfig }
     /// </summary>
     [BsonIgnoreExtraElements]
-    public class SpecialCondition
+    public partial class SpecialCondition
     {
         [BsonElement("type")]
         [JsonPropertyName("type")]

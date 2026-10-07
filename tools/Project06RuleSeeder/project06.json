@@ -7,150 +7,108 @@
   "tasks": [
     {
       "taskId": "P06-T1",
-      "taskName": "Trên trang tính Qtr 1, sắp xếp bảng Table1 đồng thời theo cột Department (A đến Z) và sau đó theo Last Name (A đến Z).",
-      "maxScore": 167.0,
+      "taskName": "Trên trang tính Qtr 1, thêm một hàng vào bảng để tự động tính Total Entries.",
+      "maxScore": 200.0,
       "conditions": [],
       "specialCondition": {
-        "type": "excelMultiColumnSort",
-        "score": 167.0,
+        "type": "excelTableTotalRow",
+        "score": 200.0,
         "feedback": {
-          "successDetail": "Đã sắp xếp nhiều cột thành công trên trang tính 'Qtr 1' theo thứ tự: Department (tăng dần), sau đó Last Name (tăng dần).",
-          "errorMessage": "Chưa sắp xếp đúng thứ tự các cột Department (A đến Z) và Last Name (A đến Z) trên bảng Table1 trang tính 'Qtr 1'.",
-          "fixAction": "Chọn một ô bất kỳ trong bảng Table1 trên trang tính 'Qtr 1' -> vào thẻ Data -> Sort -> Level 1 chọn 'Department' (A to Z), thêm Level 2 chọn 'Last Name' (A to Z) -> nhấn OK."
+          "successDetail": "Đã thêm hàng tổng (Total Row) cho bảng tính trên trang tính 'Qtr 1' để tự động tính Total Entries thành công.",
+          "errorMessage": "Chưa thêm hàng tổng (Total Row) cho bảng tính trên trang tính 'Qtr 1'.",
+          "fixAction": "Chọn một ô bất kỳ trong bảng trên trang tính 'Qtr 1' -> vào thẻ ngữ cảnh Table Design -> trong nhóm Table Style Options, tích chọn ô 'Total Row'."
         },
-        "excelMultiColumnSortConfig": {
+        "excelTableTotalRowConfig": {
           "worksheetName": "Qtr 1",
-          "headerRow": 1,
-          "keyColumns": [
-            {
-              "headerName": "Department",
-              "column": "",
-              "descending": false
-            },
-            {
-              "headerName": "Last Name",
-              "column": "",
-              "descending": false
-            }
-          ]
+          "requireTotalRow": true,
+          "columnName": "Entries"
         }
       }
     },
     {
       "taskId": "P06-T2",
-      "taskName": "Trên trang tính Qtr 1, trong bảng Table1, tại cột Net, nhập công thức tính hiệu số giữa Total và Commission bằng cấu trúc tham chiếu cột.",
-      "maxScore": 167.0,
+      "taskName": "Trên trang tính Qtr 1, ở hàng Maximum, chèn công thức vào cột E để trả về số lượng lớn nhất của các mục công thức trong quý.",
+      "maxScore": 200.0,
       "conditions": [],
       "specialCondition": {
-        "type": "excelTableColumnFormula",
-        "score": 167.0,
+        "type": "excelFormulaReferences",
+        "score": 200.0,
         "feedback": {
-          "successDetail": "Đã nhập đúng công thức tính toán cho cột Net (=[@Total]-[@Commission]) trong bảng Table1 trên trang tính 'Qtr 1'.",
-          "errorMessage": "Công thức tại cột 'Net' trên bảng Table1 chưa chính xác hoặc chưa dùng đúng tham chiếu cột cấu trúc '=[@Total]-[@Commission]'.",
-          "fixAction": "Tại ô đầu tiên của cột Net trong bảng Table1 trên trang tính 'Qtr 1', nhập công thức '=[@Total]-[@Commission]' rồi nhấn Enter."
+          "successDetail": "Đã chèn công thức hàm MAX vào cột E ở hàng Maximum trên trang tính 'Qtr 1' thành công.",
+          "errorMessage": "Chưa chèn đúng công thức sử dụng hàm MAX vào cột E ở hàng Maximum trên trang tính 'Qtr 1'.",
+          "fixAction": "Trên trang tính 'Qtr 1', tìm hàng Maximum tại cột E -> nhập công thức =MAX(...) với phạm vi các ô số liệu tương ứng -> nhấn Enter."
         },
-        "excelTableColumnFormulaConfig": {
+        "excelFormulaReferencesConfig": {
           "worksheetName": "Qtr 1",
-          "tableName": "Table1",
-          "columnName": "Net",
-          "expectedFormula": "=[@Total]-[@Commission]",
-          "requiredReferences": [
-            "Total",
-            "Commission"
+          "cell": "E10,E11,E12,E13,E14",
+          "requiredFunctions": [
+            "MAX"
           ]
         }
       }
     },
     {
       "taskId": "P06-T3",
-      "taskName": "Trên trang tính Qtr 2, tạo một biểu đồ 3-D Clustered Bar (Bar3DChart) hiển thị dữ liệu quý 2.",
-      "maxScore": 167.0,
+      "taskName": "Trên trang tính Qtr 1, hãy sử dụng dữ liệu chỉ có trong các cột Entries và Total để tạo biểu đồ 2D Pie. Đặt biểu đồ mới bên dưới bảng.",
+      "maxScore": 200.0,
       "conditions": [],
       "specialCondition": {
         "type": "excelChartType",
-        "score": 167.0,
+        "score": 200.0,
         "feedback": {
-          "successDetail": "Đã tạo thành công biểu đồ 3-D Clustered Bar (Bar3DChart) trên trang tính 'Qtr 2'.",
-          "errorMessage": "Chưa tìm thấy biểu đồ 3-D Clustered Bar trên trang tính 'Qtr 2' hoặc biểu đồ chưa đúng định dạng 3D Bar.",
-          "fixAction": "Chọn vùng dữ liệu trên trang tính 'Qtr 2' -> vào thẻ Insert -> nhóm Charts -> chọn Insert Column or Bar Chart -> chọn 3-D Bar -> chọn 3-D Clustered Bar."
+          "successDetail": "Đã tạo đúng biểu đồ 2D Pie từ các cột Entries và Total và đặt bên dưới bảng trên trang tính 'Qtr 1'.",
+          "errorMessage": "Chưa tạo đúng biểu đồ 2D Pie, chưa sử dụng đúng dữ liệu cột Entries và Total, hoặc chưa đặt bên dưới bảng trên trang tính 'Qtr 1'.",
+          "fixAction": "Trên trang tính 'Qtr 1', chọn dữ liệu cột Entries, giữ phím Ctrl và chọn thêm cột Total -> vào thẻ Insert -> nhóm Charts -> chọn Insert Pie or Doughnut Chart -> chọn 2-D Pie -> kéo biểu đồ đặt phía dưới bảng."
         },
         "excelChartTypeConfig": {
-          "worksheetName": "Qtr 2",
-          "expectedChartType": "3-D Clustered Bar",
-          "barDir": "bar",
-          "grouping": "clustered"
+          "worksheetName": "Qtr 1",
+          "expectedChartType": "2-D Pie",
+          "requiredFormulaFragments": [
+            "Entries",
+            "Total"
+          ],
+          "placedBelowRow": 11
         }
       }
     },
     {
       "taskId": "P06-T4",
-      "taskName": "Trên trang tính Qtr 2, áp dụng Style 7 và đổi màu sang Monochromatic Palette 1 cho biểu đồ.",
-      "maxScore": 167.0,
+      "taskName": "Trên trang tính Qtr 2, chuyển đổi phạm vi ô A2:E10 thành bảng có tiêu đề. Áp dụng Red, Table Style Light 14.",
+      "maxScore": 200.0,
       "conditions": [],
       "specialCondition": {
-        "type": "excelChartStyle",
-        "score": 167.0,
+        "type": "excelTableCreate",
+        "score": 200.0,
         "feedback": {
-          "successDetail": "Đã áp dụng thành công Chart Style 7 và đổi màu biểu đồ sang Monochromatic Palette 1 trên trang tính 'Qtr 2'.",
-          "errorMessage": "Biểu đồ trên trang tính 'Qtr 2' chưa áp dụng đúng Style 7 hoặc chưa đổi màu sang Monochromatic Palette 1.",
-          "fixAction": "Chọn biểu đồ trên trang tính 'Qtr 2' -> vào thẻ Chart Design -> tại nhóm Chart Styles chọn Style 7 -> chọn Change Colors -> tại mục Monochromatic chọn Palette 1."
+          "successDetail": "Đã chuyển đổi phạm vi A2:E10 thành bảng có tiêu đề và áp dụng kiểu Red, Table Style Light 14 thành công.",
+          "errorMessage": "Chưa chuyển đổi đúng phạm vi A2:E10 thành bảng có tiêu đề hoặc chưa áp dụng đúng kiểu Red, Table Style Light 14 trên trang tính 'Qtr 2'.",
+          "fixAction": "Trên trang tính 'Qtr 2', chọn phạm vi A2:E10 -> vào thẻ Insert -> Table -> tích chọn 'My table has headers' -> nhấn OK -> vào thẻ Table Design -> nhóm Table Styles -> chọn kiểu Red, Table Style Light 14."
         },
-        "excelChartStyleConfig": {
-          "chartSourceFile": "xl/charts/chart1.xml",
-          "styleSourceFile": "xl/charts/style1.xml",
-          "styleId": 7,
-          "colorStyleSourceFile": "xl/charts/colors1.xml",
-          "colorStyleId": 10
+        "excelTableCreateConfig": {
+          "worksheetName": "Qtr 2",
+          "expectedRange": "A2:E10",
+          "hasHeaderRow": true,
+          "expectedTableStyle": "TableStyleLight14"
         }
       }
     },
     {
       "taskId": "P06-T5",
-      "taskName": "Trên trang tính Bonus, trong bảng BonusTable, tại cột Employee ID, nhập công thức lấy 4 ký tự cuối cùng của cột ID.",
-      "maxScore": 166.0,
+      "taskName": "Áp dụng Layout 2 vào biểu đồ thanh (bar chart) trên trang tính Qtr 1.",
+      "maxScore": 200.0,
       "conditions": [],
       "specialCondition": {
-        "type": "excelTableColumnFormula",
-        "score": 166.0,
+        "type": "excelChartQuickLayout",
+        "score": 200.0,
         "feedback": {
-          "successDetail": "Đã nhập đúng công thức =RIGHT([@ID], 4) cho cột Employee ID trên bảng 'BonusTable' thuộc trang tính 'Bonus'.",
-          "errorMessage": "Công thức tại cột Employee ID trên bảng 'BonusTable' trang tính 'Bonus' chưa đúng, chưa lấy đúng 4 ký tự cuối bằng hàm RIGHT([@ID], 4).",
-          "fixAction": "Tại ô đầu tiên của cột Employee ID trên bảng 'BonusTable' thuộc trang tính 'Bonus', nhập công thức '=RIGHT([@ID], 4)' rồi nhấn Enter."
+          "successDetail": "Đã áp dụng Layout 2 cho biểu đồ thanh trên trang tính 'Qtr 1' thành công.",
+          "errorMessage": "Chưa áp dụng Layout 2 cho biểu đồ thanh trên trang tính 'Qtr 1'.",
+          "fixAction": "Chọn biểu đồ thanh trên trang tính 'Qtr 1' -> vào thẻ Chart Design -> tại nhóm Chart Layouts chọn Quick Layout -> chọn Layout 2."
         },
-        "excelTableColumnFormulaConfig": {
-          "worksheetName": "Bonus",
-          "tableName": "BonusTable",
-          "columnName": "Employee ID",
-          "expectedFormula": "=RIGHT([@ID], 4)",
-          "requiredReferences": [
-            "ID"
-          ],
-          "requiredFunctions": [
-            "RIGHT"
-          ]
-        }
-      }
-    },
-    {
-      "taskId": "P06-T6",
-      "taskName": "Đổi màu tab của trang tính Qtr 1 thành Blue (#0070C0).",
-      "maxScore": 166.0,
-      "conditions": [],
-      "specialCondition": {
-        "type": "excelWorksheetTabColor",
-        "score": 166.0,
-        "feedback": {
-          "successDetail": "Đã đổi màu tab trang tính 'Qtr 1' thành màu Blue (#0070C0).",
-          "errorMessage": "Màu tab trang tính 'Qtr 1' chưa đúng màu Blue (#0070C0).",
-          "fixAction": "Nhấp chuột phải vào thẻ tên trang tính 'Qtr 1' -> chọn Tab Color -> chọn màu Blue (#0070C0)."
-        },
-        "excelWorksheetTabColorConfig": {
+        "excelChartQuickLayoutConfig": {
           "worksheetName": "Qtr 1",
-          "expectedColor": "#0070C0",
-          "allowedColors": [
-            "0070C0",
-            "FF0070C0"
-          ]
+          "layoutNumber": 2,
+          "requireDataLabels": true
         }
       }
     }

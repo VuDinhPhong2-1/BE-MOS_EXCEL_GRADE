@@ -3,16 +3,16 @@
   "projectId": "project06",
   "projectCode": "project06",
   "projectName": "Excel Project 06 – Sales & Bonus Report",
-  "maxScore": 1000.0,
+  "maxScore": 142.0,
   "tasks": [
     {
       "taskId": "P06-T1",
       "taskName": "Trên trang tính Qtr 1, thêm một hàng vào bảng để tự động tính Total Entries.",
-      "maxScore": 200.0,
+      "maxScore": 28.4,
       "conditions": [],
       "specialCondition": {
         "type": "excelTableTotalRow",
-        "score": 200.0,
+        "score": 28.4,
         "feedback": {
           "successDetail": "Đã thêm hàng tổng (Total Row) cho bảng tính trên trang tính 'Qtr 1' để tự động tính Total Entries thành công.",
           "errorMessage": "Chưa thêm hàng tổng (Total Row) cho bảng tính trên trang tính 'Qtr 1'.",
@@ -28,11 +28,11 @@
     {
       "taskId": "P06-T2",
       "taskName": "Trên trang tính Qtr 1, ở hàng Maximum, chèn công thức vào cột E để trả về số lượng lớn nhất của các mục công thức trong quý.",
-      "maxScore": 200.0,
+      "maxScore": 28.4,
       "conditions": [],
       "specialCondition": {
         "type": "excelFormulaReferences",
-        "score": 200.0,
+        "score": 28.4,
         "feedback": {
           "successDetail": "Đã chèn công thức hàm MAX vào cột E ở hàng Maximum trên trang tính 'Qtr 1' thành công.",
           "errorMessage": "Chưa chèn đúng công thức sử dụng hàm MAX vào cột E ở hàng Maximum trên trang tính 'Qtr 1'.",
@@ -50,11 +50,11 @@
     {
       "taskId": "P06-T3",
       "taskName": "Trên trang tính Qtr 1, hãy sử dụng dữ liệu chỉ có trong các cột Entries và Total để tạo biểu đồ 2D Pie. Đặt biểu đồ mới bên dưới bảng.",
-      "maxScore": 200.0,
+      "maxScore": 28.4,
       "conditions": [],
       "specialCondition": {
         "type": "excelChartType",
-        "score": 200.0,
+        "score": 28.4,
         "feedback": {
           "successDetail": "Đã tạo đúng biểu đồ 2D Pie từ các cột Entries và Total và đặt bên dưới bảng trên trang tính 'Qtr 1'.",
           "errorMessage": "Chưa tạo đúng biểu đồ 2D Pie, chưa sử dụng đúng dữ liệu cột Entries và Total, hoặc chưa đặt bên dưới bảng trên trang tính 'Qtr 1'.",
@@ -74,11 +74,11 @@
     {
       "taskId": "P06-T4",
       "taskName": "Trên trang tính Qtr 2, chuyển đổi phạm vi ô A2:E10 thành bảng có tiêu đề. Áp dụng Red, Table Style Light 14.",
-      "maxScore": 200.0,
+      "maxScore": 28.4,
       "conditions": [],
       "specialCondition": {
         "type": "excelTableCreate",
-        "score": 200.0,
+        "score": 28.4,
         "feedback": {
           "successDetail": "Đã chuyển đổi phạm vi A2:E10 thành bảng có tiêu đề và áp dụng kiểu Red, Table Style Light 14 thành công.",
           "errorMessage": "Chưa chuyển đổi đúng phạm vi A2:E10 thành bảng có tiêu đề hoặc chưa áp dụng đúng kiểu Red, Table Style Light 14 trên trang tính 'Qtr 2'.",
@@ -95,11 +95,11 @@
     {
       "taskId": "P06-T5",
       "taskName": "Áp dụng Layout 2 vào biểu đồ thanh (bar chart) trên trang tính Qtr 1.",
-      "maxScore": 200.0,
+      "maxScore": 28.4,
       "conditions": [],
       "specialCondition": {
         "type": "excelChartQuickLayout",
-        "score": 200.0,
+        "score": 28.4,
         "feedback": {
           "successDetail": "Đã áp dụng Layout 2 cho biểu đồ thanh trên trang tính 'Qtr 1' thành công.",
           "errorMessage": "Chưa áp dụng Layout 2 cho biểu đồ thanh trên trang tính 'Qtr 1'.",

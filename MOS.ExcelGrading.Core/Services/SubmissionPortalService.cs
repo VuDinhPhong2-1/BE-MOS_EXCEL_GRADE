@@ -220,10 +220,10 @@ namespace MOS.ExcelGrading.Core.Services
             return result;
         }
 
-        public async Task<PublicPortalSubmitResult> GradePreviewAsync(string token, string classId, string studentId, string assignmentId, IFormFile file)
+        public async Task<PublicPortalSubmitResult> GradePreviewAsync(string token, string classId, string studentId, string assignmentId, IFormFile file, IFormFile? attachmentFile = null)
         {
             var portal = await RequireOpenPortalAsync(token, validateTime: true);
-            var grading = await GradeSubmissionFileAsync(portal, classId, studentId, assignmentId, file);
+            var grading = await GradeSubmissionFileAsync(portal, classId, studentId, assignmentId, file, attachmentFile);
             return new PublicPortalSubmitResult
             {
                 ScoreValue = grading.ScoreValue,
@@ -237,10 +237,10 @@ namespace MOS.ExcelGrading.Core.Services
             };
         }
 
-        public async Task<PublicPortalSubmitResult> GradeAndSubmitAsync(string token, string classId, string studentId, string assignmentId, IFormFile file, string? ipAddress, string? sessionId, string? userAgent)
+        public async Task<PublicPortalSubmitResult> GradeAndSubmitAsync(string token, string classId, string studentId, string assignmentId, IFormFile file, string? ipAddress, string? sessionId, string? userAgent, IFormFile? attachmentFile = null)
         {
             var portal = await RequireOpenPortalAsync(token, validateTime: true);
-            var grading = await GradeSubmissionFileAsync(portal, classId, studentId, assignmentId, file);
+            var grading = await GradeSubmissionFileAsync(portal, classId, studentId, assignmentId, file, attachmentFile);
 
             var previousLogs = await _logs.Find(l => l.PortalId == portal.Id && l.StudentId == studentId && l.AssignmentId == assignmentId).ToListAsync();
             if (portal.MaxSubmissionsPerStudent > 0 && previousLogs.Count >= portal.MaxSubmissionsPerStudent)
@@ -610,7 +610,7 @@ namespace MOS.ExcelGrading.Core.Services
         private async Task<SubmissionPortal?> FindActiveByTokenAsync(string token) =>
             await _portals.Find(p => p.PublicToken == token && p.IsActive).FirstOrDefaultAsync();
 
-        private async Task<(double ScoreValue, double MaxScore, List<string> AutoGradingErrors, List<AutoGradingTaskResultRequest> TaskRequests)> GradeSubmissionFileAsync(SubmissionPortal portal, string classId, string studentId, string assignmentId, IFormFile file)
+        private async Task<(double ScoreValue, double MaxScore, List<string> AutoGradingErrors, List<AutoGradingTaskResultRequest> TaskRequests)> GradeSubmissionFileAsync(SubmissionPortal portal, string classId, string studentId, string assignmentId, IFormFile file, IFormFile? attachmentFile = null)
         {
             if (file == null || file.Length == 0) throw new InvalidOperationException("Vui lòng chọn file bài làm.");
             await ValidateSubmissionScopeAsync(portal, classId, studentId, assignmentId);
@@ -624,7 +624,12 @@ namespace MOS.ExcelGrading.Core.Services
             memory.Position = 0;
 
             var (subject, projectCode) = ResolveEndpoint(assignment.GradingApiEndpoint);
-            var grading = await _xmlGradingRuleService.GradeAsync(memory, subject, projectCode);
+            var attachedFileNames = new List<string>();
+            if (attachmentFile != null && !string.IsNullOrWhiteSpace(attachmentFile.FileName))
+            {
+                attachedFileNames.Add(attachmentFile.FileName);
+            }
+            var grading = await _xmlGradingRuleService.GradeAsync(memory, subject, projectCode, attachedFileNames);
             var taskRequests = grading.TaskResults.Select(t => new AutoGradingTaskResultRequest
             {
                 TaskId = t.TaskId,

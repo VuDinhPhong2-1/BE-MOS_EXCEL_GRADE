@@ -7,8 +7,7 @@ using MongoDB.Driver;
 
 Console.OutputEncoding = Encoding.UTF8;
 
-var connectionString = Environment.GetEnvironmentVariable("MongoDbSettings__ConnectionString")
-    ?? "mongodb+srv://vudinhphong261001_db_user:Alo0906412535@cluster0.k98fhem.mongodb.net/MOS?retryWrites=true&w=majority&ssl=true";
+var connectionString = Environment.GetEnvironmentVariable("MongoDbSettings__ConnectionString") ?? "";
 var databaseName = Environment.GetEnvironmentVariable("MongoDbSettings__DatabaseName") ?? "MOS";
 
 for (int i = 0; i < args.Length; i++)
@@ -21,6 +20,14 @@ for (int i = 0; i < args.Length; i++)
     {
         databaseName = args[i + 1];
     }
+}
+
+if (string.IsNullOrWhiteSpace(connectionString))
+{
+    Console.ForegroundColor = ConsoleColor.Red;
+    Console.WriteLine("Lỗi: Thiếu chuỗi kết nối MongoDB. Hãy truyền qua biến môi trường MongoDbSettings__ConnectionString hoặc tham số --connectionString.");
+    Console.ResetColor();
+    return;
 }
 
 Console.WriteLine($"Connecting to MongoDB database '{databaseName}'...");

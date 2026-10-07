@@ -50,7 +50,7 @@ namespace MOS.ExcelGrading.API.Controllers
 
         [HttpPost("{token}/grade-and-submit")]
         [RequestSizeLimit(524288000)]
-        public async Task<IActionResult> GradeAndSubmit(string token, [FromForm] string classId, [FromForm] string studentId, [FromForm] string assignmentId, [FromForm] IFormFile file)
+        public async Task<IActionResult> GradeAndSubmit(string token, [FromForm] string classId, [FromForm] string studentId, [FromForm] string assignmentId, [FromForm] IFormFile file, [FromForm] IFormFile? attachmentFile = null)
         {
             try
             {
@@ -61,7 +61,7 @@ namespace MOS.ExcelGrading.API.Controllers
                     sessionId = Request.Headers["X-Device-Id"].ToString();
                 }
                 var userAgent = Request.Headers.UserAgent.ToString();
-                return Ok(await _service.GradeAndSubmitAsync(token, classId, studentId, assignmentId, file, ip, sessionId, userAgent));
+                return Ok(await _service.GradeAndSubmitAsync(token, classId, studentId, assignmentId, file, ip, sessionId, userAgent, attachmentFile));
             }
             catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
             catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }
@@ -74,11 +74,11 @@ namespace MOS.ExcelGrading.API.Controllers
 
         [HttpPost("{token}/grade-preview")]
         [RequestSizeLimit(524288000)]
-        public async Task<IActionResult> GradePreview(string token, [FromForm] string classId, [FromForm] string studentId, [FromForm] string assignmentId, [FromForm] IFormFile file)
+        public async Task<IActionResult> GradePreview(string token, [FromForm] string classId, [FromForm] string studentId, [FromForm] string assignmentId, [FromForm] IFormFile file, [FromForm] IFormFile? attachmentFile = null)
         {
             try
             {
-                return Ok(await _service.GradePreviewAsync(token, classId, studentId, assignmentId, file));
+                return Ok(await _service.GradePreviewAsync(token, classId, studentId, assignmentId, file, attachmentFile));
             }
             catch (ArgumentException ex) { return BadRequest(new { message = ex.Message }); }
             catch (InvalidOperationException ex) { return BadRequest(new { message = ex.Message }); }

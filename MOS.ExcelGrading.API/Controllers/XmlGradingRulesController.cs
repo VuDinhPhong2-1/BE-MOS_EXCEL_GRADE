@@ -209,10 +209,26 @@ namespace MOS.ExcelGrading.API.Controllers
             }
         }
 
+        [HttpPost("seed/ppt/gm2")]
+        [RequirePermission(Permissions.CreateXmlRules)]
+        public async Task<ActionResult<GradingRuleSet>> SeedPptGm2()
+        {
+            try
+            {
+                var ruleSet = await _xmlGradingRuleService.SeedPptGm2RuleSetAsync();
+                return Ok(ruleSet);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to seed XML grading rules for PPT GMetrix 02.");
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         [HttpPost("grade/{subject}/{**projectCode}")]
         [RequestSizeLimit(104_857_600)]
         [RequirePermission(Permissions.ViewXmlRules)]
-        public async Task<ActionResult<GradingResult>> GradeWithXmlRules(string subject, string projectCode, IFormFile file)
+        public async Task<ActionResult<GradingResult>> GradeWithXmlRules(string subject, string projectCode, IFormFile file, [FromForm] IFormFile? attachmentFile = null)
         {
             if (file == null || file.Length == 0)
             {
@@ -222,7 +238,12 @@ namespace MOS.ExcelGrading.API.Controllers
             try
             {
                 await using var stream = file.OpenReadStream();
-                var result = await _xmlGradingRuleService.GradeAsync(stream, subject, projectCode);
+                var attachedNames = new List<string>();
+                if (attachmentFile != null && !string.IsNullOrWhiteSpace(attachmentFile.FileName))
+                {
+                    attachedNames.Add(attachmentFile.FileName);
+                }
+                var result = await _xmlGradingRuleService.GradeAsync(stream, subject, projectCode, attachedNames);
                 return Ok(result);
             }
             catch (Exception ex)

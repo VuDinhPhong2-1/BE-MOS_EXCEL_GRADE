@@ -8,22 +8,21 @@
     {
       "taskId": "P07-T1",
       "taskName": "Trên trang tính Employee Bonuses, chèn tham chiếu hỗn hợp vào ô F4 (=B$15*E4) và sao chép xuống F4:F11.",
-      "maxScore": 28.4,
+      "maxScore": 35.5,
       "conditions": [],
       "specialCondition": {
         "type": "excelFormulaReferences",
-        "score": 28.4,
+        "score": 35.5,
         "feedback": {
-          "successDetail": "Đã chèn đúng công thức tham chiếu hỗn hợp tại ô F4 và sao chép xuống phạm vi F4:F11 trên trang tính 'Employee Bonuses'.",
-          "errorMessage": "Công thức tại ô F4 chưa đúng tham chiếu hỗn hợp (cần khóa hàng 15: B$15*E4) hoặc chưa sao chép xuống F11.",
-          "fixAction": "Trên trang tính 'Employee Bonuses', chọn ô F4, nhập công thức =B$15*E4 (hoặc =E4*B$15), nhấn Enter và kéo handle điền từ ô F4 xuống ô F11."
+          "successDetail": "Đã chèn đúng công thức tham chiếu hỗn hợp tại ô F4 (khóa dòng 15 với $15) và sao chép đầy đủ xuống vùng F4:F11 trên trang tính 'Employee Bonuses' / Successfully inserted mixed reference formula in cell F4 locking row 15 and filled down through F4:F11.",
+          "errorMessage": "Công thức tại ô F4 chưa đúng tham chiếu hỗn hợp (cần khóa dòng 15: B$15*E4 hoặc E4*B$15) hoặc chưa sao chép xuống F11 trên trang tính 'Employee Bonuses' / Formula in cell F4 does not use a mixed reference locking row 15 (e.g. B$15*E4 or E4*B$15) or has not been filled down through F11.",
+          "fixAction": "Trên trang tính 'Employee Bonuses', chọn ô F4, nhập công thức =B$15*E4 (hoặc =E4*B$15), nhấn Enter. Sau đó kéo hoặc nhấp đúp Fill Handle từ ô F4 xuống ô F11 / On the 'Employee Bonuses' worksheet, select cell F4, enter the formula =B$15*E4 (or =E4*B$15), press Enter, then drag or double-click the Fill Handle down through cell F11."
         },
         "excelFormulaReferencesConfig": {
           "worksheetName": "Employee Bonuses",
           "cell": "F4",
           "requiredFormulaFragments": [
-            "$15",
-            "E4"
+            "$15"
           ],
           "expectedSharedRange": "F4:F11",
           "requireOnlyDefinedNameReferences": false
@@ -33,15 +32,15 @@
     {
       "taskId": "P07-T2",
       "taskName": "Trên trang tính Employee Bonuses, sử dụng Autofill để sao chép công thức trong ô G4 xuống G4:G11.",
-      "maxScore": 28.4,
+      "maxScore": 35.5,
       "conditions": [],
       "specialCondition": {
         "type": "excelFormulaReferences",
-        "score": 28.4,
+        "score": 35.5,
         "feedback": {
-          "successDetail": "Đã sao chép công thức Total Compensation từ ô G4 xuống toàn bộ cột G4:G11 bằng Autofill thành công.",
-          "errorMessage": "Chưa sao chép công thức ở ô G4 xuống các ô còn lại trong cột G (từ G4 đến G11).",
-          "fixAction": "Trên trang tính 'Employee Bonuses', chọn ô G4, nhấp đúp hoặc kéo handle điền ở góc dưới bên phải xuống ô G11."
+          "successDetail": "Đã sao chép công thức Total Compensation từ ô G4 xuống toàn bộ cột G4:G11 bằng tính năng Autofill thành công / Successfully copied the Total Compensation formula from cell G4 down through G4:G11 using autofill.",
+          "errorMessage": "Chưa sao chép công thức ở ô G4 xuống các ô còn lại trong cột G (từ G5 đến G11) trên trang tính 'Employee Bonuses' / The formula in cell G4 has not been copied down through the remaining cells in column G (G5:G11).",
+          "fixAction": "Trên trang tính 'Employee Bonuses', chọn ô G4, nhấp đúp hoặc kéo chuột vào ô vuông nhỏ (Fill Handle) ở góc dưới bên phải ô G4 xuống ô G11 / On the 'Employee Bonuses' worksheet, select cell G4, then double-click or drag the Fill Handle at the bottom-right corner down to cell G11."
         },
         "excelFormulaReferencesConfig": {
           "worksheetName": "Employee Bonuses",
@@ -54,15 +53,15 @@
     {
       "taskId": "P07-T3",
       "taskName": "Trên trang tính Parts, xóa hàng có chứa nhân viên bán hàng tên Allen.",
-      "maxScore": 28.4,
+      "maxScore": 35.5,
       "conditions": [],
       "specialCondition": {
         "type": "excelTableRowDelete",
-        "score": 28.4,
+        "score": 35.5,
         "feedback": {
-          "successDetail": "Đã xóa thành công hàng chứa nhân viên bán hàng 'Allen' trên trang tính 'Parts'.",
-          "errorMessage": "Chưa xóa hàng chứa nhân viên 'Allen' hoặc chỉ xóa nội dung ô mà chưa xóa cả hàng trên trang tính 'Parts'.",
-          "fixAction": "Trên trang tính 'Parts', nhấp chuột phải vào tiêu đề hàng chứa tên nhân viên 'Allen' (hàng 11) và chọn Delete (hoặc chọn hàng -> Delete Sheet Rows)."
+          "successDetail": "Đã xóa toàn bộ hàng chứa nhân viên bán hàng 'Allen' trên trang tính 'Parts' thành công / Successfully deleted the row containing the salesperson 'Allen' on the 'Parts' worksheet.",
+          "errorMessage": "Hàng chứa nhân viên 'Allen' vẫn còn tồn tại hoặc bạn chỉ xóa nội dung ô mà chưa xóa cả hàng trên trang tính 'Parts' / The row containing salesperson 'Allen' still exists or cell contents were cleared without deleting the entire row.",
+          "fixAction": "Trên trang tính 'Parts', nhấp chuột phải vào tiêu đề hàng chứa tên 'Allen' (hàng 11), chọn Delete (hoặc chọn hàng -> trên thẻ Home chọn Delete -> Delete Sheet Rows) / On the 'Parts' worksheet, right-click the row header containing 'Allen' (row 11) and select Delete (or right-click the cell containing 'Allen' -> Delete -> Table Rows)."
         },
         "excelTableRowDeleteConfig": {
           "worksheetName": "Parts",
@@ -75,40 +74,19 @@
     {
       "taskId": "P07-T4",
       "taskName": "Trên trang tính Parts, đổi kiểu bảng thành White, Table Style Medium 1.",
-      "maxScore": 28.4,
+      "maxScore": 35.5,
       "conditions": [],
       "specialCondition": {
         "type": "excelTableCreate",
-        "score": 28.4,
+        "score": 35.5,
         "feedback": {
-          "successDetail": "Đã áp dụng đúng kiểu bảng 'White, Table Style Medium 1' cho bảng trên trang tính 'Parts'.",
-          "errorMessage": "Chưa áp dụng đúng kiểu bảng 'White, Table Style Medium 1' trên trang tính 'Parts'.",
-          "fixAction": "Chọn một ô bất kỳ trong bảng trên trang tính 'Parts' -> vào thẻ Table Design (hoặc Table Tools Design) -> trong nhóm Table Styles, chọn kiểu 'White, Table Style Medium 1' (TableStyleMedium1)."
+          "successDetail": "Đã áp dụng đúng kiểu bảng 'White, Table Style Medium 1' (TableStyleMedium1) cho bảng dữ liệu trên trang tính 'Parts' / Successfully applied 'White, Table Style Medium 1' to the table on the 'Parts' worksheet.",
+          "errorMessage": "Chưa áp dụng đúng kiểu bảng 'White, Table Style Medium 1' trên trang tính 'Parts' / The table style on the 'Parts' worksheet is not set to 'White, Table Style Medium 1'.",
+          "fixAction": "Trên trang tính 'Parts', chọn một ô bất kỳ bên trong bảng -> trên thanh Ribbon chọn thẻ Table Design (hoặc Table Tools -> Design) -> tại nhóm Table Styles, nhấp chọn kiểu 'White, Table Style Medium 1' (TableStyleMedium1) / On the 'Parts' worksheet, click any cell inside the table -> click Table Design tab on the Ribbon -> in Table Styles gallery, select 'White, Table Style Medium 1'."
         },
         "excelTableCreateConfig": {
           "worksheetName": "Parts",
           "expectedTableStyle": "TableStyleMedium1"
-        }
-      }
-    },
-    {
-      "taskId": "P07-T5",
-      "taskName": "Trên trang tính Parts, chèn biểu đồ Line Sparkline vào ô F4 biểu diễn xu hướng bán hàng từ Jan đến Mar (B4:D4).",
-      "maxScore": 28.4,
-      "conditions": [],
-      "specialCondition": {
-        "type": "excelSparkline",
-        "score": 28.4,
-        "feedback": {
-          "successDetail": "Đã chèn đúng biểu đồ Line Sparkline tại ô F4 với vùng dữ liệu B4:D4 trên trang tính 'Parts'.",
-          "errorMessage": "Chưa chèn đúng biểu đồ Line Sparkline, sai vị trí ô F4 hoặc sai phạm vi dữ liệu Jan đến Mar (B4:D4).",
-          "fixAction": "Chọn ô F4 trên trang tính 'Parts' -> vào thẻ Insert -> nhóm Sparklines -> chọn Line -> tại Data Range nhập 'B4:D4', tại Location Range nhập 'F4' -> nhấn OK."
-        },
-        "excelSparklineConfig": {
-          "worksheetName": "Parts",
-          "sparklineType": "line",
-          "dataRange": "B4:D4",
-          "locationRange": "F4"
         }
       }
     }

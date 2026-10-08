@@ -85,6 +85,88 @@ namespace MOS.ExcelGrading.Word.UnitTests
         }
 
         [Fact]
+        public void EvaluateExcelTableTotalRow_WithWorksheetRelationshipAndEntriesColumn_Passes()
+        {
+            var workbookXml = @"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<workbook xmlns=""http://schemas.openxmlformats.org/spreadsheetml/2006/main"" xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"">
+    <sheets>
+        <sheet name=""Qtr 1"" sheetId=""1"" r:id=""rId1""/>
+    </sheets>
+</workbook>";
+
+            var workbookRelsXml = @"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<Relationships xmlns=""http://schemas.openxmlformats.org/package/2006/relationships"">
+    <Relationship Id=""rId1"" Type=""http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet"" Target=""worksheets/sheet1.xml""/>
+</Relationships>";
+
+            var worksheetXml = @"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<worksheet xmlns=""http://schemas.openxmlformats.org/spreadsheetml/2006/main"" xmlns:r=""http://schemas.openxmlformats.org/officeDocument/2006/relationships"">
+    <tableParts count=""1""><tablePart r:id=""rId1""/></tableParts>
+</worksheet>";
+
+            var sheetRelsXml = @"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<Relationships xmlns=""http://schemas.openxmlformats.org/package/2006/relationships"">
+    <Relationship Id=""rId1"" Type=""http://schemas.openxmlformats.org/officeDocument/2006/relationships/table"" Target=""../tables/table1.xml""/>
+</Relationships>";
+
+            var tableXml = @"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<table xmlns=""http://schemas.openxmlformats.org/spreadsheetml/2006/main"" id=""1"" name=""Table1"" displayName=""Table1"" ref=""A2:E11"" totalsRowCount=""1"" totalsRowShown=""1"">
+    <tableColumns count=""5"">
+        <tableColumn id=""1"" name=""Entries"" totalsRowFunction=""count""/>
+        <tableColumn id=""2"" name=""Jan""/>
+        <tableColumn id=""3"" name=""Feb""/>
+        <tableColumn id=""4"" name=""Mar""/>
+        <tableColumn id=""5"" name=""Total""/>
+    </tableColumns>
+</table>";
+
+            var package = CreateOfficePackage(new Dictionary<string, string>
+            {
+                ["xl/workbook.xml"] = workbookXml,
+                ["xl/_rels/workbook.xml.rels"] = workbookRelsXml,
+                ["xl/worksheets/sheet1.xml"] = worksheetXml,
+                ["xl/worksheets/_rels/sheet1.xml.rels"] = sheetRelsXml,
+                ["xl/tables/table1.xml"] = tableXml
+            });
+
+            var config = new ExcelTableTotalRowConfig
+            {
+                WorksheetName = "Qtr 1",
+                RequireTotalRow = true,
+                ColumnName = "Entries"
+            };
+
+            var (isPassed, message) = InvokeEvaluator("EvaluateExcelTableTotalRow", config, package);
+            Assert.True(isPassed, message);
+        }
+
+        [Fact]
+        public void EvaluateExcelTableTotalRow_WhenConfiguredColumnMissing_Fails()
+        {
+            var tableXml = @"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>
+<table xmlns=""http://schemas.openxmlformats.org/spreadsheetml/2006/main"" id=""1"" name=""Table1"" displayName=""Table1"" ref=""A1:E10"" totalsRowCount=""1"" totalsRowShown=""1"">
+    <tableColumns count=""2"">
+        <tableColumn id=""1"" name=""Item""/>
+        <tableColumn id=""2"" name=""Total"" totalsRowFunction=""sum""/>
+    </tableColumns>
+</table>";
+
+            var package = CreateOfficePackage(new Dictionary<string, string>
+            {
+                ["xl/tables/table1.xml"] = tableXml
+            });
+
+            var config = new ExcelTableTotalRowConfig
+            {
+                RequireTotalRow = true,
+                ColumnName = "Entries"
+            };
+
+            var (isPassed, message) = InvokeEvaluator("EvaluateExcelTableTotalRow", config, package);
+            Assert.False(isPassed, message);
+        }
+
+        [Fact]
         public void EvaluateExcelFormulaReferences_MultiCandidateCell_PassesWhenAnyCandidateMatches()
         {
             var worksheetXml = @"<?xml version=""1.0"" encoding=""UTF-8"" standalone=""yes""?>

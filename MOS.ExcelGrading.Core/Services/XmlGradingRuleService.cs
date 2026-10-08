@@ -5702,9 +5702,10 @@ namespace MOS.ExcelGrading.Core.Services
                 && config.RequiredFunctions.Count == 0
                 && config.RequiredFormulaFragments.Count == 0
                 && string.IsNullOrWhiteSpace(config.ExpectedFormula)
-                && string.IsNullOrWhiteSpace(config.ExpectedValue))
+                && string.IsNullOrWhiteSpace(config.ExpectedValue)
+                && string.IsNullOrWhiteSpace(config.ExpectedSharedRange))
             {
-                return FailSpecialCondition("Chưa cấu hnh tiu ch kiểm tra cng thức.");
+                return FailSpecialCondition("Chưa cấu hình tiêu chí kiểm tra công thức.");
             }
 
             if (!TryResolveExcelWorksheet(package, config.WorksheetName, config.SourceFile, out var worksheetPath, out var worksheetError))
@@ -7087,6 +7088,11 @@ namespace MOS.ExcelGrading.Core.Services
                     var cols = root.Descendants(x + "tableColumn").ToList();
                     var col = cols.FirstOrDefault(c =>
                         string.Equals(c.Attribute("name")?.Value?.Trim(), config.ColumnName.Trim(), StringComparison.OrdinalIgnoreCase));
+
+                    if (col == null)
+                    {
+                        continue;
+                    }
 
                     if (col != null)
                     {
@@ -12879,9 +12885,10 @@ namespace MOS.ExcelGrading.Core.Services
                 && (config.RequiredFunctions == null || config.RequiredFunctions.Count == 0)
                 && (config.RequiredFormulaFragments == null || config.RequiredFormulaFragments.Count == 0)
                 && string.IsNullOrWhiteSpace(config.ExpectedFormula)
-                && string.IsNullOrWhiteSpace(config.ExpectedValue))
+                && string.IsNullOrWhiteSpace(config.ExpectedValue)
+                && string.IsNullOrWhiteSpace(config.ExpectedSharedRange))
             {
-                result.Errors.Add($"{taskPrefix}.specialCondition.excelFormulaReferencesConfig phai co it nhat 1 tieu chi: requiredReferences, requiredFunctions, requiredFormulaFragments, expectedFormula, hoac expectedValue.");
+                result.Errors.Add($"{taskPrefix}.specialCondition.excelFormulaReferencesConfig phai co it nhat 1 tieu chi: requiredReferences, requiredFunctions, requiredFormulaFragments, expectedFormula, expectedValue, hoac expectedSharedRange.");
             }
 
             if (!string.IsNullOrWhiteSpace(config.SourceFile) && !IsSafeSourceFile(config.SourceFile))
@@ -14185,5 +14192,6 @@ namespace MOS.ExcelGrading.Core.Services
         }
     }
 }
+
 
 

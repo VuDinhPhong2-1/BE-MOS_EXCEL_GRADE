@@ -107,6 +107,8 @@ namespace MOS.ExcelGrading.Core.Models
     public const string ExcelTableTotalRow = "excelTableTotalRow";
     public const string ExcelTableCreate = "excelTableCreate";
     public const string ExcelChartQuickLayout = "excelChartQuickLayout";
+    public const string ExcelSparkline = "excelSparkline";
+    public const string ExcelTableRowDelete = "excelTableRowDelete";
 
 
     // PowerPoint (.pptx)
@@ -201,6 +203,8 @@ namespace MOS.ExcelGrading.Core.Models
             ExcelTableTotalRow,
             ExcelTableCreate,
             ExcelChartQuickLayout,
+            ExcelSparkline,
+            ExcelTableRowDelete,
             PptPictureCropShape,
             PptShapeSize,
             PptShapeGroup,
@@ -734,6 +738,16 @@ public static class ImageWrapTypes
         [BsonIgnoreIfNull]
         public ExcelChartQuickLayoutConfig? ExcelChartQuickLayoutConfig { get; set; }
 
+        [BsonElement("excelSparklineConfig")]
+        [JsonPropertyName("excelSparklineConfig")]
+        [BsonIgnoreIfNull]
+        public ExcelSparklineConfig? ExcelSparklineConfig { get; set; }
+
+        [BsonElement("excelTableRowDeleteConfig")]
+        [JsonPropertyName("excelTableRowDeleteConfig")]
+        [BsonIgnoreIfNull]
+        public ExcelTableRowDeleteConfig? ExcelTableRowDeleteConfig { get; set; }
+
 }
 
     [BsonIgnoreExtraElements]
@@ -790,6 +804,10 @@ public static class ImageWrapTypes
         [BsonElement("requireOnlyDefinedNameReferences")]
         [JsonPropertyName("requireOnlyDefinedNameReferences")]
         public bool? RequireOnlyDefinedNameReferences { get; set; } = true;
+
+        [BsonElement("expectedSharedRange")]
+        [JsonPropertyName("expectedSharedRange")]
+        public string? ExpectedSharedRange { get; set; }
     }
 
     [BsonIgnoreExtraElements]
@@ -1337,6 +1355,54 @@ public static class ImageWrapTypes
         [BsonElement("dataLabelPosition")]
         [JsonPropertyName("dataLabelPosition")]
         public string? DataLabelPosition { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelSparklineConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("sparklineType")]
+        [JsonPropertyName("sparklineType")]
+        public string? SparklineType { get; set; } = "line";
+
+        [BsonElement("dataRange")]
+        [JsonPropertyName("dataRange")]
+        public string? DataRange { get; set; }
+
+        [BsonElement("locationRange")]
+        [JsonPropertyName("locationRange")]
+        public string? LocationRange { get; set; }
+    }
+
+    [BsonIgnoreExtraElements]
+    public class ExcelTableRowDeleteConfig
+    {
+        [BsonElement("worksheetName")]
+        [JsonPropertyName("worksheetName")]
+        public string? WorksheetName { get; set; }
+
+        [BsonElement("sourceFile")]
+        [JsonPropertyName("sourceFile")]
+        public string? SourceFile { get; set; }
+
+        [BsonElement("deletedText")]
+        [JsonPropertyName("deletedText")]
+        public string? DeletedText { get; set; }
+
+        [BsonElement("requireAbsent")]
+        [JsonPropertyName("requireAbsent")]
+        public bool RequireAbsent { get; set; } = true;
+
+        [BsonElement("matchWholeWord")]
+        [JsonPropertyName("matchWholeWord")]
+        public bool? MatchWholeWord { get; set; } = true;
     }
 
 

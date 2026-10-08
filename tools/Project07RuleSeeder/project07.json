@@ -1,0 +1,116 @@
+{
+  "examId": "exam01",
+  "projectId": "project07",
+  "projectCode": "project07",
+  "projectName": "Excel Project 07 – Employee Bonuses & Parts Sales",
+  "maxScore": 142.0,
+  "tasks": [
+    {
+      "taskId": "P07-T1",
+      "taskName": "Trên trang tính Employee Bonuses, chèn tham chiếu hỗn hợp vào ô F4 (=B$15*E4) và sao chép xuống F4:F11.",
+      "maxScore": 28.4,
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelFormulaReferences",
+        "score": 28.4,
+        "feedback": {
+          "successDetail": "Đã chèn đúng công thức tham chiếu hỗn hợp tại ô F4 và sao chép xuống phạm vi F4:F11 trên trang tính 'Employee Bonuses'.",
+          "errorMessage": "Công thức tại ô F4 chưa đúng tham chiếu hỗn hợp (cần khóa hàng 15: B$15*E4) hoặc chưa sao chép xuống F11.",
+          "fixAction": "Trên trang tính 'Employee Bonuses', chọn ô F4, nhập công thức =B$15*E4 (hoặc =E4*B$15), nhấn Enter và kéo handle điền từ ô F4 xuống ô F11."
+        },
+        "excelFormulaReferencesConfig": {
+          "worksheetName": "Employee Bonuses",
+          "cell": "F4",
+          "requiredFormulaFragments": [
+            "$15",
+            "E4"
+          ],
+          "expectedSharedRange": "F4:F11",
+          "requireOnlyDefinedNameReferences": false
+        }
+      }
+    },
+    {
+      "taskId": "P07-T2",
+      "taskName": "Trên trang tính Employee Bonuses, sử dụng Autofill để sao chép công thức trong ô G4 xuống G4:G11.",
+      "maxScore": 28.4,
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelFormulaReferences",
+        "score": 28.4,
+        "feedback": {
+          "successDetail": "Đã sao chép công thức Total Compensation từ ô G4 xuống toàn bộ cột G4:G11 bằng Autofill thành công.",
+          "errorMessage": "Chưa sao chép công thức ở ô G4 xuống các ô còn lại trong cột G (từ G4 đến G11).",
+          "fixAction": "Trên trang tính 'Employee Bonuses', chọn ô G4, nhấp đúp hoặc kéo handle điền ở góc dưới bên phải xuống ô G11."
+        },
+        "excelFormulaReferencesConfig": {
+          "worksheetName": "Employee Bonuses",
+          "cell": "G11",
+          "expectedSharedRange": "G4:G11",
+          "requireOnlyDefinedNameReferences": false
+        }
+      }
+    },
+    {
+      "taskId": "P07-T3",
+      "taskName": "Trên trang tính Parts, xóa hàng có chứa nhân viên bán hàng tên Allen.",
+      "maxScore": 28.4,
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelTableRowDelete",
+        "score": 28.4,
+        "feedback": {
+          "successDetail": "Đã xóa thành công hàng chứa nhân viên bán hàng 'Allen' trên trang tính 'Parts'.",
+          "errorMessage": "Chưa xóa hàng chứa nhân viên 'Allen' hoặc chỉ xóa nội dung ô mà chưa xóa cả hàng trên trang tính 'Parts'.",
+          "fixAction": "Trên trang tính 'Parts', nhấp chuột phải vào tiêu đề hàng chứa tên nhân viên 'Allen' (hàng 11) và chọn Delete (hoặc chọn hàng -> Delete Sheet Rows)."
+        },
+        "excelTableRowDeleteConfig": {
+          "worksheetName": "Parts",
+          "deletedText": "Allen",
+          "requireAbsent": true,
+          "matchWholeWord": true
+        }
+      }
+    },
+    {
+      "taskId": "P07-T4",
+      "taskName": "Trên trang tính Parts, đổi kiểu bảng thành White, Table Style Medium 1.",
+      "maxScore": 28.4,
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelTableCreate",
+        "score": 28.4,
+        "feedback": {
+          "successDetail": "Đã áp dụng đúng kiểu bảng 'White, Table Style Medium 1' cho bảng trên trang tính 'Parts'.",
+          "errorMessage": "Chưa áp dụng đúng kiểu bảng 'White, Table Style Medium 1' trên trang tính 'Parts'.",
+          "fixAction": "Chọn một ô bất kỳ trong bảng trên trang tính 'Parts' -> vào thẻ Table Design (hoặc Table Tools Design) -> trong nhóm Table Styles, chọn kiểu 'White, Table Style Medium 1' (TableStyleMedium1)."
+        },
+        "excelTableCreateConfig": {
+          "worksheetName": "Parts",
+          "expectedTableStyle": "TableStyleMedium1"
+        }
+      }
+    },
+    {
+      "taskId": "P07-T5",
+      "taskName": "Trên trang tính Parts, chèn biểu đồ Line Sparkline vào ô F4 biểu diễn xu hướng bán hàng từ Jan đến Mar (B4:D4).",
+      "maxScore": 28.4,
+      "conditions": [],
+      "specialCondition": {
+        "type": "excelSparkline",
+        "score": 28.4,
+        "feedback": {
+          "successDetail": "Đã chèn đúng biểu đồ Line Sparkline tại ô F4 với vùng dữ liệu B4:D4 trên trang tính 'Parts'.",
+          "errorMessage": "Chưa chèn đúng biểu đồ Line Sparkline, sai vị trí ô F4 hoặc sai phạm vi dữ liệu Jan đến Mar (B4:D4).",
+          "fixAction": "Chọn ô F4 trên trang tính 'Parts' -> vào thẻ Insert -> nhóm Sparklines -> chọn Line -> tại Data Range nhập 'B4:D4', tại Location Range nhập 'F4' -> nhấn OK."
+        },
+        "excelSparklineConfig": {
+          "worksheetName": "Parts",
+          "sparklineType": "line",
+          "dataRange": "B4:D4",
+          "locationRange": "F4"
+        }
+      }
+    }
+  ]
+}

@@ -2144,6 +2144,8 @@ namespace MOS.ExcelGrading.Core.Services
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableTotalRow, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableCreate, StringComparison.OrdinalIgnoreCase)
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelChartQuickLayout, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelSparkline, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(specialConditionType, SpecialConditionTypes.ExcelTableRowDelete, StringComparison.OrdinalIgnoreCase)
 
                     || string.Equals(specialConditionType, SpecialConditionTypes.ExcelWorksheetTabColor, StringComparison.OrdinalIgnoreCase),
                 "ppt" => IsPptSpecialConditionSupported(specialConditionType),
@@ -2993,6 +2995,22 @@ namespace MOS.ExcelGrading.Core.Services
                     }
                     continue;
                 }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelSparkline, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorkbookParts();
+                    AddExcelWorksheetParts(specialCondition.ExcelSparklineConfig?.SourceFile);
+                    continue;
+                }
+
+                if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableRowDelete, StringComparison.OrdinalIgnoreCase))
+                {
+                    AddExcelWorkbookParts();
+                    AddExcelWorksheetParts(specialCondition.ExcelTableRowDeleteConfig?.SourceFile);
+                    AddXmlPrefix("xl/tables");
+                    AddXmlPart("xl/sharedStrings.xml", "xl/sharedStrings.xml");
+                    continue;
+                }
             }
 
             return requiredParts;
@@ -3460,6 +3478,16 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelChartQuickLayout, StringComparison.OrdinalIgnoreCase))
             {
                 return EvaluateExcelChartQuickLayout(specialCondition.ExcelChartQuickLayoutConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelSparkline, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelSparkline(specialCondition.ExcelSparklineConfig, package);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableRowDelete, StringComparison.OrdinalIgnoreCase))
+            {
+                return EvaluateExcelTableRowDelete(specialCondition.ExcelTableRowDeleteConfig, package);
             }
 
             // ===== POWERPOINT SPECIAL CONDITIONS =====
@@ -5717,7 +5745,37 @@ namespace MOS.ExcelGrading.Core.Services
                     continue;
                 }
 
-                var formula = candidateCell.Element(x + "f")?.Value;
+                var formulaElement = candidateCell.Element(x + "f");
+                var formula = formulaElement?.Value;
+                string? sharedRange = null;
+
+                if (formulaElement != null && string.Equals(formulaElement.Attribute("t")?.Value, "shared", StringComparison.OrdinalIgnoreCase))
+                {
+                    sharedRange = formulaElement.Attribute("ref")?.Value;
+                    var si = formulaElement.Attribute("si")?.Value;
+                    if (string.IsNullOrWhiteSpace(formula) && !string.IsNullOrWhiteSpace(si))
+                    {
+                        var masterCell = allCells.FirstOrDefault(c =>
+                        {
+                            var f = c.Element(x + "f");
+                            return f != null &&
+                                   string.Equals(f.Attribute("t")?.Value, "shared", StringComparison.OrdinalIgnoreCase) &&
+                                   string.Equals(f.Attribute("si")?.Value, si, StringComparison.OrdinalIgnoreCase) &&
+                                   !string.IsNullOrWhiteSpace(f.Value);
+                        });
+                        if (masterCell != null)
+                        {
+                            var masterF = masterCell.Element(x + "f");
+                            formula = masterF?.Value;
+                            sharedRange ??= masterF?.Attribute("ref")?.Value;
+                        }
+                    }
+                }
+                else if (formulaElement != null)
+                {
+                    sharedRange = formulaElement.Attribute("ref")?.Value;
+                }
+
                 var normalizedFormula = NormalizeExcelFormulaText(formula);
                 if (string.IsNullOrWhiteSpace(normalizedFormula))
                 {
@@ -5764,6 +5822,50 @@ namespace MOS.ExcelGrading.Core.Services
                 {
                     lastFailureMessage = $"Công thức tại ô {addr} đang tham chiếu trực tiếp ô/vùng thay vì chỉ dùng named range.";
                     continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(config.ExpectedSharedRange))
+                {
+                    var normExpected = NormalizeExcelFormulaReference(config.ExpectedSharedRange);
+                    var rangeMatches = false;
+                    if (!string.IsNullOrWhiteSpace(sharedRange))
+                    {
+                        var normShared = NormalizeExcelFormulaReference(sharedRange);
+                        if (string.Equals(normShared, normExpected, StringComparison.OrdinalIgnoreCase))
+                        {
+                            rangeMatches = true;
+                        }
+                    }
+
+                    if (!rangeMatches && TryParseExcelRange(config.ExpectedSharedRange, out var startCol, out var startRow, out var endCol, out var endRow))
+                    {
+                        var allCovered = true;
+                        for (var r = startRow; r <= endRow; r++)
+                        {
+                            for (var c = startCol; c <= endCol; c++)
+                            {
+                                var cellCoord = $"{GetExcelColumnName(c)}{r}";
+                                var checkCell = allCells.FirstOrDefault(item =>
+                                    string.Equals(NormalizeExcelCellAddress(item.Attribute("r")?.Value), cellCoord, StringComparison.OrdinalIgnoreCase));
+                                if (checkCell == null || checkCell.Element(x + "f") == null)
+                                {
+                                    allCovered = false;
+                                    break;
+                                }
+                            }
+                            if (!allCovered) break;
+                        }
+                        if (allCovered)
+                        {
+                            rangeMatches = true;
+                        }
+                    }
+
+                    if (!rangeMatches)
+                    {
+                        lastFailureMessage = $"Công thức chưa được sao chép/phủ kín phạm vi yêu cầu {config.ExpectedSharedRange}.";
+                        continue;
+                    }
                 }
 
                 if (!string.IsNullOrWhiteSpace(config.ExpectedValue))
@@ -12441,6 +12543,16 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelChartQuickLayout, StringComparison.OrdinalIgnoreCase))
             {
                 ValidateExcelChartQuickLayoutSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelSparkline, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelSparklineSpecialCondition(specialCondition, taskPrefix, result);
+            }
+
+            if (string.Equals(specialCondition.Type, SpecialConditionTypes.ExcelTableRowDelete, StringComparison.OrdinalIgnoreCase))
+            {
+                ValidateExcelTableRowDeleteSpecialCondition(specialCondition, taskPrefix, result);
             }
 
         }

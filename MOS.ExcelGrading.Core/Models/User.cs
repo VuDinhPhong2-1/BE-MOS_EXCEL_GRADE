@@ -125,6 +125,34 @@ namespace MOS.ExcelGrading.Core.Models
         public const string EditSchools = "schools.edit";
         public const string DeleteSchools = "schools.delete";
 
+        // Class Management
+        public const string ViewClasses = "classes.view";
+        public const string CreateClasses = "classes.create";
+        public const string EditClasses = "classes.edit";
+        public const string DeleteClasses = "classes.delete";
+
+        // Bonus Point Management
+        public const string ViewBonusPoints = "bonuspoints.view";
+        public const string CreateBonusPoints = "bonuspoints.create";
+        public const string EditBonusPoints = "bonuspoints.edit";
+        public const string DeleteBonusPoints = "bonuspoints.delete";
+
+        // Computer Room Management
+        public const string ViewComputerRooms = "computerrooms.view";
+        public const string CreateComputerRooms = "computerrooms.create";
+        public const string EditComputerRooms = "computerrooms.edit";
+        public const string DeleteComputerRooms = "computerrooms.delete";
+
+        // Schedule and Attendance Management
+        public const string ViewSchedules = "schedules.view";
+        public const string CreateSchedules = "schedules.create";
+        public const string EditSchedules = "schedules.edit";
+        public const string DeleteSchedules = "schedules.delete";
+        public const string ManageAttendance = "attendance.manage";
+
+        // Integration Management
+        public const string SyncGoogleSheet = "googlesheet.sync";
+
         // System
         public const string ViewSystemLogs = "system.logs.view";
         public const string ManageSettings = "system.settings.manage";
@@ -142,23 +170,38 @@ namespace MOS.ExcelGrading.Core.Models
         public const string CreateXmlRules = "xmlrules.create";
         public const string EditXmlRules = "xmlrules.edit";
         public const string DeleteXmlRules = "xmlrules.delete";
+
+        public static List<string> GetAllPermissions() => new()
+        {
+            ViewUsers, CreateUsers, EditUsers, DeleteUsers,
+            ViewGrades, CreateGrades, EditGrades, DeleteGrades, ExportGrades,
+            ViewProjects, CreateProjects, EditProjects, DeleteProjects,
+            ViewSchools, CreateSchools, EditSchools, DeleteSchools,
+            ViewClasses, CreateClasses, EditClasses, DeleteClasses,
+            ViewStudents, CreateStudents, EditStudents, DeleteStudents, ImportStudents, BulkImportStudents,
+            ViewBonusPoints, CreateBonusPoints, EditBonusPoints, DeleteBonusPoints,
+            ViewComputerRooms, CreateComputerRooms, EditComputerRooms, DeleteComputerRooms,
+            ViewSchedules, CreateSchedules, EditSchedules, DeleteSchedules, ManageAttendance,
+            SyncGoogleSheet,
+            ViewXmlRules, CreateXmlRules, EditXmlRules, DeleteXmlRules,
+            ViewSystemLogs, ManageSettings
+        };
+
         public static Dictionary<string, List<string>> GetRolePermissions() => new()
         {
-            [UserRoles.Admin] = new List<string>
-            {
-                ViewUsers, CreateUsers, EditUsers, DeleteUsers,
-                ViewGrades, CreateGrades, EditGrades, DeleteGrades, ExportGrades,
-                ViewProjects, CreateProjects, EditProjects, DeleteProjects,
-                ViewSchools, CreateSchools, EditSchools, DeleteSchools,
-                ViewSystemLogs, ManageSettings,
-                ViewXmlRules, CreateXmlRules, EditXmlRules, DeleteXmlRules
-            },
+            [UserRoles.Admin] = GetAllPermissions(),
             [UserRoles.Teacher] = new List<string>
             {
                 ViewUsers,
                 ViewGrades, CreateGrades, EditGrades, ExportGrades,
                 ViewProjects, CreateProjects, EditProjects,
-                ViewSchools, CreateSchools, EditSchools,ViewXmlRules
+                ViewSchools, CreateSchools, EditSchools,
+                ViewClasses, CreateClasses, EditClasses,
+                ViewStudents, CreateStudents, EditStudents, ImportStudents, BulkImportStudents,
+                ViewBonusPoints, CreateBonusPoints, EditBonusPoints,
+                ViewComputerRooms, CreateComputerRooms, EditComputerRooms,
+                ViewSchedules, CreateSchedules, EditSchedules, ManageAttendance,
+                ViewXmlRules
             },
             [UserRoles.PendingTeacher] = new List<string>(),
             [UserRoles.Student] = new List<string>

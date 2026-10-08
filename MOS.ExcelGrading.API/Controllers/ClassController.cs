@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
+using MOS.ExcelGrading.API.Authorization;
 using MOS.ExcelGrading.API.Helpers;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
@@ -44,6 +45,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Teacher: Chỉ classes mà mình tạo ra
         /// </summary>
         [HttpGet]
+        [RequirePermission(Permissions.ViewClasses)]
         public async Task<IActionResult> GetClasses([FromQuery] bool includeInactive = false)
         {
             try
@@ -78,6 +80,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Teacher/Admin: Được xem tất cả class trong trường
         /// </summary>
         [HttpGet("school/{schoolId}")]
+        [RequirePermission(Permissions.ViewClasses)]
         public async Task<IActionResult> GetClassesBySchoolId(string schoolId, [FromQuery] bool includeInactive = false)
         {
             try
@@ -185,6 +188,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Lấy class theo ID
         /// </summary>
         [HttpGet("{id}")]
+        [RequirePermission(Permissions.ViewClasses)]
         public async Task<IActionResult> GetClassById(string id)
         {
             try
@@ -211,6 +215,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// </summary>
         [Authorize(Roles = $"{UserRoles.Teacher},{UserRoles.Admin}")]
         [HttpPost]
+        [RequirePermission(Permissions.CreateClasses)]
         public async Task<IActionResult> CreateClass([FromBody] CreateClassRequest request)
         {
             try
@@ -264,6 +269,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Chỉ owner hoặc Admin mới được phép
         /// </summary>
         [HttpPut("{id}")]
+        [RequirePermission(Permissions.EditClasses)]
         public async Task<IActionResult> UpdateClass(string id, [FromBody] UpdateClassRequest request)
         {
             try
@@ -321,6 +327,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Chỉ owner hoặc Admin mới được phép
         /// </summary>
         [HttpDelete("{id}")]
+        [RequirePermission(Permissions.DeleteClasses)]
         public async Task<IActionResult> DeleteClass(string id)
         {
             try
@@ -358,6 +365,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Thêm học sinh vào lớp
         /// </summary>
         [HttpPost("{classId}/students/{studentId}")]
+        [RequirePermission(Permissions.EditClasses)]
         public async Task<IActionResult> AddStudentToClass(string classId, string studentId)
         {
             try
@@ -393,6 +401,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Xóa học sinh khỏi lớp
         /// </summary>
         [HttpDelete("{classId}/students/{studentId}")]
+        [RequirePermission(Permissions.EditClasses)]
         public async Task<IActionResult> RemoveStudentFromClass(string classId, string studentId)
         {
             try
@@ -425,6 +434,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPost("{id}/handover")]
+        [RequirePermission(Permissions.EditClasses)]
         public async Task<IActionResult> GrantClassManagement(string id, [FromBody] ClassHandoverRequest request)
         {
             try
@@ -474,6 +484,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpDelete("{id}/handover/{teacherId}")]
+        [RequirePermission(Permissions.EditClasses)]
         public async Task<IActionResult> RevokeClassManagement(string id, string teacherId)
         {
             try

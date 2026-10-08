@@ -368,9 +368,7 @@ namespace MOS.ExcelGrading.Core.Services
             if (string.IsNullOrWhiteSpace(teacherId))
                 return null;
 
-            var allPermissionKeys = Permissions.GetRolePermissions()
-                .SelectMany(item => item.Value)
-                .Distinct(StringComparer.Ordinal)
+            var allPermissionKeys = Permissions.GetAllPermissions()
                 .ToHashSet(StringComparer.Ordinal);
 
             var normalizedPermissions = (permissions ?? Array.Empty<string>())

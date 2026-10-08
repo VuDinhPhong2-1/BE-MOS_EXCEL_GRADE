@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MOS.ExcelGrading.API.Authorization;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -33,6 +34,7 @@ namespace MOS.ExcelGrading.API.Controllers
         // GET: api/student
         [HttpGet]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        [RequirePermission(Permissions.ViewStudents)]
         public async Task<IActionResult> GetAll()
         {
             try
@@ -50,6 +52,7 @@ namespace MOS.ExcelGrading.API.Controllers
         // GET: api/student/{id}
         [HttpGet("{id}")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        [RequirePermission(Permissions.ViewStudents)]
         public async Task<IActionResult> GetById(string id)
         {
             try
@@ -70,6 +73,7 @@ namespace MOS.ExcelGrading.API.Controllers
         // POST: api/student
         [HttpPost]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        [RequirePermission(Permissions.CreateStudents)]
         public async Task<IActionResult> Create([FromBody] CreateStudentRequest request)
         {
             try
@@ -105,6 +109,7 @@ namespace MOS.ExcelGrading.API.Controllers
         // PUT: api/student/{id}
         [HttpPut("{id}")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        [RequirePermission(Permissions.EditStudents)]
         public async Task<IActionResult> Update(string id, [FromBody] UpdateStudentRequest request)
         {
             try
@@ -145,6 +150,7 @@ namespace MOS.ExcelGrading.API.Controllers
         // DELETE: api/student/{id}
         [HttpDelete("{id}")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        [RequirePermission(Permissions.DeleteStudents)]
         public async Task<IActionResult> Delete(string id)
         {
             try
@@ -173,6 +179,7 @@ namespace MOS.ExcelGrading.API.Controllers
         // POST: api/student/import
         [HttpPost("import")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        [RequirePermission(Permissions.ImportStudents)]
         public async Task<IActionResult> ImportFromExcel([FromForm] IFormFile file)
         {
             try
@@ -214,6 +221,7 @@ namespace MOS.ExcelGrading.API.Controllers
         // POST: api/student/bulk-import
         [HttpPost("bulk-import")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        [RequirePermission(Permissions.BulkImportStudents)]
         public async Task<IActionResult> BulkImport([FromBody] BulkImportStudentRequest request)
         {
             try
@@ -244,6 +252,7 @@ namespace MOS.ExcelGrading.API.Controllers
 
         [HttpGet("class/{classId}")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        [RequirePermission(Permissions.ViewStudents)]
         public async Task<IActionResult> GetByClassId(string classId)
         {
             try
@@ -265,6 +274,7 @@ namespace MOS.ExcelGrading.API.Controllers
 
         [HttpPost("class/{classId}/sync-google-sheet-student-metadata")]
         [Authorize(Roles = $"{UserRoles.Admin},{UserRoles.Teacher}")]
+        [RequirePermission(Permissions.SyncGoogleSheet)]
         public async Task<IActionResult> SyncStudentMetadataToGoogleSheet(string classId)
         {
             try

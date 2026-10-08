@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MOS.ExcelGrading.API.Authorization;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -38,6 +39,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpGet("week")]
+        [RequirePermission(Permissions.ViewSchedules)]
         public async Task<IActionResult> GetWeekSchedules([FromQuery] DateTime? weekStart, [FromQuery] bool includeInactive = false)
         {
             try
@@ -68,6 +70,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission(Permissions.ViewSchedules)]
         public async Task<IActionResult> GetById(string id)
         {
             try
@@ -93,6 +96,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPost]
+        [RequirePermission(Permissions.CreateSchedules)]
         public async Task<IActionResult> Create([FromBody] CreateScheduleRequest request)
         {
             try
@@ -156,6 +160,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission(Permissions.EditSchedules)]
         public async Task<IActionResult> Update(string id, [FromBody] UpdateScheduleRequest request)
         {
             try
@@ -233,6 +238,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission(Permissions.DeleteSchedules)]
         public async Task<IActionResult> Delete(string id)
         {
             try
@@ -267,6 +273,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpGet("{id}/attendance")]
+        [RequirePermission(Permissions.ManageAttendance)]
         public async Task<IActionResult> GetAttendance(string id)
         {
             try
@@ -304,6 +311,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPut("{id}/attendance")]
+        [RequirePermission(Permissions.ManageAttendance)]
         public async Task<IActionResult> SaveAttendance(string id, [FromBody] SaveScheduleAttendanceRequest request)
         {
             try
@@ -351,6 +359,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPost("{id}/attendance/sync-google-sheet")]
+        [RequirePermission(Permissions.SyncGoogleSheet)]
         public async Task<IActionResult> SyncAttendanceToGoogleSheet(string id)
         {
             try

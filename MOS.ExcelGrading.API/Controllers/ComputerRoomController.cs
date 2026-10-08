@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MOS.ExcelGrading.API.Authorization;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -27,6 +28,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpGet]
+        [RequirePermission(Permissions.ViewComputerRooms)]
         public async Task<IActionResult> GetBySchool([FromQuery] string schoolId, [FromQuery] bool includeInactive = false)
         {
             if (string.IsNullOrWhiteSpace(schoolId))
@@ -55,6 +57,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPost]
+        [RequirePermission(Permissions.CreateComputerRooms)]
         public async Task<IActionResult> Create([FromBody] CreateComputerRoomRequest request)
         {
             if (!ModelState.IsValid)
@@ -149,6 +152,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpGet("{id}")]
+        [RequirePermission(Permissions.ViewComputerRooms)]
         public async Task<IActionResult> GetById(string id)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;
@@ -173,6 +177,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpPut("{id}")]
+        [RequirePermission(Permissions.EditComputerRooms)]
         public async Task<IActionResult> Update(string id, [FromBody] UpdateComputerRoomRequest request)
         {
             if (!ModelState.IsValid)
@@ -240,6 +245,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         [HttpDelete("{id}")]
+        [RequirePermission(Permissions.DeleteComputerRooms)]
         public async Task<IActionResult> Delete(string id)
         {
             var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? string.Empty;

@@ -1,6 +1,7 @@
 // MOS.ExcelGrading.API/Controllers/BonusPointController.cs
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MOS.ExcelGrading.API.Authorization;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -28,6 +29,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Lấy tổng điểm cộng của toàn bộ học sinh trong lớp
         /// </summary>
         [HttpGet("class/{classId}")]
+        [RequirePermission(Permissions.ViewBonusPoints)]
         public async Task<IActionResult> GetByClass(string classId)
         {
             try
@@ -50,6 +52,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Lấy điểm cộng của lớp theo ngày cụ thể (yyyy-MM-dd)
         /// </summary>
         [HttpGet("class/{classId}/date/{date}")]
+        [RequirePermission(Permissions.ViewBonusPoints)]
         public async Task<IActionResult> GetByClassAndDate(string classId, DateTime date)
         {
             try
@@ -72,6 +75,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Lấy lịch sử điểm cộng của 1 học sinh trong lớp
         /// </summary>
         [HttpGet("student/{studentId}/class/{classId}")]
+        [RequirePermission(Permissions.ViewBonusPoints)]
         public async Task<IActionResult> GetByStudent(string studentId, string classId)
         {
             try
@@ -94,6 +98,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Tạo mới 1 bản ghi điểm cộng
         /// </summary>
         [HttpPost]
+        [RequirePermission(Permissions.CreateBonusPoints)]
         public async Task<IActionResult> Create([FromBody] CreateBonusPointRequest request)
         {
             try
@@ -120,6 +125,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Nhập hàng loạt điểm cộng theo ngày (từ modal điểm danh hoặc trang quản lý)
         /// </summary>
         [HttpPost("bulk")]
+        [RequirePermission(Permissions.CreateBonusPoints)]
         public async Task<IActionResult> BulkCreate([FromBody] BulkBonusPointRequest request)
         {
             try
@@ -146,6 +152,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Cập nhật 1 bản ghi điểm cộng
         /// </summary>
         [HttpPut("{id}")]
+        [RequirePermission(Permissions.EditBonusPoints)]
         public async Task<IActionResult> Update(string id, [FromBody] UpdateBonusPointRequest request)
         {
             try
@@ -172,6 +179,7 @@ namespace MOS.ExcelGrading.API.Controllers
         /// Xóa 1 bản ghi điểm cộng
         /// </summary>
         [HttpDelete("{id}")]
+        [RequirePermission(Permissions.DeleteBonusPoints)]
         public async Task<IActionResult> Delete(string id)
         {
             try

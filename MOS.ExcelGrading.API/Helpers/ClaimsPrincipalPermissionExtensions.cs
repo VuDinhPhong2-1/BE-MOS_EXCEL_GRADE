@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using MOS.ExcelGrading.Core.Models;
 
 namespace MOS.ExcelGrading.API.Extensions
 {
@@ -13,6 +14,11 @@ namespace MOS.ExcelGrading.API.Extensions
                 return false;
             }
 
+            if (IsAdmin(user))
+            {
+                return true;
+            }
+
             return user.Claims.Any(c => c.Type == PermissionClaimType && c.Value == permission);
         }
 
@@ -21,6 +27,11 @@ namespace MOS.ExcelGrading.API.Extensions
             if (permissions == null || permissions.Length == 0)
             {
                 return false;
+            }
+
+            if (IsAdmin(user))
+            {
+                return true;
             }
 
             var userPermissions = GetPermissionSet(user);
@@ -34,9 +45,18 @@ namespace MOS.ExcelGrading.API.Extensions
                 return true;
             }
 
+            if (IsAdmin(user))
+            {
+                return true;
+            }
+
             var userPermissions = GetPermissionSet(user);
             return permissions.All(userPermissions.Contains);
         }
+
+        private static bool IsAdmin(ClaimsPrincipal user) =>
+            user.IsInRole(UserRoles.Admin) ||
+            user.Claims.Any(c => c.Type == ClaimTypes.Role && c.Value == UserRoles.Admin);
 
         private static HashSet<string> GetPermissionSet(ClaimsPrincipal user)
         {

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MOS.ExcelGrading.API.Authorization;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models; 
 
@@ -20,6 +21,7 @@ namespace MOS.ExcelGrading.Api.Controllers
         // POST /api/picture-bullet-assets
         // multipart/form-data, field "file"
         [HttpPost]
+        [RequirePermission(Permissions.EditXmlRules)]
         [RequestSizeLimit(10 * 1024 * 1024)]
         public async Task<IActionResult> Upload([FromForm] IFormFile? file)
         {
@@ -42,6 +44,7 @@ namespace MOS.ExcelGrading.Api.Controllers
 
         // GET /api/picture-bullet-assets/{assetId}
         [HttpGet("{assetId}")]
+        [RequirePermission(Permissions.ViewXmlRules)]
         public async Task<IActionResult> Get(string assetId)
         {
             var asset = await _assetService.GetAsync(assetId);

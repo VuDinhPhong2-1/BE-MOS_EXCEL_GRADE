@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using MOS.ExcelGrading.API.Extensions;
 using MOS.ExcelGrading.Core.DTOs;
 using MOS.ExcelGrading.Core.Interfaces;
 using MOS.ExcelGrading.Core.Models;
@@ -536,7 +537,7 @@ namespace MOS.ExcelGrading.API.Controllers
         }
 
         private bool HasPermission(string permission) =>
-            User.Claims.Any(c => c.Type == "permission" && c.Value == permission);
+            User.HasPermission(permission);
 
         private string? GetCurrentUserId() =>
             User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
